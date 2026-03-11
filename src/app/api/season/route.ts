@@ -13,7 +13,7 @@ export async function GET() {
         include: {
           rounds: { orderBy: { roundNumber: "asc" } },
           players: {
-            include: { player: { select: { id: true, firstName: true, surname: true, jumperNumber: true } } },
+            include: { player: { select: { id: true, firstName: true, surname: true, jumperNumber: true, dateOfBirth: true, phone: true, contactEmail: true, parent1: true, parent2: true } } },
           },
           _count: { select: { players: true } },
         },

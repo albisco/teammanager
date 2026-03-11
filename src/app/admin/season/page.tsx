@@ -24,7 +24,17 @@ interface Round {
 }
 
 interface TeamPlayerInfo {
-  player: { id: string; firstName: string; surname: string; jumperNumber: number };
+  player: {
+    id: string;
+    firstName: string;
+    surname: string;
+    jumperNumber: number;
+    dateOfBirth: string | null;
+    phone: string | null;
+    contactEmail: string | null;
+    parent1: string | null;
+    parent2: string | null;
+  };
 }
 
 interface Team {
@@ -372,19 +382,24 @@ export default function SeasonPage() {
 
           {/* Players tab */}
           {teamTab === "players" && (
-            <div className="bg-white rounded-lg border">
+            <div className="bg-white rounded-lg border overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-16">#</TableHead>
+                    <TableHead className="w-12">#</TableHead>
                     <TableHead>Name</TableHead>
-                    <TableHead className="w-32">Actions</TableHead>
+                    <TableHead>DOB</TableHead>
+                    <TableHead>Contact Email</TableHead>
+                    <TableHead>Phone</TableHead>
+                    <TableHead>Parent 1</TableHead>
+                    <TableHead>Parent 2</TableHead>
+                    <TableHead className="w-24">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {selectedTeam.players.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={3} className="text-center text-gray-500 py-8">
+                      <TableCell colSpan={8} className="text-center text-gray-500 py-8">
                         No players in this team. Assign players from the Players page.
                       </TableCell>
                     </TableRow>
@@ -394,7 +409,16 @@ export default function SeasonPage() {
                       .map((tp) => (
                         <TableRow key={tp.player.id}>
                           <TableCell className="font-mono">{tp.player.jumperNumber}</TableCell>
-                          <TableCell className="font-medium">{tp.player.firstName} {tp.player.surname}</TableCell>
+                          <TableCell className="font-medium whitespace-nowrap">{tp.player.firstName} {tp.player.surname}</TableCell>
+                          <TableCell className="whitespace-nowrap text-sm">
+                            {tp.player.dateOfBirth
+                              ? new Date(tp.player.dateOfBirth).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })
+                              : "—"}
+                          </TableCell>
+                          <TableCell className="text-sm">{tp.player.contactEmail || "—"}</TableCell>
+                          <TableCell className="whitespace-nowrap text-sm">{tp.player.phone || "—"}</TableCell>
+                          <TableCell className="text-sm">{tp.player.parent1 || "—"}</TableCell>
+                          <TableCell className="text-sm">{tp.player.parent2 || "—"}</TableCell>
                           <TableCell>
                             <Button
                               variant="destructive"
