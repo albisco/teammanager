@@ -55,6 +55,32 @@ interface TeamRoleConfig {
   configured: boolean;
 }
 
+interface RosterRound {
+  id: string;
+  roundNumber: number;
+  isBye: boolean;
+  date: string | null;
+  opponent: string | null;
+}
+
+interface RosterRole {
+  id: string;
+  roleName: string;
+  roleType: string;
+}
+
+interface RosterFamily {
+  id: string;
+  name: string;
+}
+
+interface RosterData {
+  rounds: RosterRound[];
+  roles: RosterRole[];
+  assignments: Record<string, { familyId: string; familyName: string }>;
+  families: RosterFamily[];
+}
+
 const ROLE_TYPE_LABELS: Record<string, string> = {
   FIXED: "Fixed",
   SPECIALIST: "Specialist",
@@ -77,6 +103,12 @@ export default function RosterPage() {
   const [users, setUsers] = useState<UserInfo[]>([]);
   const [loading, setLoading] = useState(false);
 
+  // Roster grid data
+  const [rosterData, setRosterData] = useState<RosterData | null>(null);
+  const [unavailabilities, setUnavailabilities] = useState<Set<string>>(new Set());
+  const [showUnavailability, setShowUnavailability] = useState(false);
+  const [generating, setGenerating] = useState(false);
+
   // Club role dialog
   const [clubRoleDialogOpen, setClubRoleDialogOpen] = useState(false);
   const [editingClubRole, setEditingClubRole] = useState<GlobalDutyRole | null>(null);
@@ -91,6 +123,11 @@ export default function RosterPage() {
     frequencyWeeks: "1",
     specialistUserIds: [] as string[],
   });
+
+  // Override dialog
+  const [overrideDialogOpen, setOverrideDialogOpen] = useState(false);
+  const [overrideCell, setOverrideCell] = useState<{ roundId: string; roleId: string; roleName: string; roundNumber: number } | null>(null);
+  const [overrideFamilyId, setOverrideFamilyId] = useState("");
 
   const fetchSeasons = useCallback(async () => {
     const res = await fetch("/api/season");
@@ -112,11 +149,28 @@ export default function RosterPage() {
     if (res.ok) setTeamRoles(await res.json());
   }, []);
 
+  const fetchRosterData = useCallback(async (teamId: string) => {
+    const res = await fetch(`/api/teams/${teamId}/roster`);
+    if (res.ok) setRosterData(await res.json());
+  }, []);
+
+  const fetchUnavailabilities = useCallback(async (teamId: string) => {
+    const res = await fetch(`/api/teams/${teamId}/unavailability`);
+    if (res.ok) {
+      const records: { familyId: string; roundId: string }[] = await res.json();
+      setUnavailabilities(new Set(records.map((r) => `${r.familyId}:${r.roundId}`)));
+    }
+  }, []);
+
   useEffect(() => { fetchSeasons(); fetchUsers(); fetchGlobalRoles(); }, [fetchSeasons, fetchUsers, fetchGlobalRoles]);
 
   useEffect(() => {
-    if (selectedTeam) fetchTeamRoles(selectedTeam.id);
-  }, [selectedTeam, fetchTeamRoles]);
+    if (selectedTeam) {
+      fetchTeamRoles(selectedTeam.id);
+      fetchRosterData(selectedTeam.id);
+      fetchUnavailabilities(selectedTeam.id);
+    }
+  }, [selectedTeam, fetchTeamRoles, fetchRosterData, fetchUnavailabilities]);
 
   // === Club Role CRUD ===
   function openAddClubRole() {
@@ -232,6 +286,81 @@ export default function RosterPage() {
     }
   }
 
+  // === Roster Generation ===
+  async function handleGenerate() {
+    if (!selectedTeam) return;
+    if (!confirm("This will overwrite any existing roster assignments for this team. Continue?")) return;
+
+    setGenerating(true);
+    const res = await fetch(`/api/teams/${selectedTeam.id}/roster/generate`, { method: "POST" });
+    if (res.ok) {
+      const data = await res.json();
+      toast.success(`Roster generated — ${data.count} assignments created`);
+      fetchRosterData(selectedTeam.id);
+    } else {
+      const data = await res.json();
+      toast.error(data.error || "Failed to generate roster");
+    }
+    setGenerating(false);
+  }
+
+  // === Unavailability Toggle ===
+  async function toggleUnavailability(familyId: string, roundId: string) {
+    if (!selectedTeam) return;
+    const key = `${familyId}:${roundId}`;
+    const isUnavailable = unavailabilities.has(key);
+
+    const res = await fetch(`/api/teams/${selectedTeam.id}/unavailability`, {
+      method: isUnavailable ? "DELETE" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ familyId, roundId }),
+    });
+
+    if (res.ok) {
+      setUnavailabilities((prev) => {
+        const next = new Set(prev);
+        if (isUnavailable) next.delete(key);
+        else next.add(key);
+        return next;
+      });
+    }
+  }
+
+  // === Manual Override ===
+  function openOverrideDialog(roundId: string, roleId: string, roleName: string, roundNumber: number) {
+    const current = rosterData?.assignments[`${roundId}:${roleId}`];
+    setOverrideCell({ roundId, roleId, roleName, roundNumber });
+    setOverrideFamilyId(current?.familyId || "");
+    setOverrideDialogOpen(true);
+  }
+
+  async function handleOverride() {
+    if (!overrideCell || !selectedTeam) return;
+    setLoading(true);
+
+    const res = await fetch(`/api/teams/${selectedTeam.id}/roster/assign`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        roundId: overrideCell.roundId,
+        teamDutyRoleId: overrideCell.roleId,
+        assignedFamilyId: overrideFamilyId || null,
+      }),
+    });
+
+    if (res.ok) {
+      toast.success("Assignment updated");
+      setOverrideDialogOpen(false);
+      fetchRosterData(selectedTeam.id);
+    } else {
+      toast.error("Failed to update");
+    }
+    setLoading(false);
+  }
+
+  const activeRounds = rosterData?.rounds.filter((r) => !r.isBye) || [];
+  const hasAssignments = rosterData && Object.keys(rosterData.assignments).length > 0;
+
   return (
     <div>
       <h1 className="text-3xl font-bold mb-6">Duty Roster</h1>
@@ -300,9 +429,9 @@ export default function RosterPage() {
           </h2>
 
           {teamRoles.length === 0 ? (
-            <p className="text-gray-500">No club roles defined. Add roles above first.</p>
+            <p className="text-gray-500 mb-6">No club roles defined. Add roles above first.</p>
           ) : (
-            <div className="bg-white rounded-lg border">
+            <div className="bg-white rounded-lg border mb-6">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -339,6 +468,143 @@ export default function RosterPage() {
                   ))}
                 </TableBody>
               </Table>
+            </div>
+          )}
+
+          {/* Unavailability Section */}
+          {rosterData && rosterData.families.length > 0 && activeRounds.length > 0 && (
+            <div className="mb-6">
+              <div className="flex items-center gap-3 mb-3">
+                <h2 className="text-xl font-semibold">Family Unavailability</h2>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowUnavailability(!showUnavailability)}
+                >
+                  {showUnavailability ? "Hide" : "Show"}
+                </Button>
+              </div>
+
+              {showUnavailability && (
+                <div className="bg-white rounded-lg border overflow-x-auto mb-4">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="sticky left-0 bg-white z-10 min-w-[150px]">Family</TableHead>
+                        {activeRounds.map((r) => (
+                          <TableHead key={r.id} className="text-center min-w-[60px]">
+                            R{r.roundNumber}
+                          </TableHead>
+                        ))}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {rosterData.families.map((family) => (
+                        <TableRow key={family.id}>
+                          <TableCell className="sticky left-0 bg-white z-10 font-medium">
+                            {family.name}
+                          </TableCell>
+                          {activeRounds.map((round) => {
+                            const isUnavailable = unavailabilities.has(`${family.id}:${round.id}`);
+                            return (
+                              <TableCell key={round.id} className="text-center">
+                                <input
+                                  type="checkbox"
+                                  className="rounded border-gray-300 cursor-pointer"
+                                  checked={isUnavailable}
+                                  onChange={() => toggleUnavailability(family.id, round.id)}
+                                  title={isUnavailable ? "Available" : "Mark unavailable"}
+                                />
+                              </TableCell>
+                            );
+                          })}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Generate Button */}
+          {teamRoles.length > 0 && (
+            <div className="flex items-center gap-4 mb-6">
+              <Button onClick={handleGenerate} disabled={generating}>
+                {generating ? "Generating..." : hasAssignments ? "Regenerate Roster" : "Generate Roster"}
+              </Button>
+              {hasAssignments && (
+                <p className="text-sm text-gray-500">
+                  {Object.keys(rosterData!.assignments).length} assignments across {activeRounds.length} rounds
+                </p>
+              )}
+              {rosterData && rosterData.families.length === 0 && (
+                <p className="text-sm text-amber-600">
+                  No families linked. Players must have a linked family user to be rostered.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Roster Grid */}
+          {hasAssignments && rosterData && rosterData.roles.length > 0 && (
+            <div className="mb-6">
+              <h2 className="text-xl font-semibold mb-4">Roster</h2>
+              <div className="bg-white rounded-lg border overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="sticky left-0 bg-white z-10 min-w-[150px]">Role</TableHead>
+                      {activeRounds.map((r) => (
+                        <TableHead key={r.id} className="text-center min-w-[100px]">
+                          <div>R{r.roundNumber}</div>
+                          {r.opponent && (
+                            <div className="text-xs font-normal text-gray-400">{r.opponent}</div>
+                          )}
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {rosterData.roles.map((role) => (
+                      <TableRow key={role.id}>
+                        <TableCell className="sticky left-0 bg-white z-10 font-medium">
+                          <div className="flex items-center gap-2">
+                            {role.roleName}
+                            <Badge variant={ROLE_TYPE_VARIANTS[role.roleType] || "outline"} className="text-xs">
+                              {ROLE_TYPE_LABELS[role.roleType] || role.roleType}
+                            </Badge>
+                          </div>
+                        </TableCell>
+                        {activeRounds.map((round) => {
+                          const assignment = rosterData.assignments[`${round.id}:${role.id}`];
+                          const isFixed = role.roleType === "FIXED";
+                          return (
+                            <TableCell
+                              key={round.id}
+                              className={`text-center text-sm ${
+                                isFixed
+                                  ? "bg-gray-50 text-gray-500"
+                                  : "cursor-pointer hover:bg-blue-50"
+                              }`}
+                              onClick={() => {
+                                if (!isFixed) openOverrideDialog(round.id, role.id, role.roleName, round.roundNumber);
+                              }}
+                            >
+                              {assignment ? (
+                                <span className={isFixed ? "" : ""}>{assignment.familyName}</span>
+                              ) : (
+                                <span className="text-gray-300">—</span>
+                              )}
+                            </TableCell>
+                          );
+                        })}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              <p className="text-xs text-gray-400 mt-2">Click a cell to reassign. Fixed roles cannot be changed here.</p>
             </div>
           )}
         </>
@@ -458,6 +724,38 @@ export default function RosterPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfigDialogOpen(false)}>Cancel</Button>
             <Button onClick={handleSaveConfig} disabled={loading}>
+              {loading ? "Saving..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Override Dialog */}
+      <Dialog open={overrideDialogOpen} onOpenChange={setOverrideDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {overrideCell?.roleName} — Round {overrideCell?.roundNumber}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Assign to Family</Label>
+              <select
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                value={overrideFamilyId}
+                onChange={(e) => setOverrideFamilyId(e.target.value)}
+              >
+                <option value="">— Unassigned —</option>
+                {rosterData?.families.map((f) => (
+                  <option key={f.id} value={f.id}>{f.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOverrideDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleOverride} disabled={loading}>
               {loading ? "Saving..." : "Save"}
             </Button>
           </DialogFooter>
