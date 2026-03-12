@@ -49,6 +49,14 @@ interface LeaderboardEntry {
   byRound: Record<string, number>;
 }
 
+interface AuditEntry {
+  voterName: string;
+  voterType: "PARENT" | "COACH";
+  roundNumber: number;
+  rankings: { playerId: string; points: number }[];
+  submittedAt: string;
+}
+
 export default function VotingPage() {
   const [seasons, setSeasons] = useState<Season[]>([]);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
@@ -64,8 +72,11 @@ export default function VotingPage() {
   // Results dialog
   const [resultsOpen, setResultsOpen] = useState(false);
   const [resultsTitle, setResultsTitle] = useState("");
+  const [resultsTab, setResultsTab] = useState<"leaderboard" | "audit">("leaderboard");
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [voteCount, setVoteCount] = useState(0);
+  const [audit, setAudit] = useState<AuditEntry[]>([]);
+  const [playerMap, setPlayerMap] = useState<Record<string, string>>({});
 
   const fetchSeasons = useCallback(async () => {
     const res = await fetch("/api/season");
@@ -132,7 +143,10 @@ export default function VotingPage() {
       const data = await res.json();
       setLeaderboard(data.leaderboard);
       setVoteCount(data.voteCount);
+      setAudit(data.audit || []);
+      setPlayerMap(data.playerMap || {});
       setResultsTitle(title || "Season Leaderboard");
+      setResultsTab("leaderboard");
       setResultsOpen(true);
     }
   }
@@ -273,44 +287,114 @@ export default function VotingPage() {
 
       {/* Results Dialog */}
       <Dialog open={resultsOpen} onOpenChange={setResultsOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>{resultsTitle}</DialogTitle>
           </DialogHeader>
           <div className="py-4">
             <p className="text-sm text-gray-500 mb-4">{voteCount} vote{voteCount !== 1 ? "s" : ""} submitted</p>
-            <div className="bg-white rounded-lg border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-12">Rank</TableHead>
-                    <TableHead className="w-12">#</TableHead>
-                    <TableHead>Player</TableHead>
-                    <TableHead className="w-20 text-right">Points</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {leaderboard.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={4} className="text-center text-gray-500 py-8">
-                        No votes yet.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    leaderboard.map((entry, i) => (
-                      <TableRow key={entry.player.id}>
-                        <TableCell className="font-mono">{i + 1}</TableCell>
-                        <TableCell className="font-mono">{entry.player.jumperNumber}</TableCell>
-                        <TableCell className="font-medium">
-                          {entry.player.firstName} {entry.player.surname}
-                        </TableCell>
-                        <TableCell className="text-right font-bold">{entry.totalPoints}</TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
+
+            {/* Tabs */}
+            <div className="flex gap-1 mb-4 border-b">
+              <button
+                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${resultsTab === "leaderboard" ? "border-primary text-primary" : "border-transparent text-gray-500 hover:text-gray-700"}`}
+                onClick={() => setResultsTab("leaderboard")}
+              >
+                Leaderboard
+              </button>
+              <button
+                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${resultsTab === "audit" ? "border-primary text-primary" : "border-transparent text-gray-500 hover:text-gray-700"}`}
+                onClick={() => setResultsTab("audit")}
+              >
+                Vote Audit ({audit.length})
+              </button>
             </div>
+
+            {resultsTab === "leaderboard" && (
+              <div className="bg-white rounded-lg border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-12">Rank</TableHead>
+                      <TableHead className="w-12">#</TableHead>
+                      <TableHead>Player</TableHead>
+                      <TableHead className="w-20 text-right">Points</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {leaderboard.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center text-gray-500 py-8">
+                          No votes yet.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      leaderboard.map((entry, i) => (
+                        <TableRow key={entry.player.id}>
+                          <TableCell className="font-mono">{i + 1}</TableCell>
+                          <TableCell className="font-mono">{entry.player.jumperNumber}</TableCell>
+                          <TableCell className="font-medium">
+                            {entry.player.firstName} {entry.player.surname}
+                          </TableCell>
+                          <TableCell className="text-right font-bold">{entry.totalPoints}</TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+
+            {resultsTab === "audit" && (
+              <div className="bg-white rounded-lg border max-h-96 overflow-y-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Voter</TableHead>
+                      <TableHead className="w-20">Type</TableHead>
+                      <TableHead className="w-16">Rnd</TableHead>
+                      <TableHead>Rankings</TableHead>
+                      <TableHead className="w-36">Submitted</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {audit.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center text-gray-500 py-8">
+                          No votes to audit.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      audit
+                        .sort((a, b) => a.roundNumber - b.roundNumber || a.voterName.localeCompare(b.voterName))
+                        .map((entry, i) => (
+                          <TableRow key={i}>
+                            <TableCell className="font-medium">{entry.voterName}</TableCell>
+                            <TableCell>
+                              <Badge variant={entry.voterType === "COACH" ? "default" : "secondary"}>
+                                {entry.voterType}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="font-mono">{entry.roundNumber}</TableCell>
+                            <TableCell className="text-sm">
+                              {entry.rankings.map((r, j) => (
+                                <span key={j}>
+                                  {j > 0 && ", "}
+                                  <span className="text-gray-500">{r.points}pts</span>{" "}
+                                  {playerMap[r.playerId] || "Unknown"}
+                                </span>
+                              ))}
+                            </TableCell>
+                            <TableCell className="text-sm text-gray-500 whitespace-nowrap">
+                              {new Date(entry.submittedAt).toLocaleDateString("en-AU", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>

@@ -33,6 +33,7 @@ export async function GET(req: NextRequest) {
       votingSession: {
         include: { round: { select: { id: true, roundNumber: true } } },
       },
+      voter: { select: { id: true, name: true } },
     },
   });
 
@@ -62,5 +63,20 @@ export async function GET(req: NextRequest) {
     }))
     .sort((a, b) => b.totalPoints - a.totalPoints);
 
-  return NextResponse.json({ leaderboard, voteCount: votes.length });
+  // Build audit trail
+  const audit = votes.map((vote) => ({
+    voterName: vote.voter.name,
+    voterType: vote.voterType,
+    roundNumber: vote.votingSession.round.roundNumber,
+    rankings: vote.rankings as { playerId: string; points: number }[],
+    submittedAt: vote.submittedAt,
+  }));
+
+  // Build player name lookup for the audit
+  const playerMap: Record<string, string> = {};
+  for (const tp of teamPlayers) {
+    playerMap[tp.player.id] = `${tp.player.firstName} ${tp.player.surname}`;
+  }
+
+  return NextResponse.json({ leaderboard, voteCount: votes.length, audit, playerMap });
 }

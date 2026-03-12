@@ -63,7 +63,7 @@ User, Player, Season, Team, TeamPlayer, Round, VotingSession, Vote, DutyRoleFixe
 ```
 
 ### Key Lib Files
-- `src/lib/prisma.ts` — Prisma singleton (cached globally, including production)
+- `src/lib/prisma.ts` — Prisma singleton using `@prisma/adapter-neon` (HTTP driver, no TCP cold starts)
 - `src/lib/auth.ts` — NextAuth config (lazy-loads Prisma in authorize to avoid cold-start blocks)
 - `src/lib/roster-algorithm.ts` — fair duty allocation algorithm
 - `src/lib/playhq.ts` — PlayHQ API stub
@@ -74,16 +74,27 @@ User, Player, Season, Team, TeamPlayer, Round, VotingSession, Vote, DutyRoleFixe
 - Seasons: CRUD with team hierarchy
 - Teams: CRUD with voting scheme config per team
 - Rounds: CRUD scoped to teams, bye support
-- Voting: admin open/close, QR generation, public vote page, results/leaderboard
+- Voting: admin open/close, QR generation, public vote page, results/leaderboard, vote audit trail
 - UI components: Button, Input, Label, Card, Badge, Table, Select, Textarea, Dialog, Sonner
 
 ## What's NOT Built Yet
 - Duty roster system (generation algorithm exists in lib, needs UI + API wiring)
 - Family portal (availability management, view duties)
 - Admin dashboard with live counts
-- PlayHQ integration (stub exists)
+- PlayHQ integration (read-only — PlayHQ API has no write endpoints for scores or B&F)
 - 2FA (removed for now, may add later)
 - User management (admin creating family accounts)
+- Vote duplicate prevention (see below)
+
+## Vote Duplicate Prevention (TODO — decide after rostering)
+Current system uses free-text voter name with deterministic ID (`anon_{sessionId}_{name}`). Same person can vote twice with a different name. Options to fix:
+
+1. **Single-use QR per voter** — unique `/vote/{token}/{voterCode}` links, one per parent/coach. Most secure but adds admin overhead distributing codes.
+2. **Device cookie** — drop a cookie after voting to block the same browser. Simple but bypassable (incognito).
+3. **PIN-based** — voters select name from list + enter a PIN (texted/emailed). Prevents duplicates + verifies identity.
+4. **Pre-registered voter list + cookie** (recommended) — admin registers expected voters per round (fits existing `parentVoterCount`/`coachVoterCount` fields). Voters pick from dropdown, cookie blocks same device. Low friction, hard to accidentally double-vote.
+
+Decision depends on how family accounts and rostering work — tackle this after rostering is built.
 
 ## Conventions
 - UI components in `src/components/ui/` — Tailwind v3 compatible, no radix dependencies
