@@ -23,6 +23,13 @@ enum VoterType {
   COACH
 }
 
+enum DutyRoleType {
+  FIXED
+  SPECIALIST
+  ROTATING
+  FREQUENCY
+}
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -33,7 +40,8 @@ model User {
 
   players              Player[]
   votes                Vote[]
-  dutyRoleFixedAssignments DutyRoleFixed[]
+  dutyRoleAssignments  DutyRole[]           @relation("FixedAssignment")
+  dutyRoleSpecialists  DutyRoleSpecialist[]
   rosterAssignments    RosterAssignment[]
   familyExclusions     FamilyExclusion[]
   familyUnavailabilities FamilyUnavailability[]
@@ -78,8 +86,7 @@ model Team {
 
   players         TeamPlayer[]
   rounds          Round[]
-  dutyRolesFixed  DutyRoleFixed[]
-  dutyRolesParent DutyRoleParent[]
+  dutyRoles       DutyRole[]
 }
 
 model TeamPlayer {
@@ -133,45 +140,53 @@ model Vote {
   @@unique([votingSessionId, voterId])
 }
 
-model DutyRoleFixed {
-  id             String @id @default(cuid())
-  teamId         String
-  team           Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  roleName       String
-  assignedUserId String
-  assignedUser   User   @relation(fields: [assignedUserId], references: [id])
-}
+model DutyRole {
+  id              String       @id @default(cuid())
+  teamId          String
+  team            Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  roleName        String
+  roleType        DutyRoleType @default(ROTATING)
+  assignedUserId  String?
+  assignedUser    User?        @relation("FixedAssignment", fields: [assignedUserId], references: [id])
+  frequencyWeeks  Int          @default(1)
 
-model DutyRoleParent {
-  id       String @id @default(cuid())
-  roleName String
-  teamId   String
-  team     Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
-
+  specialists       DutyRoleSpecialist[]
   rosterAssignments RosterAssignment[]
   familyExclusions  FamilyExclusion[]
+
+  @@unique([teamId, roleName])
+}
+
+model DutyRoleSpecialist {
+  id         String   @id @default(cuid())
+  dutyRoleId String
+  dutyRole   DutyRole @relation(fields: [dutyRoleId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@unique([dutyRoleId, userId])
 }
 
 model RosterAssignment {
-  id               String         @id @default(cuid())
+  id               String   @id @default(cuid())
   roundId          String
-  round            Round          @relation(fields: [roundId], references: [id], onDelete: Cascade)
-  dutyRoleParentId String
-  dutyRoleParent   DutyRoleParent @relation(fields: [dutyRoleParentId], references: [id], onDelete: Cascade)
+  round            Round    @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  dutyRoleId       String
+  dutyRole         DutyRole @relation(fields: [dutyRoleId], references: [id], onDelete: Cascade)
   assignedFamilyId String
-  assignedFamily   User           @relation(fields: [assignedFamilyId], references: [id])
+  assignedFamily   User     @relation(fields: [assignedFamilyId], references: [id])
 
-  @@unique([roundId, dutyRoleParentId])
+  @@unique([roundId, dutyRoleId])
 }
 
 model FamilyExclusion {
-  id               String         @id @default(cuid())
-  familyId         String
-  family           User           @relation(fields: [familyId], references: [id])
-  dutyRoleParentId String
-  dutyRoleParent   DutyRoleParent @relation(fields: [dutyRoleParentId], references: [id], onDelete: Cascade)
+  id         String   @id @default(cuid())
+  familyId   String
+  family     User     @relation(fields: [familyId], references: [id])
+  dutyRoleId String
+  dutyRole   DutyRole @relation(fields: [dutyRoleId], references: [id], onDelete: Cascade)
 
-  @@unique([familyId, dutyRoleParentId])
+  @@unique([familyId, dutyRoleId])
 }
 
 model FamilyUnavailability {
