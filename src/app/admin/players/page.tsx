@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,6 +34,7 @@ interface Player {
   spare2: string | null;
   familyId: string | null;
   family: { id: string; name: string } | null;
+  club: { id: string; name: string } | null;
   teamPlayers: { team: TeamInfo }[];
 }
 
@@ -50,6 +52,8 @@ const emptyForm = {
 };
 
 export default function PlayersPage() {
+  const { data: session } = useSession();
+  const isSuperAdmin = (session?.user as Record<string, unknown>)?.role === "SUPER_ADMIN";
   const [players, setPlayers] = useState<Player[]>([]);
   const [allTeams, setAllTeams] = useState<(TeamInfo & { seasonName: string })[]>([]);
   const [search, setSearch] = useState("");
@@ -172,7 +176,7 @@ export default function PlayersPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-bold">Players</h1>
-        <Button onClick={openAdd}>Add Player</Button>
+{!isSuperAdmin && <Button onClick={openAdd}>Add Player</Button>}
       </div>
 
       <Input
@@ -188,17 +192,18 @@ export default function PlayersPage() {
             <TableRow>
               <TableHead className="w-16">#</TableHead>
               <TableHead>Name</TableHead>
+              {isSuperAdmin && <TableHead>Club</TableHead>}
               <TableHead>Teams</TableHead>
               <TableHead>Contact Email</TableHead>
               <TableHead>Phone</TableHead>
               <TableHead>Parent 1</TableHead>
-              <TableHead className="w-40">Actions</TableHead>
+              {!isSuperAdmin && <TableHead className="w-40">Actions</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-gray-500 py-8">
+                <TableCell colSpan={isSuperAdmin ? 8 : 7} className="text-center text-gray-500 py-8">
                   {players.length === 0 ? "No players yet. Add your first player!" : "No matches found."}
                 </TableCell>
               </TableRow>
@@ -207,6 +212,11 @@ export default function PlayersPage() {
                 <TableRow key={player.id}>
                   <TableCell className="font-mono">{player.jumperNumber}</TableCell>
                   <TableCell className="font-medium">{player.firstName} {player.surname}</TableCell>
+                  {isSuperAdmin && (
+                    <TableCell>
+                      <Badge variant="outline">{player.club?.name || "—"}</Badge>
+                    </TableCell>
+                  )}
                   <TableCell>
                     <div className="flex gap-1 flex-wrap">
                       {player.teamPlayers.length > 0
@@ -221,13 +231,15 @@ export default function PlayersPage() {
                   <TableCell>{player.contactEmail || "—"}</TableCell>
                   <TableCell>{player.phone || "—"}</TableCell>
                   <TableCell>{player.parent1 || "—"}</TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" onClick={() => openTeamDialog(player)}>Teams</Button>
-                      <Button variant="outline" size="sm" onClick={() => openEdit(player)}>Edit</Button>
-                      <Button variant="destructive" size="sm" onClick={() => handleDelete(player.id)}>Delete</Button>
-                    </div>
-                  </TableCell>
+                  {!isSuperAdmin && (
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm" onClick={() => openTeamDialog(player)}>Teams</Button>
+                        <Button variant="outline" size="sm" onClick={() => openEdit(player)}>Edit</Button>
+                        <Button variant="destructive" size="sm" onClick={() => handleDelete(player.id)}>Delete</Button>
+                      </div>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))
             )}

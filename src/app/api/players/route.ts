@@ -6,12 +6,15 @@ import { prisma } from "@/lib/prisma";
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const isSuperAdmin = session.user?.role === "SUPER_ADMIN";
   const clubId = (session.user as Record<string, unknown>)?.clubId as string;
 
   const players = await prisma.player.findMany({
-    where: { clubId },
+    where: isSuperAdmin ? {} : { clubId },
     include: {
       family: { select: { id: true, name: true } },
+      club: { select: { id: true, name: true } },
       teamPlayers: {
         include: { team: { select: { id: true, name: true, ageGroup: true } } },
       },

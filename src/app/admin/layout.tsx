@@ -10,10 +10,10 @@ const navItems = [
   { href: "/admin/dashboard", label: "Dashboard" },
   { href: "/admin/clubs", label: "Clubs", superAdminOnly: true },
   { href: "/admin/players", label: "Players" },
-  { href: "/admin/season", label: "Season" },
-  { href: "/admin/voting", label: "Voting" },
-  { href: "/admin/roster", label: "Roster" },
-  { href: "/admin/playhq", label: "PlayHQ" },
+  { href: "/admin/season", label: "Season", clubAdminOnly: true },
+  { href: "/admin/voting", label: "Voting", clubAdminOnly: true },
+  { href: "/admin/roster", label: "Roster", clubAdminOnly: true },
+  { href: "/admin/playhq", label: "PlayHQ", clubAdminOnly: true },
 ];
 
 export default function AdminLayout({
@@ -33,7 +33,12 @@ export default function AdminLayout({
         </div>
         <nav className="flex-1 p-4 space-y-1">
           {navItems
-            .filter((item) => !item.superAdminOnly || (session?.user as Record<string, unknown>)?.role === "SUPER_ADMIN")
+            .filter((item) => {
+              const role = (session?.user as Record<string, unknown>)?.role;
+              if (item.superAdminOnly && role !== "SUPER_ADMIN") return false;
+              if (item.clubAdminOnly && role === "SUPER_ADMIN") return false;
+              return true;
+            })
             .map((item) => (
               <Link
                 key={item.href}
