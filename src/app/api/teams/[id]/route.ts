@@ -11,7 +11,13 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     where: { id: params.id },
     include: {
       season: true,
-      players: { include: { player: true } },
+      players: {
+        include: {
+          player: {
+            select: { id: true, firstName: true, surname: true, jumperNumber: true, dateOfBirth: true, phone: true, contactEmail: true, parent1: true, parent2: true },
+          },
+        },
+      },
       rounds: { orderBy: { roundNumber: "asc" } },
     },
   });

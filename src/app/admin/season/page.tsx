@@ -37,29 +37,34 @@ interface TeamPlayerInfo {
   };
 }
 
-interface Team {
+interface TeamSummary {
   id: string;
   name: string;
   ageGroup: string;
   votingScheme: number[];
   parentVoterCount: number;
   coachVoterCount: number;
+  _count: { players: number; rounds: number };
+}
+
+interface TeamDetail extends TeamSummary {
   rounds: Round[];
   players: TeamPlayerInfo[];
-  _count: { players: number };
 }
 
 interface Season {
   id: string;
   name: string;
   year: number;
-  teams: Team[];
+  teams: TeamSummary[];
 }
 
 export default function SeasonPage() {
   const [seasons, setSeasons] = useState<Season[]>([]);
   const [selectedSeason, setSelectedSeason] = useState<Season | null>(null);
-  const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
+  const [selectedTeamSummary, setSelectedTeamSummary] = useState<TeamSummary | null>(null);
+  const [selectedTeamDetail, setSelectedTeamDetail] = useState<TeamDetail | null>(null);
+  const [teamLoading, setTeamLoading] = useState(false);
   const [teamTab, setTeamTab] = useState<"rounds" | "players">("rounds");
 
   // Season dialog
@@ -88,19 +93,36 @@ export default function SeasonPage() {
       setSeasons(data);
       if (selectedSeason) {
         const updated = data.find((s) => s.id === selectedSeason.id);
-        if (updated) {
-          setSelectedSeason(updated);
-          if (selectedTeam) {
-            const updatedTeam = updated.teams.find((t) => t.id === selectedTeam.id);
-            setSelectedTeam(updatedTeam || null);
-          }
-        }
+        if (updated) setSelectedSeason(updated);
       } else if (data.length > 0) {
         setSelectedSeason(data[0]);
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const fetchTeamDetail = useCallback(async (teamId: string) => {
+    setTeamLoading(true);
+    const res = await fetch(`/api/teams/${teamId}`);
+    if (res.ok) {
+      const data: TeamDetail = await res.json();
+      setSelectedTeamDetail(data);
+    }
+    setTeamLoading(false);
+  }, []);
+
+  const selectTeam = useCallback((team: TeamSummary) => {
+    setSelectedTeamSummary(team);
+    setSelectedTeamDetail(null);
+    fetchTeamDetail(team.id);
+  }, [fetchTeamDetail]);
+
+  const refreshTeamDetail = useCallback(async () => {
+    if (selectedTeamSummary) {
+      await fetchTeamDetail(selectedTeamSummary.id);
+    }
+    await fetchSeasons();
+  }, [selectedTeamSummary, fetchTeamDetail, fetchSeasons]);
 
   useEffect(() => { fetchSeasons(); }, [fetchSeasons]);
 
@@ -138,7 +160,7 @@ export default function SeasonPage() {
     const res = await fetch(`/api/season/${id}`, { method: "DELETE" });
     if (res.ok) {
       toast.success("Season deleted");
-      if (selectedSeason?.id === id) { setSelectedSeason(null); setSelectedTeam(null); }
+      if (selectedSeason?.id === id) { setSelectedSeason(null); setSelectedTeamSummary(null); setSelectedTeamDetail(null); }
       fetchSeasons();
     }
   }
@@ -149,7 +171,7 @@ export default function SeasonPage() {
     setTeamForm({ name: "", ageGroup: "", votingScheme: "5,4,3,2,1" });
     setTeamDialogOpen(true);
   }
-  function openEditTeam(team: Team) {
+  function openEditTeam(team: TeamSummary) {
     setEditingTeamId(team.id);
     setTeamForm({
       name: team.name,
@@ -171,7 +193,7 @@ export default function SeasonPage() {
     if (res.ok) {
       toast.success(editingTeamId ? "Team updated" : "Team created");
       setTeamDialogOpen(false);
-      fetchSeasons();
+      refreshTeamDetail();
     } else {
       const data = await res.json();
       toast.error(data.error || "Failed to save");
@@ -183,16 +205,16 @@ export default function SeasonPage() {
     const res = await fetch(`/api/teams/${id}`, { method: "DELETE" });
     if (res.ok) {
       toast.success("Team deleted");
-      if (selectedTeam?.id === id) setSelectedTeam(null);
+      if (selectedTeamSummary?.id === id) { setSelectedTeamSummary(null); setSelectedTeamDetail(null); }
       fetchSeasons();
     }
   }
 
   // === Round CRUD ===
   function openAddRound() {
-    if (!selectedTeam) return;
-    const nextNum = selectedTeam.rounds.length > 0
-      ? Math.max(...selectedTeam.rounds.map((r) => r.roundNumber)) + 1
+    if (!selectedTeamDetail) return;
+    const nextNum = selectedTeamDetail.rounds.length > 0
+      ? Math.max(...selectedTeamDetail.rounds.map((r) => r.roundNumber)) + 1
       : 1;
     setEditingRoundId(null);
     setRoundForm({ roundNumber: String(nextNum), date: "", isBye: false, opponent: "", venue: "" });
@@ -210,18 +232,18 @@ export default function SeasonPage() {
     setRoundDialogOpen(true);
   }
   async function handleSaveRound() {
-    if (!selectedTeam) return;
+    if (!selectedTeamSummary) return;
     setLoading(true);
     const url = editingRoundId ? `/api/rounds/${editingRoundId}` : "/api/rounds";
     const method = editingRoundId ? "PUT" : "POST";
     const res = await fetch(url, {
       method, headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...roundForm, teamId: selectedTeam.id }),
+      body: JSON.stringify({ ...roundForm, teamId: selectedTeamSummary.id }),
     });
     if (res.ok) {
       toast.success(editingRoundId ? "Round updated" : "Round added");
       setRoundDialogOpen(false);
-      fetchSeasons();
+      refreshTeamDetail();
     } else {
       const data = await res.json();
       toast.error(data.error || "Failed to save");
@@ -233,7 +255,7 @@ export default function SeasonPage() {
     const res = await fetch(`/api/rounds/${id}`, { method: "DELETE" });
     if (res.ok) {
       toast.success("Round deleted");
-      fetchSeasons();
+      refreshTeamDetail();
     }
   }
 
@@ -249,7 +271,7 @@ export default function SeasonPage() {
           <Card
             key={season.id}
             className={`cursor-pointer transition-colors ${selectedSeason?.id === season.id ? "ring-2 ring-primary" : ""}`}
-            onClick={() => { setSelectedSeason(season); setSelectedTeam(null); }}
+            onClick={() => { setSelectedSeason(season); setSelectedTeamSummary(null); setSelectedTeamDetail(null); }}
           >
             <CardHeader className="p-4 pb-2">
               <CardTitle className="text-base">{season.name}</CardTitle>
@@ -277,8 +299,8 @@ export default function SeasonPage() {
             {selectedSeason.teams.map((team) => (
               <Card
                 key={team.id}
-                className={`cursor-pointer transition-colors ${selectedTeam?.id === team.id ? "ring-2 ring-primary" : ""}`}
-                onClick={() => setSelectedTeam(team)}
+                className={`cursor-pointer transition-colors ${selectedTeamSummary?.id === team.id ? "ring-2 ring-primary" : ""}`}
+                onClick={() => selectTeam(team)}
               >
                 <CardHeader className="p-4 pb-2">
                   <div className="flex items-center gap-2">
@@ -288,7 +310,7 @@ export default function SeasonPage() {
                 </CardHeader>
                 <CardContent className="p-4 pt-0">
                   <p className="text-sm text-gray-500">
-                    {team._count.players} player{team._count.players !== 1 ? "s" : ""} &middot; {team.rounds.length} round{team.rounds.length !== 1 ? "s" : ""}
+                    {team._count.players} player{team._count.players !== 1 ? "s" : ""} &middot; {team._count.rounds} round{team._count.rounds !== 1 ? "s" : ""}
                   </p>
                   <p className="text-xs text-gray-400 mt-1">Voting: {(team.votingScheme as number[]).join(", ")} pts</p>
                   <div className="flex gap-1 mt-2">
@@ -304,147 +326,155 @@ export default function SeasonPage() {
       )}
 
       {/* === Team detail: Rounds & Players tabs === */}
-      {selectedTeam && (
+      {selectedTeamSummary && (
         <div>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold">
-              {selectedTeam.ageGroup} {selectedTeam.name}
+              {selectedTeamSummary.ageGroup} {selectedTeamSummary.name}
             </h2>
             <div className="flex gap-2">
-              {teamTab === "rounds" && <Button onClick={openAddRound}>Add Round</Button>}
+              {teamTab === "rounds" && <Button onClick={openAddRound} disabled={!selectedTeamDetail}>Add Round</Button>}
             </div>
           </div>
 
-          {/* Tabs */}
-          <div className="flex gap-1 mb-4 border-b">
-            <button
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${teamTab === "rounds" ? "border-primary text-primary" : "border-transparent text-gray-500 hover:text-gray-700"}`}
-              onClick={() => setTeamTab("rounds")}
-            >
-              Rounds ({selectedTeam.rounds.length})
-            </button>
-            <button
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${teamTab === "players" ? "border-primary text-primary" : "border-transparent text-gray-500 hover:text-gray-700"}`}
-              onClick={() => setTeamTab("players")}
-            >
-              Players ({selectedTeam.players.length})
-            </button>
-          </div>
-
-          {/* Rounds tab */}
-          {teamTab === "rounds" && (
-            <div className="bg-white rounded-lg border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-20">Round</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Opponent</TableHead>
-                    <TableHead>Venue</TableHead>
-                    <TableHead className="w-20">Status</TableHead>
-                    <TableHead className="w-32">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {selectedTeam.rounds.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center text-gray-500 py-8">
-                        No rounds yet. Add rounds to this team!
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    selectedTeam.rounds.map((round) => (
-                      <TableRow key={round.id}>
-                        <TableCell className="font-mono">{round.roundNumber}</TableCell>
-                        <TableCell>
-                          {round.date
-                            ? new Date(round.date).toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" })
-                            : "—"}
-                        </TableCell>
-                        <TableCell>{round.opponent || "—"}</TableCell>
-                        <TableCell>{round.venue || "—"}</TableCell>
-                        <TableCell>
-                          {round.isBye ? <Badge variant="secondary">BYE</Badge> : <Badge variant="outline">Active</Badge>}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-2">
-                            <Button variant="outline" size="sm" onClick={() => openEditRound(round)}>Edit</Button>
-                            <Button variant="destructive" size="sm" onClick={() => handleDeleteRound(round.id)}>Delete</Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
+          {teamLoading && !selectedTeamDetail && (
+            <p className="text-gray-500 py-8 text-center">Loading team details...</p>
           )}
 
-          {/* Players tab */}
-          {teamTab === "players" && (
-            <div className="bg-white rounded-lg border overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-12">#</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>DOB</TableHead>
-                    <TableHead>Contact Email</TableHead>
-                    <TableHead>Phone</TableHead>
-                    <TableHead>Parent 1</TableHead>
-                    <TableHead>Parent 2</TableHead>
-                    <TableHead className="w-24">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {selectedTeam.players.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={8} className="text-center text-gray-500 py-8">
-                        No players in this team. Assign players from the Players page.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    selectedTeam.players
-                      .sort((a, b) => a.player.jumperNumber - b.player.jumperNumber)
-                      .map((tp) => (
-                        <TableRow key={tp.player.id}>
-                          <TableCell className="font-mono">{tp.player.jumperNumber}</TableCell>
-                          <TableCell className="font-medium whitespace-nowrap">{tp.player.firstName} {tp.player.surname}</TableCell>
-                          <TableCell className="whitespace-nowrap text-sm">
-                            {tp.player.dateOfBirth
-                              ? new Date(tp.player.dateOfBirth).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })
-                              : "—"}
-                          </TableCell>
-                          <TableCell className="text-sm">{tp.player.contactEmail || "—"}</TableCell>
-                          <TableCell className="whitespace-nowrap text-sm">{tp.player.phone || "—"}</TableCell>
-                          <TableCell className="text-sm">{tp.player.parent1 || "—"}</TableCell>
-                          <TableCell className="text-sm">{tp.player.parent2 || "—"}</TableCell>
-                          <TableCell>
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={async () => {
-                                if (!confirm(`Remove ${tp.player.firstName} ${tp.player.surname} from this team?`)) return;
-                                const res = await fetch(`/api/teams/${selectedTeam.id}/players`, {
-                                  method: "DELETE",
-                                  headers: { "Content-Type": "application/json" },
-                                  body: JSON.stringify({ playerId: tp.player.id }),
-                                });
-                                if (res.ok) {
-                                  toast.success("Player removed from team");
-                                  fetchSeasons();
-                                }
-                              }}
-                            >
-                              Remove
-                            </Button>
+          {selectedTeamDetail && (
+            <>
+              {/* Tabs */}
+              <div className="flex gap-1 mb-4 border-b">
+                <button
+                  className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${teamTab === "rounds" ? "border-primary text-primary" : "border-transparent text-gray-500 hover:text-gray-700"}`}
+                  onClick={() => setTeamTab("rounds")}
+                >
+                  Rounds ({selectedTeamDetail.rounds.length})
+                </button>
+                <button
+                  className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${teamTab === "players" ? "border-primary text-primary" : "border-transparent text-gray-500 hover:text-gray-700"}`}
+                  onClick={() => setTeamTab("players")}
+                >
+                  Players ({selectedTeamDetail.players.length})
+                </button>
+              </div>
+
+              {/* Rounds tab */}
+              {teamTab === "rounds" && (
+                <div className="bg-white rounded-lg border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-20">Round</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Opponent</TableHead>
+                        <TableHead>Venue</TableHead>
+                        <TableHead className="w-20">Status</TableHead>
+                        <TableHead className="w-32">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {selectedTeamDetail.rounds.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center text-gray-500 py-8">
+                            No rounds yet. Add rounds to this team!
                           </TableCell>
                         </TableRow>
-                      ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
+                      ) : (
+                        selectedTeamDetail.rounds.map((round) => (
+                          <TableRow key={round.id}>
+                            <TableCell className="font-mono">{round.roundNumber}</TableCell>
+                            <TableCell>
+                              {round.date
+                                ? new Date(round.date).toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" })
+                                : "—"}
+                            </TableCell>
+                            <TableCell>{round.opponent || "—"}</TableCell>
+                            <TableCell>{round.venue || "—"}</TableCell>
+                            <TableCell>
+                              {round.isBye ? <Badge variant="secondary">BYE</Badge> : <Badge variant="outline">Active</Badge>}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex gap-2">
+                                <Button variant="outline" size="sm" onClick={() => openEditRound(round)}>Edit</Button>
+                                <Button variant="destructive" size="sm" onClick={() => handleDeleteRound(round.id)}>Delete</Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+
+              {/* Players tab */}
+              {teamTab === "players" && (
+                <div className="bg-white rounded-lg border overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-12">#</TableHead>
+                        <TableHead>Name</TableHead>
+                        <TableHead>DOB</TableHead>
+                        <TableHead>Contact Email</TableHead>
+                        <TableHead>Phone</TableHead>
+                        <TableHead>Parent 1</TableHead>
+                        <TableHead>Parent 2</TableHead>
+                        <TableHead className="w-24">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {selectedTeamDetail.players.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={8} className="text-center text-gray-500 py-8">
+                            No players in this team. Assign players from the Players page.
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        selectedTeamDetail.players
+                          .sort((a, b) => a.player.jumperNumber - b.player.jumperNumber)
+                          .map((tp) => (
+                            <TableRow key={tp.player.id}>
+                              <TableCell className="font-mono">{tp.player.jumperNumber}</TableCell>
+                              <TableCell className="font-medium whitespace-nowrap">{tp.player.firstName} {tp.player.surname}</TableCell>
+                              <TableCell className="whitespace-nowrap text-sm">
+                                {tp.player.dateOfBirth
+                                  ? new Date(tp.player.dateOfBirth).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })
+                                  : "—"}
+                              </TableCell>
+                              <TableCell className="text-sm">{tp.player.contactEmail || "—"}</TableCell>
+                              <TableCell className="whitespace-nowrap text-sm">{tp.player.phone || "—"}</TableCell>
+                              <TableCell className="text-sm">{tp.player.parent1 || "—"}</TableCell>
+                              <TableCell className="text-sm">{tp.player.parent2 || "—"}</TableCell>
+                              <TableCell>
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  onClick={async () => {
+                                    if (!confirm(`Remove ${tp.player.firstName} ${tp.player.surname} from this team?`)) return;
+                                    const res = await fetch(`/api/teams/${selectedTeamSummary!.id}/players`, {
+                                      method: "DELETE",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({ playerId: tp.player.id }),
+                                    });
+                                    if (res.ok) {
+                                      toast.success("Player removed from team");
+                                      refreshTeamDetail();
+                                    }
+                                  }}
+                                >
+                                  Remove
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
