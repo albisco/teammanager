@@ -34,23 +34,25 @@ interface UserInfo {
   role: string;
 }
 
+interface GlobalDutyRole {
+  id: string;
+  roleName: string;
+}
+
 interface Specialist {
   id: string;
   user: { id: string; name: string };
 }
 
-interface TeamDutyRole {
-  id: string;
-  dutyRole: { id: string; roleName: string };
+interface TeamRoleConfig {
+  dutyRoleId: string;
+  roleName: string;
+  teamDutyRoleId: string | null;
   roleType: "FIXED" | "SPECIALIST" | "ROTATING" | "FREQUENCY";
   assignedUser: { id: string; name: string } | null;
   frequencyWeeks: number;
   specialists: Specialist[];
-}
-
-interface GlobalDutyRole {
-  id: string;
-  roleName: string;
+  configured: boolean;
 }
 
 const ROLE_TYPE_LABELS: Record<string, string> = {
@@ -70,22 +72,25 @@ const ROLE_TYPE_VARIANTS: Record<string, "default" | "secondary" | "outline"> = 
 export default function RosterPage() {
   const [seasons, setSeasons] = useState<Season[]>([]);
   const [selectedTeam, setSelectedTeam] = useState<TeamSummary | null>(null);
-  const [teamDutyRoles, setTeamDutyRoles] = useState<TeamDutyRole[]>([]);
+  const [teamRoles, setTeamRoles] = useState<TeamRoleConfig[]>([]);
   const [globalRoles, setGlobalRoles] = useState<GlobalDutyRole[]>([]);
   const [users, setUsers] = useState<UserInfo[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Role dialog
-  const [roleDialogOpen, setRoleDialogOpen] = useState(false);
-  const [editingRoleId, setEditingRoleId] = useState<string | null>(null);
-  const [roleForm, setRoleForm] = useState({
-    roleName: "",
-    roleType: "ROTATING" as TeamDutyRole["roleType"],
+  // Club role dialog
+  const [clubRoleDialogOpen, setClubRoleDialogOpen] = useState(false);
+  const [editingClubRole, setEditingClubRole] = useState<GlobalDutyRole | null>(null);
+  const [clubRoleName, setClubRoleName] = useState("");
+
+  // Team config dialog
+  const [configDialogOpen, setConfigDialogOpen] = useState(false);
+  const [configRole, setConfigRole] = useState<TeamRoleConfig | null>(null);
+  const [configForm, setConfigForm] = useState({
+    roleType: "ROTATING" as TeamRoleConfig["roleType"],
     assignedUserId: "",
     frequencyWeeks: "1",
     specialistUserIds: [] as string[],
   });
-  const [showRoleSuggestions, setShowRoleSuggestions] = useState(false);
 
   const fetchSeasons = useCallback(async () => {
     const res = await fetch("/api/season");
@@ -102,69 +107,48 @@ export default function RosterPage() {
     if (res.ok) setGlobalRoles(await res.json());
   }, []);
 
-  const fetchTeamDutyRoles = useCallback(async (teamId: string) => {
+  const fetchTeamRoles = useCallback(async (teamId: string) => {
     const res = await fetch(`/api/teams/${teamId}/duty-roles`);
-    if (res.ok) setTeamDutyRoles(await res.json());
+    if (res.ok) setTeamRoles(await res.json());
   }, []);
 
   useEffect(() => { fetchSeasons(); fetchUsers(); fetchGlobalRoles(); }, [fetchSeasons, fetchUsers, fetchGlobalRoles]);
 
   useEffect(() => {
-    if (selectedTeam) fetchTeamDutyRoles(selectedTeam.id);
-  }, [selectedTeam, fetchTeamDutyRoles]);
+    if (selectedTeam) fetchTeamRoles(selectedTeam.id);
+  }, [selectedTeam, fetchTeamRoles]);
 
-  function openAddRole() {
-    setEditingRoleId(null);
-    setRoleForm({
-      roleName: "",
-      roleType: "ROTATING",
-      assignedUserId: "",
-      frequencyWeeks: "1",
-      specialistUserIds: [],
-    });
-    setRoleDialogOpen(true);
+  // === Club Role CRUD ===
+  function openAddClubRole() {
+    setEditingClubRole(null);
+    setClubRoleName("");
+    setClubRoleDialogOpen(true);
   }
 
-  function openEditRole(role: TeamDutyRole) {
-    setEditingRoleId(role.id);
-    setRoleForm({
-      roleName: role.dutyRole.roleName,
-      roleType: role.roleType,
-      assignedUserId: role.assignedUser?.id || "",
-      frequencyWeeks: String(role.frequencyWeeks),
-      specialistUserIds: role.specialists.map((s) => s.user.id),
-    });
-    setRoleDialogOpen(true);
+  function openEditClubRole(role: GlobalDutyRole) {
+    setEditingClubRole(role);
+    setClubRoleName(role.roleName);
+    setClubRoleDialogOpen(true);
   }
 
-  async function handleSaveRole() {
-    if (!selectedTeam) return;
+  async function handleSaveClubRole() {
     setLoading(true);
+    const method = editingClubRole ? "PUT" : "POST";
+    const body = editingClubRole
+      ? { id: editingClubRole.id, roleName: clubRoleName }
+      : { roleName: clubRoleName };
 
-    const payload = {
-      roleName: roleForm.roleName,
-      roleType: roleForm.roleType,
-      assignedUserId: roleForm.roleType === "FIXED" ? roleForm.assignedUserId : null,
-      frequencyWeeks: roleForm.roleType === "FREQUENCY" ? roleForm.frequencyWeeks : "1",
-      specialistUserIds: roleForm.roleType === "SPECIALIST" ? roleForm.specialistUserIds : [],
-    };
-
-    const url = editingRoleId
-      ? `/api/teams/${selectedTeam.id}/duty-roles/${editingRoleId}`
-      : `/api/teams/${selectedTeam.id}/duty-roles`;
-    const method = editingRoleId ? "PUT" : "POST";
-
-    const res = await fetch(url, {
+    const res = await fetch("/api/duty-roles", {
       method,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(body),
     });
 
     if (res.ok) {
-      toast.success(editingRoleId ? "Role updated" : "Role created");
-      setRoleDialogOpen(false);
-      fetchTeamDutyRoles(selectedTeam.id);
+      toast.success(editingClubRole ? "Role renamed" : "Role created");
+      setClubRoleDialogOpen(false);
       fetchGlobalRoles();
+      if (selectedTeam) fetchTeamRoles(selectedTeam.id);
     } else {
       const data = await res.json();
       toast.error(data.error || "Failed to save");
@@ -172,18 +156,61 @@ export default function RosterPage() {
     setLoading(false);
   }
 
-  async function handleDeleteRole(roleId: string) {
-    if (!selectedTeam) return;
-    if (!confirm("Remove this duty role from the team?")) return;
-    const res = await fetch(`/api/teams/${selectedTeam.id}/duty-roles/${roleId}`, { method: "DELETE" });
+  async function handleDeleteClubRole(id: string) {
+    if (!confirm("Delete this role from the club? This will remove it from all teams.")) return;
+    const res = await fetch("/api/duty-roles", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
     if (res.ok) {
-      toast.success("Role removed");
-      fetchTeamDutyRoles(selectedTeam.id);
+      toast.success("Role deleted");
+      fetchGlobalRoles();
+      if (selectedTeam) fetchTeamRoles(selectedTeam.id);
     }
   }
 
+  // === Team Config ===
+  function openConfigDialog(role: TeamRoleConfig) {
+    setConfigRole(role);
+    setConfigForm({
+      roleType: role.roleType,
+      assignedUserId: role.assignedUser?.id || "",
+      frequencyWeeks: String(role.frequencyWeeks),
+      specialistUserIds: role.specialists.map((s) => s.user.id),
+    });
+    setConfigDialogOpen(true);
+  }
+
+  async function handleSaveConfig() {
+    if (!selectedTeam || !configRole) return;
+    setLoading(true);
+
+    const res = await fetch(`/api/teams/${selectedTeam.id}/duty-roles`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        dutyRoleId: configRole.dutyRoleId,
+        roleType: configForm.roleType,
+        assignedUserId: configForm.roleType === "FIXED" ? configForm.assignedUserId : null,
+        frequencyWeeks: configForm.roleType === "FREQUENCY" ? configForm.frequencyWeeks : "1",
+        specialistUserIds: configForm.roleType === "SPECIALIST" ? configForm.specialistUserIds : [],
+      }),
+    });
+
+    if (res.ok) {
+      toast.success("Role configured");
+      setConfigDialogOpen(false);
+      fetchTeamRoles(selectedTeam.id);
+    } else {
+      const data = await res.json();
+      toast.error(data.error || "Failed to save");
+    }
+    setLoading(false);
+  }
+
   function toggleSpecialist(userId: string) {
-    setRoleForm((prev) => ({
+    setConfigForm((prev) => ({
       ...prev,
       specialistUserIds: prev.specialistUserIds.includes(userId)
         ? prev.specialistUserIds.filter((id) => id !== userId)
@@ -191,7 +218,8 @@ export default function RosterPage() {
     }));
   }
 
-  function roleDetail(role: TeamDutyRole): string {
+  function roleDetail(role: TeamRoleConfig): string {
+    if (!role.configured) return "Not configured";
     switch (role.roleType) {
       case "FIXED":
         return role.assignedUser?.name || "Unassigned";
@@ -204,15 +232,42 @@ export default function RosterPage() {
     }
   }
 
-  // Filter suggestions: global roles not yet assigned to this team, matching typed text
-  const assignedRoleNames = new Set(teamDutyRoles.map((r) => r.dutyRole.roleName));
-  const roleSuggestions = globalRoles
-    .filter((r) => !assignedRoleNames.has(r.roleName))
-    .filter((r) => roleForm.roleName === "" || r.roleName.toLowerCase().includes(roleForm.roleName.toLowerCase()));
-
   return (
     <div>
       <h1 className="text-3xl font-bold mb-6">Duty Roster</h1>
+
+      {/* Club Roles Section */}
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-xl font-semibold">Club Duty Roles</h2>
+          <Button onClick={openAddClubRole}>Add Role</Button>
+        </div>
+        <p className="text-sm text-gray-500 mb-3">
+          These roles apply to all teams. Each team configures how they fill them.
+        </p>
+        <div className="flex gap-2 flex-wrap">
+          {globalRoles.length === 0 ? (
+            <p className="text-gray-500">No roles defined yet.</p>
+          ) : (
+            globalRoles.map((role) => (
+              <Badge
+                key={role.id}
+                variant="outline"
+                className="px-3 py-1.5 text-sm cursor-pointer hover:bg-gray-100 gap-2"
+                onClick={() => openEditClubRole(role)}
+              >
+                {role.roleName}
+                <button
+                  className="ml-1 text-gray-400 hover:text-red-500"
+                  onClick={(e) => { e.stopPropagation(); handleDeleteClubRole(role.id); }}
+                >
+                  &times;
+                </button>
+              </Badge>
+            ))
+          )}
+        </div>
+      </div>
 
       {/* Team selector */}
       <div className="flex gap-3 mb-6 flex-wrap">
@@ -237,36 +292,31 @@ export default function RosterPage() {
         )}
       </div>
 
+      {/* Team role configuration */}
       {selectedTeam && (
         <>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold">
-              {selectedTeam.ageGroup} {selectedTeam.name} — Duty Roles
-            </h2>
-            <Button onClick={openAddRole}>Add Role</Button>
-          </div>
+          <h2 className="text-xl font-semibold mb-4">
+            {selectedTeam.ageGroup} {selectedTeam.name} — Role Configuration
+          </h2>
 
-          <div className="bg-white rounded-lg border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Role Name</TableHead>
-                  <TableHead className="w-28">Type</TableHead>
-                  <TableHead>Details</TableHead>
-                  <TableHead className="w-32">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {teamDutyRoles.length === 0 ? (
+          {teamRoles.length === 0 ? (
+            <p className="text-gray-500">No club roles defined. Add roles above first.</p>
+          ) : (
+            <div className="bg-white rounded-lg border">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center text-gray-500 py-8">
-                      No duty roles defined. Add roles for this team!
-                    </TableCell>
+                    <TableHead>Role</TableHead>
+                    <TableHead className="w-28">Type</TableHead>
+                    <TableHead>Details</TableHead>
+                    <TableHead className="w-28">Status</TableHead>
+                    <TableHead className="w-24">Actions</TableHead>
                   </TableRow>
-                ) : (
-                  teamDutyRoles.map((role) => (
-                    <TableRow key={role.id}>
-                      <TableCell className="font-medium">{role.dutyRole.roleName}</TableCell>
+                </TableHeader>
+                <TableBody>
+                  {teamRoles.map((role) => (
+                    <TableRow key={role.dutyRoleId}>
+                      <TableCell className="font-medium">{role.roleName}</TableCell>
                       <TableCell>
                         <Badge variant={ROLE_TYPE_VARIANTS[role.roleType]}>
                           {ROLE_TYPE_LABELS[role.roleType]}
@@ -274,66 +324,66 @@ export default function RosterPage() {
                       </TableCell>
                       <TableCell className="text-sm text-gray-600">{roleDetail(role)}</TableCell>
                       <TableCell>
-                        <div className="flex gap-2">
-                          <Button variant="outline" size="sm" onClick={() => openEditRole(role)}>Edit</Button>
-                          <Button variant="destructive" size="sm" onClick={() => handleDeleteRole(role.id)}>Delete</Button>
-                        </div>
+                        {role.configured ? (
+                          <Badge className="bg-green-600">Configured</Badge>
+                        ) : (
+                          <Badge variant="outline">Default</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Button variant="outline" size="sm" onClick={() => openConfigDialog(role)}>
+                          Configure
+                        </Button>
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </>
       )}
 
-      {/* Add/Edit Role Dialog */}
-      <Dialog open={roleDialogOpen} onOpenChange={setRoleDialogOpen}>
+      {/* Club Role Dialog */}
+      <Dialog open={clubRoleDialogOpen} onOpenChange={setClubRoleDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingRoleId ? "Edit Duty Role" : "Add Duty Role"}</DialogTitle>
+            <DialogTitle>{editingClubRole ? "Edit Club Role" : "Add Club Role"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="space-y-2 relative">
+            <div className="space-y-2">
               <Label>Role Name *</Label>
               <Input
-                value={roleForm.roleName}
-                onChange={(e) => { setRoleForm({ ...roleForm, roleName: e.target.value }); setShowRoleSuggestions(true); }}
-                onFocus={() => setShowRoleSuggestions(true)}
-                onBlur={() => setTimeout(() => setShowRoleSuggestions(false), 200)}
+                value={clubRoleName}
+                onChange={(e) => setClubRoleName(e.target.value)}
                 placeholder="e.g. Goal Umpire, Canteen, Photographer"
               />
-              {showRoleSuggestions && !editingRoleId && roleSuggestions.length > 0 && (
-                <div className="absolute z-10 w-full bg-white border rounded-md shadow-lg mt-1 max-h-32 overflow-y-auto">
-                  {roleSuggestions.map((r) => (
-                    <button
-                      key={r.id}
-                      type="button"
-                      className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100"
-                      onMouseDown={() => {
-                        setRoleForm({ ...roleForm, roleName: r.roleName });
-                        setShowRoleSuggestions(false);
-                      }}
-                    >
-                      {r.roleName}
-                    </button>
-                  ))}
-                </div>
-              )}
-              {!editingRoleId && globalRoles.length > 0 && (
-                <p className="text-xs text-gray-400">Type to search existing roles or enter a new name</p>
-              )}
             </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setClubRoleDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleSaveClubRole} disabled={loading}>
+              {loading ? "Saving..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
+      {/* Team Config Dialog */}
+      <Dialog open={configDialogOpen} onOpenChange={setConfigDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Configure: {configRole?.roleName}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Role Type *</Label>
               <select
                 className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-                value={roleForm.roleType}
-                onChange={(e) => setRoleForm({
-                  ...roleForm,
-                  roleType: e.target.value as TeamDutyRole["roleType"],
+                value={configForm.roleType}
+                onChange={(e) => setConfigForm({
+                  ...configForm,
+                  roleType: e.target.value as TeamRoleConfig["roleType"],
                   assignedUserId: "",
                   specialistUserIds: [],
                   frequencyWeeks: "1",
@@ -346,14 +396,13 @@ export default function RosterPage() {
               </select>
             </div>
 
-            {/* FIXED: user dropdown */}
-            {roleForm.roleType === "FIXED" && (
+            {configForm.roleType === "FIXED" && (
               <div className="space-y-2">
                 <Label>Assigned Person *</Label>
                 <select
                   className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-                  value={roleForm.assignedUserId}
-                  onChange={(e) => setRoleForm({ ...roleForm, assignedUserId: e.target.value })}
+                  value={configForm.assignedUserId}
+                  onChange={(e) => setConfigForm({ ...configForm, assignedUserId: e.target.value })}
                 >
                   <option value="">Select a person...</option>
                   {users.map((u) => (
@@ -363,8 +412,7 @@ export default function RosterPage() {
               </div>
             )}
 
-            {/* SPECIALIST: multi-select checklist */}
-            {roleForm.roleType === "SPECIALIST" && (
+            {configForm.roleType === "SPECIALIST" && (
               <div className="space-y-2">
                 <Label>Eligible Specialists *</Label>
                 <div className="border rounded-md max-h-48 overflow-y-auto p-2 space-y-1">
@@ -376,7 +424,7 @@ export default function RosterPage() {
                         <input
                           type="checkbox"
                           className="rounded border-gray-300"
-                          checked={roleForm.specialistUserIds.includes(u.id)}
+                          checked={configForm.specialistUserIds.includes(u.id)}
                           onChange={() => toggleSpecialist(u.id)}
                         />
                         <span className="text-sm">{u.name}</span>
@@ -385,22 +433,21 @@ export default function RosterPage() {
                     ))
                   )}
                 </div>
-                {roleForm.specialistUserIds.length > 0 && (
-                  <p className="text-xs text-gray-500">{roleForm.specialistUserIds.length} selected</p>
+                {configForm.specialistUserIds.length > 0 && (
+                  <p className="text-xs text-gray-500">{configForm.specialistUserIds.length} selected</p>
                 )}
               </div>
             )}
 
-            {/* FREQUENCY: weeks input */}
-            {roleForm.roleType === "FREQUENCY" && (
+            {configForm.roleType === "FREQUENCY" && (
               <div className="space-y-2">
                 <Label>Fill every N weeks</Label>
                 <Input
                   type="number"
                   min="1"
                   max="20"
-                  value={roleForm.frequencyWeeks}
-                  onChange={(e) => setRoleForm({ ...roleForm, frequencyWeeks: e.target.value })}
+                  value={configForm.frequencyWeeks}
+                  onChange={(e) => setConfigForm({ ...configForm, frequencyWeeks: e.target.value })}
                 />
                 <p className="text-xs text-gray-500">
                   e.g. &quot;3&quot; means this role is assigned every 3rd round
@@ -409,8 +456,8 @@ export default function RosterPage() {
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRoleDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleSaveRole} disabled={loading}>
+            <Button variant="outline" onClick={() => setConfigDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleSaveConfig} disabled={loading}>
               {loading ? "Saving..." : "Save"}
             </Button>
           </DialogFooter>
