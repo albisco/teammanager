@@ -36,17 +36,21 @@ interface UserInfo {
 
 interface Specialist {
   id: string;
-  userId: string;
   user: { id: string; name: string };
 }
 
-interface DutyRole {
+interface TeamDutyRole {
   id: string;
-  roleName: string;
+  dutyRole: { id: string; roleName: string };
   roleType: "FIXED" | "SPECIALIST" | "ROTATING" | "FREQUENCY";
   assignedUser: { id: string; name: string } | null;
   frequencyWeeks: number;
   specialists: Specialist[];
+}
+
+interface GlobalDutyRole {
+  id: string;
+  roleName: string;
 }
 
 const ROLE_TYPE_LABELS: Record<string, string> = {
@@ -66,7 +70,8 @@ const ROLE_TYPE_VARIANTS: Record<string, "default" | "secondary" | "outline"> = 
 export default function RosterPage() {
   const [seasons, setSeasons] = useState<Season[]>([]);
   const [selectedTeam, setSelectedTeam] = useState<TeamSummary | null>(null);
-  const [dutyRoles, setDutyRoles] = useState<DutyRole[]>([]);
+  const [teamDutyRoles, setTeamDutyRoles] = useState<TeamDutyRole[]>([]);
+  const [globalRoles, setGlobalRoles] = useState<GlobalDutyRole[]>([]);
   const [users, setUsers] = useState<UserInfo[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -75,11 +80,12 @@ export default function RosterPage() {
   const [editingRoleId, setEditingRoleId] = useState<string | null>(null);
   const [roleForm, setRoleForm] = useState({
     roleName: "",
-    roleType: "ROTATING" as DutyRole["roleType"],
+    roleType: "ROTATING" as TeamDutyRole["roleType"],
     assignedUserId: "",
     frequencyWeeks: "1",
     specialistUserIds: [] as string[],
   });
+  const [showRoleSuggestions, setShowRoleSuggestions] = useState(false);
 
   const fetchSeasons = useCallback(async () => {
     const res = await fetch("/api/season");
@@ -91,16 +97,21 @@ export default function RosterPage() {
     if (res.ok) setUsers(await res.json());
   }, []);
 
-  const fetchDutyRoles = useCallback(async (teamId: string) => {
-    const res = await fetch(`/api/teams/${teamId}/duty-roles`);
-    if (res.ok) setDutyRoles(await res.json());
+  const fetchGlobalRoles = useCallback(async () => {
+    const res = await fetch("/api/duty-roles");
+    if (res.ok) setGlobalRoles(await res.json());
   }, []);
 
-  useEffect(() => { fetchSeasons(); fetchUsers(); }, [fetchSeasons, fetchUsers]);
+  const fetchTeamDutyRoles = useCallback(async (teamId: string) => {
+    const res = await fetch(`/api/teams/${teamId}/duty-roles`);
+    if (res.ok) setTeamDutyRoles(await res.json());
+  }, []);
+
+  useEffect(() => { fetchSeasons(); fetchUsers(); fetchGlobalRoles(); }, [fetchSeasons, fetchUsers, fetchGlobalRoles]);
 
   useEffect(() => {
-    if (selectedTeam) fetchDutyRoles(selectedTeam.id);
-  }, [selectedTeam, fetchDutyRoles]);
+    if (selectedTeam) fetchTeamDutyRoles(selectedTeam.id);
+  }, [selectedTeam, fetchTeamDutyRoles]);
 
   function openAddRole() {
     setEditingRoleId(null);
@@ -114,10 +125,10 @@ export default function RosterPage() {
     setRoleDialogOpen(true);
   }
 
-  function openEditRole(role: DutyRole) {
+  function openEditRole(role: TeamDutyRole) {
     setEditingRoleId(role.id);
     setRoleForm({
-      roleName: role.roleName,
+      roleName: role.dutyRole.roleName,
       roleType: role.roleType,
       assignedUserId: role.assignedUser?.id || "",
       frequencyWeeks: String(role.frequencyWeeks),
@@ -152,7 +163,8 @@ export default function RosterPage() {
     if (res.ok) {
       toast.success(editingRoleId ? "Role updated" : "Role created");
       setRoleDialogOpen(false);
-      fetchDutyRoles(selectedTeam.id);
+      fetchTeamDutyRoles(selectedTeam.id);
+      fetchGlobalRoles();
     } else {
       const data = await res.json();
       toast.error(data.error || "Failed to save");
@@ -162,11 +174,11 @@ export default function RosterPage() {
 
   async function handleDeleteRole(roleId: string) {
     if (!selectedTeam) return;
-    if (!confirm("Delete this duty role?")) return;
+    if (!confirm("Remove this duty role from the team?")) return;
     const res = await fetch(`/api/teams/${selectedTeam.id}/duty-roles/${roleId}`, { method: "DELETE" });
     if (res.ok) {
-      toast.success("Role deleted");
-      fetchDutyRoles(selectedTeam.id);
+      toast.success("Role removed");
+      fetchTeamDutyRoles(selectedTeam.id);
     }
   }
 
@@ -179,7 +191,7 @@ export default function RosterPage() {
     }));
   }
 
-  function roleDetail(role: DutyRole): string {
+  function roleDetail(role: TeamDutyRole): string {
     switch (role.roleType) {
       case "FIXED":
         return role.assignedUser?.name || "Unassigned";
@@ -191,6 +203,12 @@ export default function RosterPage() {
         return "All families";
     }
   }
+
+  // Filter suggestions: global roles not yet assigned to this team, matching typed text
+  const assignedRoleNames = new Set(teamDutyRoles.map((r) => r.dutyRole.roleName));
+  const roleSuggestions = globalRoles
+    .filter((r) => !assignedRoleNames.has(r.roleName))
+    .filter((r) => roleForm.roleName === "" || r.roleName.toLowerCase().includes(roleForm.roleName.toLowerCase()));
 
   return (
     <div>
@@ -239,16 +257,16 @@ export default function RosterPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {dutyRoles.length === 0 ? (
+                {teamDutyRoles.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={4} className="text-center text-gray-500 py-8">
                       No duty roles defined. Add roles for this team!
                     </TableCell>
                   </TableRow>
                 ) : (
-                  dutyRoles.map((role) => (
+                  teamDutyRoles.map((role) => (
                     <TableRow key={role.id}>
-                      <TableCell className="font-medium">{role.roleName}</TableCell>
+                      <TableCell className="font-medium">{role.dutyRole.roleName}</TableCell>
                       <TableCell>
                         <Badge variant={ROLE_TYPE_VARIANTS[role.roleType]}>
                           {ROLE_TYPE_LABELS[role.roleType]}
@@ -277,13 +295,35 @@ export default function RosterPage() {
             <DialogTitle>{editingRoleId ? "Edit Duty Role" : "Add Duty Role"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="space-y-2">
+            <div className="space-y-2 relative">
               <Label>Role Name *</Label>
               <Input
                 value={roleForm.roleName}
-                onChange={(e) => setRoleForm({ ...roleForm, roleName: e.target.value })}
+                onChange={(e) => { setRoleForm({ ...roleForm, roleName: e.target.value }); setShowRoleSuggestions(true); }}
+                onFocus={() => setShowRoleSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowRoleSuggestions(false), 200)}
                 placeholder="e.g. Goal Umpire, Canteen, Photographer"
               />
+              {showRoleSuggestions && !editingRoleId && roleSuggestions.length > 0 && (
+                <div className="absolute z-10 w-full bg-white border rounded-md shadow-lg mt-1 max-h-32 overflow-y-auto">
+                  {roleSuggestions.map((r) => (
+                    <button
+                      key={r.id}
+                      type="button"
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100"
+                      onMouseDown={() => {
+                        setRoleForm({ ...roleForm, roleName: r.roleName });
+                        setShowRoleSuggestions(false);
+                      }}
+                    >
+                      {r.roleName}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {!editingRoleId && globalRoles.length > 0 && (
+                <p className="text-xs text-gray-400">Type to search existing roles or enter a new name</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -293,7 +333,7 @@ export default function RosterPage() {
                 value={roleForm.roleType}
                 onChange={(e) => setRoleForm({
                   ...roleForm,
-                  roleType: e.target.value as DutyRole["roleType"],
+                  roleType: e.target.value as TeamDutyRole["roleType"],
                   assignedUserId: "",
                   specialistUserIds: [],
                   frequencyWeeks: "1",

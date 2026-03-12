@@ -7,18 +7,19 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const roles = await prisma.dutyRole.findMany({
+  const teamDutyRoles = await prisma.teamDutyRole.findMany({
     where: { teamId: params.id },
     include: {
+      dutyRole: true,
       assignedUser: { select: { id: true, name: true } },
       specialists: {
         include: { user: { select: { id: true, name: true } } },
       },
     },
-    orderBy: { roleName: "asc" },
+    orderBy: { dutyRole: { roleName: "asc" } },
   });
 
-  return NextResponse.json(roles);
+  return NextResponse.json(teamDutyRoles);
 }
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
@@ -35,10 +36,16 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   }
 
   try {
-    const role = await prisma.dutyRole.create({
+    // Find or create the global duty role
+    let dutyRole = await prisma.dutyRole.findUnique({ where: { roleName } });
+    if (!dutyRole) {
+      dutyRole = await prisma.dutyRole.create({ data: { roleName } });
+    }
+
+    const teamDutyRole = await prisma.teamDutyRole.create({
       data: {
         teamId: params.id,
-        roleName,
+        dutyRoleId: dutyRole.id,
         roleType,
         assignedUserId: roleType === "FIXED" ? assignedUserId : null,
         frequencyWeeks: roleType === "FREQUENCY" ? (parseInt(frequencyWeeks) || 1) : 1,
@@ -47,15 +54,16 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           : undefined,
       },
       include: {
+        dutyRole: true,
         assignedUser: { select: { id: true, name: true } },
         specialists: { include: { user: { select: { id: true, name: true } } } },
       },
     });
 
-    return NextResponse.json(role, { status: 201 });
+    return NextResponse.json(teamDutyRole, { status: 201 });
   } catch (err: unknown) {
     if (err && typeof err === "object" && "code" in err && err.code === "P2002") {
-      return NextResponse.json({ error: "A role with this name already exists for this team" }, { status: 409 });
+      return NextResponse.json({ error: "This role is already assigned to this team" }, { status: 409 });
     }
     throw err;
   }

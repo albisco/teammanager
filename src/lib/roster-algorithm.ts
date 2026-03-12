@@ -1,7 +1,7 @@
 interface RosterInput {
   rounds: { id: string; roundNumber: number; isBye: boolean }[];
   families: { id: string; name: string }[];
-  dutyRoles: {
+  teamDutyRoles: {
     id: string;
     roleName: string;
     roleType: "FIXED" | "SPECIALIST" | "ROTATING" | "FREQUENCY";
@@ -9,21 +9,21 @@ interface RosterInput {
     frequencyWeeks: number;
     specialistFamilyIds: string[];
   }[];
-  exclusions: { familyId: string; dutyRoleId: string }[];
+  exclusions: { familyId: string; teamDutyRoleId: string }[];
   unavailabilities: { familyId: string; roundId: string }[];
 }
 
 interface RosterOutput {
   roundId: string;
-  dutyRoleId: string;
+  teamDutyRoleId: string;
   assignedFamilyId: string;
 }
 
 export function generateRoster(input: RosterInput): RosterOutput[] {
-  const { rounds, families, dutyRoles, exclusions, unavailabilities } = input;
+  const { rounds, families, teamDutyRoles, exclusions, unavailabilities } = input;
 
   const exclusionSet = new Set(
-    exclusions.map((e) => `${e.familyId}:${e.dutyRoleId}`)
+    exclusions.map((e) => `${e.familyId}:${e.teamDutyRoleId}`)
   );
   const unavailabilitySet = new Set(
     unavailabilities.map((u) => `${u.familyId}:${u.roundId}`)
@@ -35,7 +35,7 @@ export function generateRoster(input: RosterInput): RosterOutput[] {
   for (const family of families) {
     totalAssignments[family.id] = 0;
     roleAssignments[family.id] = {};
-    for (const role of dutyRoles) {
+    for (const role of teamDutyRoles) {
       roleAssignments[family.id][role.id] = 0;
     }
   }
@@ -49,13 +49,13 @@ export function generateRoster(input: RosterInput): RosterOutput[] {
   for (const round of activeRounds) {
     const roundIndex = activeRounds.indexOf(round);
 
-    for (const role of dutyRoles) {
+    for (const role of teamDutyRoles) {
       // FIXED: same person every round
       if (role.roleType === "FIXED") {
         if (role.assignedUserId) {
           assignments.push({
             roundId: round.id,
-            dutyRoleId: role.id,
+            teamDutyRoleId: role.id,
             assignedFamilyId: role.assignedUserId,
           });
         }
@@ -97,7 +97,7 @@ export function generateRoster(input: RosterInput): RosterOutput[] {
       const chosen = eligible[0];
       assignments.push({
         roundId: round.id,
-        dutyRoleId: role.id,
+        teamDutyRoleId: role.id,
         assignedFamilyId: chosen.id,
       });
       totalAssignments[chosen.id]++;

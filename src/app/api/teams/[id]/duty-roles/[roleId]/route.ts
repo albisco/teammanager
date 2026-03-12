@@ -7,19 +7,20 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string;
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const role = await prisma.dutyRole.findUnique({
+  const teamDutyRole = await prisma.teamDutyRole.findUnique({
     where: { id: params.roleId },
     include: {
+      dutyRole: true,
       assignedUser: { select: { id: true, name: true } },
       specialists: { include: { user: { select: { id: true, name: true } } } },
     },
   });
 
-  if (!role || role.teamId !== params.id) {
+  if (!teamDutyRole || teamDutyRole.teamId !== params.id) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  return NextResponse.json(role);
+  return NextResponse.json(teamDutyRole);
 }
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string; roleId: string } }) {
@@ -32,13 +33,31 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string; 
   const { roleName, roleType, assignedUserId, frequencyWeeks, specialistUserIds } = body;
 
   try {
-    // Delete existing specialists before updating
-    await prisma.dutyRoleSpecialist.deleteMany({ where: { dutyRoleId: params.roleId } });
+    // Update global role name if changed
+    if (roleName) {
+      const existing = await prisma.teamDutyRole.findUnique({
+        where: { id: params.roleId },
+        include: { dutyRole: true },
+      });
+      if (existing && existing.dutyRole.roleName !== roleName) {
+        // Find or create the new global role
+        let dutyRole = await prisma.dutyRole.findUnique({ where: { roleName } });
+        if (!dutyRole) {
+          dutyRole = await prisma.dutyRole.create({ data: { roleName } });
+        }
+        await prisma.teamDutyRole.update({
+          where: { id: params.roleId },
+          data: { dutyRoleId: dutyRole.id },
+        });
+      }
+    }
 
-    const role = await prisma.dutyRole.update({
+    // Delete existing specialists before updating
+    await prisma.teamDutyRoleSpecialist.deleteMany({ where: { teamDutyRoleId: params.roleId } });
+
+    const teamDutyRole = await prisma.teamDutyRole.update({
       where: { id: params.roleId },
       data: {
-        roleName: roleName || undefined,
         roleType: roleType || undefined,
         assignedUserId: roleType === "FIXED" ? assignedUserId : null,
         frequencyWeeks: roleType === "FREQUENCY" ? (parseInt(frequencyWeeks) || 1) : 1,
@@ -47,15 +66,16 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string; 
           : undefined,
       },
       include: {
+        dutyRole: true,
         assignedUser: { select: { id: true, name: true } },
         specialists: { include: { user: { select: { id: true, name: true } } } },
       },
     });
 
-    return NextResponse.json(role);
+    return NextResponse.json(teamDutyRole);
   } catch (err: unknown) {
     if (err && typeof err === "object" && "code" in err && err.code === "P2002") {
-      return NextResponse.json({ error: "A role with this name already exists for this team" }, { status: 409 });
+      return NextResponse.json({ error: "This role is already assigned to this team" }, { status: 409 });
     }
     throw err;
   }
@@ -67,6 +87,6 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  await prisma.dutyRole.delete({ where: { id: params.roleId } });
+  await prisma.teamDutyRole.delete({ where: { id: params.roleId } });
   return NextResponse.json({ success: true });
 }
