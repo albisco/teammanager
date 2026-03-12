@@ -55,6 +55,7 @@ model User {
 
   players              Player[]
   votes                Vote[]
+  managedTeams         Team[]               @relation("TeamManager")
   teamDutyRoleAssignments TeamDutyRole[]       @relation("FixedAssignment")
   teamDutyRoleSpecialists TeamDutyRoleSpecialist[]
   rosterAssignments    RosterAssignment[]
@@ -99,6 +100,8 @@ model Team {
   ageGroup         String
   seasonId         String
   season           Season @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  managerId        String?
+  manager          User?  @relation("TeamManager", fields: [managerId], references: [id])
   votingScheme     Json   @default("[5,4,3,2,1]")
   parentVoterCount Int    @default(3)
   coachVoterCount  Int    @default(1)

@@ -37,6 +37,11 @@ interface TeamPlayerInfo {
   };
 }
 
+interface UserInfo {
+  id: string;
+  name: string;
+}
+
 interface TeamSummary {
   id: string;
   name: string;
@@ -44,6 +49,7 @@ interface TeamSummary {
   votingScheme: number[];
   parentVoterCount: number;
   coachVoterCount: number;
+  manager: UserInfo | null;
   _count: { players: number; rounds: number };
 }
 
@@ -66,6 +72,7 @@ export default function SeasonPage() {
   const [selectedTeamDetail, setSelectedTeamDetail] = useState<TeamDetail | null>(null);
   const [teamLoading, setTeamLoading] = useState(false);
   const [teamTab, setTeamTab] = useState<"rounds" | "players">("rounds");
+  const [clubUsers, setClubUsers] = useState<{ id: string; name: string; role: string }[]>([]);
 
   // Season dialog
   const [seasonDialogOpen, setSeasonDialogOpen] = useState(false);
@@ -124,7 +131,12 @@ export default function SeasonPage() {
     await fetchSeasons();
   }, [selectedTeamSummary, fetchTeamDetail, fetchSeasons]);
 
-  useEffect(() => { fetchSeasons(); }, [fetchSeasons]);
+  const fetchUsers = useCallback(async () => {
+    const res = await fetch("/api/users");
+    if (res.ok) setClubUsers(await res.json());
+  }, []);
+
+  useEffect(() => { fetchSeasons(); fetchUsers(); }, [fetchSeasons, fetchUsers]);
 
   // === Season CRUD ===
   function openAddSeason() {
@@ -312,6 +324,9 @@ export default function SeasonPage() {
                   <p className="text-sm text-gray-500">
                     {team._count.players} player{team._count.players !== 1 ? "s" : ""} &middot; {team._count.rounds} round{team._count.rounds !== 1 ? "s" : ""}
                   </p>
+                  {team.manager && (
+                    <p className="text-xs text-gray-500 mt-1">Manager: {team.manager.name}</p>
+                  )}
                   <p className="text-xs text-gray-400 mt-1">Voting: {(team.votingScheme as number[]).join(", ")} pts</p>
                   <div className="flex gap-1 mt-2">
                     <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); openEditTeam(team); }}>Edit</Button>
@@ -329,9 +344,35 @@ export default function SeasonPage() {
       {selectedTeamSummary && (
         <div>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold">
-              {selectedTeamSummary.ageGroup} {selectedTeamSummary.name}
-            </h2>
+            <div>
+              <h2 className="text-xl font-semibold">
+                {selectedTeamSummary.ageGroup} {selectedTeamSummary.name}
+              </h2>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-sm text-gray-500">Manager:</span>
+                <select
+                  className="rounded-md border border-gray-300 px-2 py-1 text-sm"
+                  value={selectedTeamSummary.manager?.id || ""}
+                  onChange={async (e) => {
+                    const managerId = e.target.value || null;
+                    const res = await fetch(`/api/teams/${selectedTeamSummary!.id}`, {
+                      method: "PUT",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ managerId }),
+                    });
+                    if (res.ok) {
+                      toast.success(managerId ? "Manager assigned" : "Manager removed");
+                      fetchSeasons();
+                    }
+                  }}
+                >
+                  <option value="">— No manager —</option>
+                  {clubUsers.map((u) => (
+                    <option key={u.id} value={u.id}>{u.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
             <div className="flex gap-2">
               {teamTab === "rounds" && <Button onClick={openAddRound} disabled={!selectedTeamDetail}>Add Round</Button>}
             </div>

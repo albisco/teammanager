@@ -13,6 +13,7 @@ export async function GET() {
     include: {
       teams: {
         include: {
+          manager: { select: { id: true, name: true } },
           _count: { select: { players: true, rounds: true } },
         },
         orderBy: { ageGroup: "asc" },
