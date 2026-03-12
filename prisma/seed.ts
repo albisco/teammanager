@@ -23,8 +23,7 @@ async function main() {
       email: "admin@teammanager.com",
       passwordHash,
       name: "Admin",
-      role: "ADMIN",
-      clubId: club.id,
+      role: "SUPER_ADMIN",
     },
   });
 

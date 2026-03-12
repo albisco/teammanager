@@ -21,6 +21,7 @@ model Club {
 }
 
 enum Role {
+  SUPER_ADMIN
   ADMIN
   FAMILY
 }
@@ -48,8 +49,8 @@ model User {
   passwordHash String
   role         Role     @default(FAMILY)
   name         String
-  clubId       String
-  club         Club     @relation(fields: [clubId], references: [id])
+  clubId       String?
+  club         Club?    @relation(fields: [clubId], references: [id])
   createdAt    DateTime @default(now())
 
   players              Player[]

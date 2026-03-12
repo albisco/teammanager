@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 
 const navItems = [
   { href: "/admin/dashboard", label: "Dashboard" },
+  { href: "/admin/clubs", label: "Clubs", superAdminOnly: true },
   { href: "/admin/players", label: "Players" },
   { href: "/admin/season", label: "Season" },
   { href: "/admin/voting", label: "Voting" },
@@ -31,20 +32,22 @@ export default function AdminLayout({
           <p className="text-sm text-gray-400">Admin Panel</p>
         </div>
         <nav className="flex-1 p-4 space-y-1">
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "block px-3 py-2 rounded-md text-sm transition-colors",
-                pathname.startsWith(item.href)
-                  ? "bg-gray-700 text-white"
-                  : "text-gray-300 hover:bg-gray-800 hover:text-white"
-              )}
-            >
-              {item.label}
-            </Link>
-          ))}
+          {navItems
+            .filter((item) => !item.superAdminOnly || (session?.user as Record<string, unknown>)?.role === "SUPER_ADMIN")
+            .map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "block px-3 py-2 rounded-md text-sm transition-colors",
+                  pathname.startsWith(item.href)
+                    ? "bg-gray-700 text-white"
+                    : "text-gray-300 hover:bg-gray-800 hover:text-white"
+                )}
+              >
+                {item.label}
+              </Link>
+            ))}
         </nav>
         <div className="p-4 border-t border-gray-700">
           <p className="text-sm text-gray-400 mb-2">{session?.user?.name}</p>

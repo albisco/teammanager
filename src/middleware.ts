@@ -6,7 +6,7 @@ export default withAuth(
     const token = req.nextauth.token;
     const path = req.nextUrl.pathname;
 
-    if (path.startsWith("/admin") && token?.role !== "ADMIN") {
+    if (path.startsWith("/admin") && token?.role !== "ADMIN" && token?.role !== "SUPER_ADMIN") {
       return NextResponse.redirect(new URL("/login", req.url));
     }
 
