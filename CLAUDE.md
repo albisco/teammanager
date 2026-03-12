@@ -29,8 +29,13 @@ Team Manager — Multi-tenant AFL Footy web app for managing multiple clubs, eac
 
 ## Architecture
 
+### Roles
+- **SUPER_ADMIN** — manages all clubs, not assigned to any club (clubId is null). Can create clubs + provision club admins.
+- **ADMIN** — club-scoped, manages their club's players, seasons, teams, voting, roster.
+- **FAMILY** — club-scoped, views duties, manages availability (not yet built).
+
 ### Multi-Tenancy
-Session-based club scoping. Every user belongs to a Club. JWT includes `clubId`. All API routes filter by `session.user.clubId` — no URL changes needed. Users only see their club's data.
+Session-based club scoping. Every user belongs to a Club (except SUPER_ADMIN). JWT includes `clubId`. All API routes filter by `session.user.clubId` — no URL changes needed. Users only see their club's data.
 
 ### Data Model Hierarchy
 Club → Season(s) → Team(s) → Round(s). Players are club-level, linked to teams via TeamPlayer (many-to-many). DutyRoles are club-level, configured per-team via TeamDutyRole. Voting scheme is per-team.
@@ -48,6 +53,7 @@ Club, User, Player, Season, Team, TeamPlayer, Round, VotingSession, Vote, DutyRo
 ```
 /login                          — credentials login
 /admin/dashboard                — admin overview (placeholder)
+/admin/clubs                    — club management (SUPER_ADMIN only)
 /admin/players                  — player CRUD + team assignment
 /admin/season                   — season > team > rounds management (lazy-loaded team details)
 /admin/voting                   — open/close voting, QR codes, results + audit trail
@@ -69,6 +75,7 @@ Club, User, Player, Season, Team, TeamPlayer, Round, VotingSession, Vote, DutyRo
 /api/teams/[id]/duty-roles               — team duty role config (GET returns all club roles merged with team config)
 /api/teams/[id]/duty-roles/[roleId]      — single team duty role CRUD
 /api/rounds, /api/rounds/[id]            — round CRUD (scoped to team)
+/api/clubs                               — club CRUD (SUPER_ADMIN only, POST optionally creates admin user)
 /api/duty-roles                          — club-level duty role CRUD (scoped by clubId)
 /api/users                               — user list (scoped by clubId, admin only)
 /api/voting                              — open/close/toggle voting sessions
@@ -85,7 +92,8 @@ Club, User, Player, Season, Team, TeamPlayer, Round, VotingSession, Vote, DutyRo
 
 ## What's Built
 - Multi-tenancy: Club model, session-based scoping, all routes filtered by clubId
-- Auth: login, JWT sessions with clubId, role middleware (ADMIN/FAMILY)
+- Auth: login, JWT sessions with clubId, role middleware (SUPER_ADMIN/ADMIN/FAMILY)
+- Club management: SUPER_ADMIN can create/edit/delete clubs, provision club admin users
 - Players: CRUD, search, multi-team assignment
 - Seasons: CRUD with team hierarchy, lazy-loaded team details for performance
 - Teams: CRUD with voting scheme config per team
@@ -115,7 +123,8 @@ Decision depends on how family accounts work — tackle after rostering is built
 ## Conventions
 - UI components in `src/components/ui/` — Tailwind v3 compatible, no radix dependencies
 - All API routes check auth via `getServerSession(authOptions)`, extract `clubId` from session
-- Admin routes require `role === "ADMIN"`, family routes just require auth
+- Admin routes require `role === "ADMIN"` or `"SUPER_ADMIN"`, family routes just require auth
+- Clubs nav link only visible to SUPER_ADMIN in admin layout
 - Club scoping: `(session.user as Record<string, unknown>)?.clubId as string`
 - Anonymous voters get deterministic user IDs: `anon_{sessionId}_{name}`, assigned to club via voting session chain
 - Dates stored as DateTime in Prisma, formatted with `en-AU` locale in UI
