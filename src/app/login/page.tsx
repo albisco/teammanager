@@ -32,7 +32,7 @@ export default function LoginPage() {
       } else if (res?.ok) {
         const sessionRes = await fetch("/api/auth/session");
         const session = await sessionRes.json();
-        if (session?.user?.role === "ADMIN") {
+        if (session?.user?.role === "ADMIN" || session?.user?.role === "SUPER_ADMIN") {
           router.push("/admin/dashboard");
         } else {
           router.push("/family/dashboard");
