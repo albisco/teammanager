@@ -311,7 +311,7 @@ export default function VotingPage() {
             </div>
 
             {resultsTab === "leaderboard" && (
-              <div className="bg-white rounded-lg border">
+              <div className="bg-white rounded-lg border max-h-96 overflow-y-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
