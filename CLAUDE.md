@@ -76,6 +76,10 @@ Club, User, Player, Season, Team, TeamPlayer, Round, VotingSession, Vote, DutyRo
 /api/teams/[id]/duty-roles/[roleId]      — single team duty role CRUD
 /api/rounds, /api/rounds/[id]            — round CRUD (scoped to team)
 /api/clubs                               — club CRUD (SUPER_ADMIN only, POST optionally creates admin user)
+/api/teams/[id]/roster                   — GET roster grid data (rounds, roles, assignments, families)
+/api/teams/[id]/roster/generate          — POST run algorithm, save assignments
+/api/teams/[id]/roster/assign            — PUT manual override of single cell
+/api/teams/[id]/unavailability           — GET/POST/DELETE family unavailability per round
 /api/duty-roles                          — club-level duty role CRUD (scoped by clubId)
 /api/users                               — user list (scoped by clubId, admin only)
 /api/voting                              — open/close/toggle voting sessions
@@ -99,11 +103,11 @@ Club, User, Player, Season, Team, TeamPlayer, Round, VotingSession, Vote, DutyRo
 - Teams: CRUD with voting scheme config per team
 - Rounds: CRUD scoped to teams, bye support
 - Voting: admin open/close, QR generation, public vote page, results/leaderboard, vote audit trail
-- Duty Roster: club-level role definitions, per-team configuration (FIXED/SPECIALIST/ROTATING/FREQUENCY), algorithm
+- Duty Roster: club-level role definitions, per-team configuration, roster generation, grid view, manual overrides, family unavailability
 - UI components: Button, Input, Label, Card, Badge, Table, Select, Textarea, Dialog, Sonner
 
 ## What's NOT Built Yet
-- Duty roster generation UI (algorithm exists, needs generate button + grid view + manual overrides)
+- Duty roster: family exclusions UI (model exists, no UI yet)
 - Family portal (availability management, view duties)
 - Admin dashboard with live counts
 - PlayHQ integration (read-only pull of fixtures/players)
