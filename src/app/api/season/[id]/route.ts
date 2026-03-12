@@ -8,6 +8,12 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   if (session?.user?.role !== "ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
+  const clubId = (session.user as Record<string, unknown>)?.clubId as string;
+
+  const existing = await prisma.season.findUnique({ where: { id: params.id } });
+  if (!existing || existing.clubId !== clubId) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
 
   const body = await req.json();
   const { name, year } = body;
@@ -27,6 +33,12 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
   const session = await getServerSession(authOptions);
   if (session?.user?.role !== "ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  const clubId = (session.user as Record<string, unknown>)?.clubId as string;
+
+  const existing = await prisma.season.findUnique({ where: { id: params.id } });
+  if (!existing || existing.clubId !== clubId) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
   await prisma.season.delete({ where: { id: params.id } });

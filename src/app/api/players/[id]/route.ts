@@ -6,13 +6,14 @@ import { prisma } from "@/lib/prisma";
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const clubId = (session.user as Record<string, unknown>)?.clubId as string;
 
   const player = await prisma.player.findUnique({
     where: { id: params.id },
     include: { family: { select: { id: true, name: true } } },
   });
 
-  if (!player) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!player || player.clubId !== clubId) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(player);
 }
 
@@ -20,6 +21,12 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   const session = await getServerSession(authOptions);
   if (session?.user?.role !== "ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  const clubId = (session.user as Record<string, unknown>)?.clubId as string;
+
+  const existing = await prisma.player.findUnique({ where: { id: params.id } });
+  if (!existing || existing.clubId !== clubId) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
   const body = await req.json();
@@ -49,6 +56,12 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
   const session = await getServerSession(authOptions);
   if (session?.user?.role !== "ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  const clubId = (session.user as Record<string, unknown>)?.clubId as string;
+
+  const existing = await prisma.player.findUnique({ where: { id: params.id } });
+  if (!existing || existing.clubId !== clubId) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
   await prisma.player.delete({ where: { id: params.id } });

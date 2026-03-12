@@ -10,7 +10,7 @@ export async function POST(req: NextRequest, { params }: { params: { token: stri
 
   const votingSession = await prisma.votingSession.findUnique({
     where: { qrToken: params.token },
-    include: { round: { include: { team: true } } },
+    include: { round: { include: { team: { include: { season: true } } } } },
   });
 
   if (!votingSession) {
@@ -61,6 +61,7 @@ export async function POST(req: NextRequest, { params }: { params: { token: stri
         passwordHash: "anonymous",
         name: voterName,
         role: "FAMILY",
+        clubId: votingSession.round.team.season.clubId,
       },
     });
   }

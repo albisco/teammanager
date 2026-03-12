@@ -6,9 +6,10 @@ import { prisma } from "@/lib/prisma";
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const clubId = (session.user as Record<string, unknown>)?.clubId as string;
 
   // Get all club-level roles
-  const allRoles = await prisma.dutyRole.findMany({ orderBy: { roleName: "asc" } });
+  const allRoles = await prisma.dutyRole.findMany({ where: { clubId }, orderBy: { roleName: "asc" } });
 
   // Get team-specific configurations
   const teamConfigs = await prisma.teamDutyRole.findMany({

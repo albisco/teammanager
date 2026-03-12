@@ -6,8 +6,10 @@ import { prisma } from "@/lib/prisma";
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const clubId = (session.user as Record<string, unknown>)?.clubId as string;
 
   const players = await prisma.player.findMany({
+    where: { clubId },
     include: {
       family: { select: { id: true, name: true } },
       teamPlayers: {
@@ -33,8 +35,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "First name, surname, and jumper number are required" }, { status: 400 });
   }
 
+  const clubId = (session.user as Record<string, unknown>)?.clubId as string;
+
   const player = await prisma.player.create({
     data: {
+      clubId,
       jumperNumber: parseInt(jumperNumber),
       firstName,
       surname,

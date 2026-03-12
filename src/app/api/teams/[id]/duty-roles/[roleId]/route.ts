@@ -32,6 +32,8 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string; 
   const body = await req.json();
   const { roleName, roleType, assignedUserId, frequencyWeeks, specialistUserIds } = body;
 
+  const clubId = (session.user as Record<string, unknown>)?.clubId as string;
+
   try {
     // Update global role name if changed
     if (roleName) {
@@ -40,10 +42,12 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string; 
         include: { dutyRole: true },
       });
       if (existing && existing.dutyRole.roleName !== roleName) {
-        // Find or create the new global role
-        let dutyRole = await prisma.dutyRole.findUnique({ where: { roleName } });
+        // Find or create the new global role scoped to club
+        let dutyRole = await prisma.dutyRole.findUnique({
+          where: { clubId_roleName: { clubId, roleName } },
+        });
         if (!dutyRole) {
-          dutyRole = await prisma.dutyRole.create({ data: { roleName } });
+          dutyRole = await prisma.dutyRole.create({ data: { roleName, clubId } });
         }
         await prisma.teamDutyRole.update({
           where: { id: params.roleId },

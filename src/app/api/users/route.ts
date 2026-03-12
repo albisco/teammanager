@@ -9,10 +9,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  const clubId = (session.user as Record<string, unknown>)?.clubId as string;
   const role = req.nextUrl.searchParams.get("role");
 
   const users = await prisma.user.findMany({
-    where: role ? { role: role as "ADMIN" | "FAMILY" } : undefined,
+    where: {
+      clubId,
+      ...(role ? { role: role as "ADMIN" | "FAMILY" } : {}),
+    },
     select: { id: true, name: true, email: true, role: true },
     orderBy: { name: "asc" },
   });

@@ -8,6 +8,18 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Club {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+
+  users     User[]
+  seasons   Season[]
+  players   Player[]
+  dutyRoles DutyRole[]
+}
+
 enum Role {
   ADMIN
   FAMILY
@@ -36,6 +48,8 @@ model User {
   passwordHash String
   role         Role     @default(FAMILY)
   name         String
+  clubId       String
+  club         Club     @relation(fields: [clubId], references: [id])
   createdAt    DateTime @default(now())
 
   players              Player[]
@@ -61,15 +75,19 @@ model Player {
   spare2       String?
   familyId     String?
   family       User?    @relation(fields: [familyId], references: [id])
+  clubId       String
+  club         Club     @relation(fields: [clubId], references: [id])
 
   teamPlayers      TeamPlayer[]
   unavailabilities PlayerUnavailability[]
 }
 
 model Season {
-  id    String @id @default(cuid())
-  name  String
-  year  Int
+  id     String @id @default(cuid())
+  name   String
+  year   Int
+  clubId String
+  club   Club   @relation(fields: [clubId], references: [id])
 
   teams Team[]
 }
@@ -142,9 +160,13 @@ model Vote {
 
 model DutyRole {
   id       String @id @default(cuid())
-  roleName String @unique
+  roleName String
+  clubId   String
+  club     Club   @relation(fields: [clubId], references: [id])
 
   teamDutyRoles TeamDutyRole[]
+
+  @@unique([clubId, roleName])
 }
 
 model TeamDutyRole {
