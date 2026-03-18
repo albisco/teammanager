@@ -66,6 +66,7 @@ interface RosterData {
   roles: RosterRole[];
   assignments: Record<string, { familyId: string; familyName: string }>;
   families: RosterFamily[];
+  dutyCounts: Record<string, Record<string, number>>;
 }
 
 const ROLE_TYPE_LABELS: Record<string, string> = {
@@ -568,6 +569,50 @@ export default function ManagerRosterPage() {
             </Table>
           </div>
           <p className="text-xs text-gray-400 mt-2">Click a cell to reassign. Fixed roles cannot be changed.</p>
+        </div>
+      )}
+
+      {/* Duty Counts Summary */}
+      {hasAssignments && rosterData && rosterData.families.length > 0 && (
+        <div className="mb-6">
+          <h2 className="text-xl font-semibold mb-4">Duty Tally</h2>
+          <div className="bg-white rounded-lg border overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="sticky left-0 bg-white z-10 min-w-[150px]">Family</TableHead>
+                  {rosterData.roles.filter((r) => r.roleType !== "FIXED").map((role) => (
+                    <TableHead key={role.id} className="text-center min-w-[100px] text-xs">
+                      {role.roleName}
+                    </TableHead>
+                  ))}
+                  <TableHead className="text-center min-w-[70px] font-semibold">Total</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rosterData.families.map((family) => {
+                  const counts = rosterData.dutyCounts[family.id] || {};
+                  const rotatingRoles = rosterData.roles.filter((r) => r.roleType !== "FIXED");
+                  const total = Object.values(counts).reduce((sum, n) => sum + n, 0);
+                  return (
+                    <TableRow key={family.id}>
+                      <TableCell className="sticky left-0 bg-white z-10 font-medium">{family.name}</TableCell>
+                      {rotatingRoles.map((role) => (
+                        <TableCell key={role.id} className="text-center text-sm">
+                          {counts[role.id] ? (
+                            <span className="font-medium">{counts[role.id]}</span>
+                          ) : (
+                            <span className="text-gray-300">—</span>
+                          )}
+                        </TableCell>
+                      ))}
+                      <TableCell className="text-center font-semibold">{total || <span className="text-gray-300">0</span>}</TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       )}
 
