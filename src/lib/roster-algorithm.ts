@@ -7,6 +7,7 @@ interface RosterInput {
     roleType: "FIXED" | "SPECIALIST" | "ROTATING" | "FREQUENCY";
     assignedUserId?: string | null;
     frequencyWeeks: number;
+    slots: number;
     specialistFamilyIds: string[];
   }[];
   exclusions: { familyId: string; teamDutyRoleId: string }[];
@@ -17,6 +18,7 @@ interface RosterOutput {
   roundId: string;
   teamDutyRoleId: string;
   assignedFamilyId: string;
+  slot: number;
 }
 
 export function generateRoster(input: RosterInput): RosterOutput[] {
@@ -50,13 +52,14 @@ export function generateRoster(input: RosterInput): RosterOutput[] {
     const roundIndex = activeRounds.indexOf(round);
 
     for (const role of teamDutyRoles) {
-      // FIXED: same person every round
+      // FIXED: same person every round (slots ignored — one person)
       if (role.roleType === "FIXED") {
         if (role.assignedUserId) {
           assignments.push({
             roundId: round.id,
             teamDutyRoleId: role.id,
             assignedFamilyId: role.assignedUserId,
+            slot: 0,
           });
         }
         continue;
@@ -67,41 +70,45 @@ export function generateRoster(input: RosterInput): RosterOutput[] {
         if (roundIndex % role.frequencyWeeks !== 0) continue;
       }
 
-      // Determine eligible families
+      // Determine eligible pool
       const eligiblePool = role.roleType === "SPECIALIST"
         ? families.filter((f) => role.specialistFamilyIds.includes(f.id))
         : families;
 
-      const eligible = eligiblePool.filter((f) => {
-        if (exclusionSet.has(`${f.id}:${role.id}`)) return false;
-        if (unavailabilitySet.has(`${f.id}:${round.id}`)) return false;
-        // Don't assign same family to multiple roles in one round
-        const alreadyAssigned = assignments.some(
-          (a) => a.roundId === round.id && a.assignedFamilyId === f.id
-        );
-        if (alreadyAssigned) return false;
-        return true;
-      });
+      // Fill each slot, picking a different family each time
+      const assignedThisRole = new Set<string>();
 
-      if (eligible.length === 0) continue;
+      for (let slot = 0; slot < (role.slots ?? 1); slot++) {
+        const eligible = eligiblePool.filter((f) => {
+          if (exclusionSet.has(`${f.id}:${role.id}`)) return false;
+          if (unavailabilitySet.has(`${f.id}:${round.id}`)) return false;
+          // Don't assign to multiple slots of this role in one round
+          if (assignedThisRole.has(f.id)) return false;
+          // Don't assign to multiple different roles in one round
+          if (assignments.some((a) => a.roundId === round.id && a.assignedFamilyId === f.id)) return false;
+          return true;
+        });
 
-      // Sort: fewest total assignments, then fewest for this role
-      eligible.sort((a, b) => {
-        const totalDiff = totalAssignments[a.id] - totalAssignments[b.id];
-        if (totalDiff !== 0) return totalDiff;
-        return (
-          roleAssignments[a.id][role.id] - roleAssignments[b.id][role.id]
-        );
-      });
+        if (eligible.length === 0) continue;
 
-      const chosen = eligible[0];
-      assignments.push({
-        roundId: round.id,
-        teamDutyRoleId: role.id,
-        assignedFamilyId: chosen.id,
-      });
-      totalAssignments[chosen.id]++;
-      roleAssignments[chosen.id][role.id]++;
+        // Sort: fewest total assignments, then fewest for this role
+        eligible.sort((a, b) => {
+          const totalDiff = totalAssignments[a.id] - totalAssignments[b.id];
+          if (totalDiff !== 0) return totalDiff;
+          return roleAssignments[a.id][role.id] - roleAssignments[b.id][role.id];
+        });
+
+        const chosen = eligible[0];
+        assignments.push({
+          roundId: round.id,
+          teamDutyRoleId: role.id,
+          assignedFamilyId: chosen.id,
+          slot,
+        });
+        assignedThisRole.add(chosen.id);
+        totalAssignments[chosen.id]++;
+        roleAssignments[chosen.id][role.id]++;
+      }
     }
   }
 

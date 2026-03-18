@@ -38,6 +38,7 @@ interface TeamRoleConfig {
   roleType: "FIXED" | "SPECIALIST" | "ROTATING" | "FREQUENCY";
   assignedUser: { id: string; name: string } | null;
   frequencyWeeks: number;
+  slots: number;
   specialists: Specialist[];
   configured: boolean;
 }
@@ -54,6 +55,7 @@ interface RosterRole {
   id: string;
   roleName: string;
   roleType: string;
+  slots: number;
 }
 
 interface RosterFamily {
@@ -64,7 +66,7 @@ interface RosterFamily {
 interface RosterData {
   rounds: RosterRound[];
   roles: RosterRole[];
-  assignments: Record<string, { familyId: string; familyName: string }>;
+  assignments: Record<string, Array<{ familyId: string; familyName: string; slot: number }>>;
   families: RosterFamily[];
   dutyCounts: Record<string, Record<string, number>>;
 }
@@ -111,12 +113,13 @@ export default function ManagerRosterPage() {
     roleType: "ROTATING" as TeamRoleConfig["roleType"],
     assignedUserId: "",
     frequencyWeeks: "1",
+    slots: "1",
     specialistUserIds: [] as string[],
   });
 
   // Override dialog
   const [overrideDialogOpen, setOverrideDialogOpen] = useState(false);
-  const [overrideCell, setOverrideCell] = useState<{ roundId: string; roleId: string; roleName: string; roundNumber: number } | null>(null);
+  const [overrideCell, setOverrideCell] = useState<{ roundId: string; roleId: string; roleName: string; roundNumber: number; slot: number } | null>(null);
   const [overrideFamilyId, setOverrideFamilyId] = useState("");
 
   // Single fetch for all page data
@@ -211,6 +214,7 @@ export default function ManagerRosterPage() {
       roleType: role.roleType,
       assignedUserId: role.assignedUser?.id || "",
       frequencyWeeks: String(role.frequencyWeeks),
+      slots: String(role.slots ?? 1),
       specialistUserIds: role.specialists.map((s) => s.user.id),
     });
     setConfigDialogOpen(true);
@@ -228,6 +232,7 @@ export default function ManagerRosterPage() {
         roleType: configForm.roleType,
         assignedUserId: configForm.roleType === "FIXED" ? configForm.assignedUserId : null,
         frequencyWeeks: configForm.roleType === "FREQUENCY" ? configForm.frequencyWeeks : "1",
+        slots: configForm.slots,
         specialistUserIds: configForm.roleType === "SPECIALIST" ? configForm.specialistUserIds : [],
       }),
     });
@@ -254,15 +259,16 @@ export default function ManagerRosterPage() {
 
   function roleDetail(role: TeamRoleConfig): string {
     if (!role.configured) return "Not configured";
+    const slotSuffix = (role.slots ?? 1) > 1 ? ` × ${role.slots}` : "";
     switch (role.roleType) {
       case "FIXED":
         return role.assignedUser?.name || "Unassigned";
       case "SPECIALIST":
-        return role.specialists.map((s) => s.user.name).join(", ") || "No specialists";
+        return (role.specialists.map((s) => s.user.name).join(", ") || "No specialists") + slotSuffix;
       case "FREQUENCY":
-        return `Every ${role.frequencyWeeks} week${role.frequencyWeeks !== 1 ? "s" : ""}`;
+        return `Every ${role.frequencyWeeks} week${role.frequencyWeeks !== 1 ? "s" : ""}${slotSuffix}`;
       case "ROTATING":
-        return "All families";
+        return "All families" + slotSuffix;
     }
   }
 
@@ -307,10 +313,10 @@ export default function ManagerRosterPage() {
   }
 
   // === Manual Override ===
-  function openOverrideDialog(roundId: string, roleId: string, roleName: string, roundNumber: number) {
-    const current = rosterData?.assignments[`${roundId}:${roleId}`];
-    setOverrideCell({ roundId, roleId, roleName, roundNumber });
-    setOverrideFamilyId(current?.familyId || "");
+  function openOverrideDialog(roundId: string, roleId: string, roleName: string, roundNumber: number, slot: number) {
+    const slotData = rosterData?.assignments[`${roundId}:${roleId}`]?.find((a) => a.slot === slot);
+    setOverrideCell({ roundId, roleId, roleName, roundNumber, slot });
+    setOverrideFamilyId(slotData?.familyId || "");
     setOverrideDialogOpen(true);
   }
 
@@ -325,6 +331,7 @@ export default function ManagerRosterPage() {
         roundId: overrideCell.roundId,
         teamDutyRoleId: overrideCell.roleId,
         assignedFamilyId: overrideFamilyId || null,
+        slot: overrideCell.slot,
       }),
     });
 
@@ -531,25 +538,25 @@ export default function ManagerRosterPage() {
                       </div>
                     </TableCell>
                     {activeRounds.map((round) => {
-                      const assignment = rosterData.assignments[`${round.id}:${role.id}`];
+                      const slotAssignments = rosterData.assignments[`${round.id}:${role.id}`] || [];
                       const isFixed = role.roleType === "FIXED";
+                      const totalSlots = role.slots ?? 1;
                       return (
-                        <TableCell
-                          key={round.id}
-                          className={`text-center text-sm ${
-                            isFixed
-                              ? "bg-gray-50 text-gray-500"
-                              : "cursor-pointer hover:bg-blue-50"
-                          }`}
-                          onClick={() => {
-                            if (!isFixed) openOverrideDialog(round.id, role.id, role.roleName, round.roundNumber);
-                          }}
-                        >
-                          {assignment ? (
-                            assignment.familyName
-                          ) : (
-                            <span className="text-gray-300">—</span>
-                          )}
+                        <TableCell key={round.id} className={`text-center text-sm align-top py-2 ${isFixed ? "bg-gray-50 text-gray-500" : ""}`}>
+                          <div className="flex flex-col gap-0.5">
+                            {Array.from({ length: totalSlots }).map((_, slot) => {
+                              const a = slotAssignments.find((x) => x.slot === slot);
+                              return (
+                                <div
+                                  key={slot}
+                                  className={isFixed ? "" : "cursor-pointer hover:bg-blue-50 rounded px-1"}
+                                  onClick={() => { if (!isFixed) openOverrideDialog(round.id, role.id, role.roleName, round.roundNumber, slot); }}
+                                >
+                                  {a ? a.familyName : <span className="text-gray-300">—</span>}
+                                </div>
+                              );
+                            })}
+                          </div>
                         </TableCell>
                       );
                     })}
@@ -649,6 +656,7 @@ export default function ManagerRosterPage() {
                   assignedUserId: "",
                   specialistUserIds: [],
                   frequencyWeeks: "1",
+                  slots: "1",
                 })}
               >
                 <option value="ROTATING">Rotating — any family each round</option>
@@ -657,6 +665,20 @@ export default function ManagerRosterPage() {
                 <option value="FREQUENCY">Frequency — rotating, every N weeks</option>
               </select>
             </div>
+
+            {configForm.roleType !== "FIXED" && (
+              <div className="space-y-2">
+                <Label>People required per round</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  max="10"
+                  value={configForm.slots}
+                  onChange={(e) => setConfigForm({ ...configForm, slots: e.target.value })}
+                />
+                <p className="text-xs text-gray-500">How many families are needed for this duty each round</p>
+              </div>
+            )}
 
             {configForm.roleType === "FIXED" && (
               <div className="space-y-2">
@@ -731,7 +753,7 @@ export default function ManagerRosterPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {overrideCell?.roleName} — Round {overrideCell?.roundNumber}
+              {overrideCell?.roleName}{overrideCell && overrideCell.slot > 0 ? ` (slot ${overrideCell.slot + 1})` : ""} — Round {overrideCell?.roundNumber}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">

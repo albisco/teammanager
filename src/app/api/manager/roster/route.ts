@@ -71,16 +71,18 @@ export async function GET() {
   const families = Array.from(familyMap.values()).sort((a, b) => a.name.localeCompare(b.name));
 
   // Build assignment map and duty counts
-  const assignmentMap: Record<string, { familyId: string; familyName: string }> = {};
+  const assignmentMap: Record<string, Array<{ familyId: string; familyName: string; slot: number }>> = {};
   const dutyCounts: Record<string, Record<string, number>> = {};
   for (const a of assignments) {
-    assignmentMap[`${a.roundId}:${a.teamDutyRoleId}`] = {
-      familyId: a.assignedFamily.id,
-      familyName: a.assignedFamily.name,
-    };
+    const key = `${a.roundId}:${a.teamDutyRoleId}`;
+    if (!assignmentMap[key]) assignmentMap[key] = [];
+    assignmentMap[key].push({ familyId: a.assignedFamily.id, familyName: a.assignedFamily.name, slot: a.slot });
     const fId = a.assignedFamily.id;
     if (!dutyCounts[fId]) dutyCounts[fId] = {};
     dutyCounts[fId][a.teamDutyRoleId] = (dutyCounts[fId][a.teamDutyRoleId] || 0) + 1;
+  }
+  for (const key of Object.keys(assignmentMap)) {
+    assignmentMap[key].sort((a, b) => a.slot - b.slot);
   }
 
   // Merge global roles with team config
@@ -94,6 +96,7 @@ export async function GET() {
       roleType: config?.roleType || "ROTATING",
       assignedUser: config?.assignedUser || null,
       frequencyWeeks: config?.frequencyWeeks || 1,
+      slots: config?.slots || 1,
       specialists: config?.specialists || [],
       configured: !!config,
     };
@@ -109,6 +112,7 @@ export async function GET() {
         id: r.id,
         roleName: r.dutyRole.roleName,
         roleType: r.roleType,
+        slots: r.slots,
       })),
       assignments: assignmentMap,
       families,

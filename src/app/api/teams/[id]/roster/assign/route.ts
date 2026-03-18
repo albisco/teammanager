@@ -18,24 +18,24 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     }
   }
 
-  const { roundId, teamDutyRoleId, assignedFamilyId } = await req.json();
+  const { roundId, teamDutyRoleId, assignedFamilyId, slot = 0 } = await req.json();
 
   if (!roundId || !teamDutyRoleId) {
     return NextResponse.json({ error: "roundId and teamDutyRoleId are required" }, { status: 400 });
   }
 
-  // Clear assignment
+  // Clear a specific slot
   if (!assignedFamilyId) {
     await prisma.rosterAssignment.deleteMany({
-      where: { roundId, teamDutyRoleId },
+      where: { roundId, teamDutyRoleId, slot },
     });
     return NextResponse.json({ success: true });
   }
 
-  // Upsert assignment
+  // Upsert assignment for this slot
   const assignment = await prisma.rosterAssignment.upsert({
-    where: { roundId_teamDutyRoleId: { roundId, teamDutyRoleId } },
-    create: { roundId, teamDutyRoleId, assignedFamilyId },
+    where: { roundId_teamDutyRoleId_slot: { roundId, teamDutyRoleId, slot } },
+    create: { roundId, teamDutyRoleId, assignedFamilyId, slot },
     update: { assignedFamilyId },
     include: { assignedFamily: { select: { id: true, name: true } } },
   });

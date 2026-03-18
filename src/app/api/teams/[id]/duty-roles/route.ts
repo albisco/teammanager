@@ -55,11 +55,13 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   }
 
   const body = await req.json();
-  const { dutyRoleId, roleType, assignedUserId, frequencyWeeks, specialistUserIds } = body;
+  const { dutyRoleId, roleType, assignedUserId, frequencyWeeks, slots, specialistUserIds } = body;
 
   if (!dutyRoleId || !roleType) {
     return NextResponse.json({ error: "Duty role ID and type are required" }, { status: 400 });
   }
+
+  const slotsValue = roleType === "FIXED" ? 1 : Math.max(1, parseInt(slots) || 1);
 
   try {
     // Upsert: create or update team config for this role
@@ -77,6 +79,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           roleType,
           assignedUserId: roleType === "FIXED" ? assignedUserId : null,
           frequencyWeeks: roleType === "FREQUENCY" ? (parseInt(frequencyWeeks) || 1) : 1,
+          slots: slotsValue,
           specialists: roleType === "SPECIALIST" && specialistUserIds?.length
             ? { create: specialistUserIds.map((userId: string) => ({ userId })) }
             : undefined,
@@ -96,6 +99,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           roleType,
           assignedUserId: roleType === "FIXED" ? assignedUserId : null,
           frequencyWeeks: roleType === "FREQUENCY" ? (parseInt(frequencyWeeks) || 1) : 1,
+          slots: slotsValue,
           specialists: roleType === "SPECIALIST" && specialistUserIds?.length
             ? { create: specialistUserIds.map((userId: string) => ({ userId })) }
             : undefined,
