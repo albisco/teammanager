@@ -103,7 +103,6 @@ export default function ManagerRosterPage() {
 
   // Club role dialog
   const [clubRoleDialogOpen, setClubRoleDialogOpen] = useState(false);
-  const [editingClubRole, setEditingClubRole] = useState<GlobalDutyRole | null>(null);
   const [clubRoleName, setClubRoleName] = useState("");
 
   // Team config dialog
@@ -157,32 +156,20 @@ export default function ManagerRosterPage() {
 
   // === Club Role CRUD ===
   function openAddClubRole() {
-    setEditingClubRole(null);
     setClubRoleName("");
-    setClubRoleDialogOpen(true);
-  }
-
-  function openEditClubRole(role: GlobalDutyRole) {
-    setEditingClubRole(role);
-    setClubRoleName(role.roleName);
     setClubRoleDialogOpen(true);
   }
 
   async function handleSaveClubRole() {
     setLoading(true);
-    const method = editingClubRole ? "PUT" : "POST";
-    const body = editingClubRole
-      ? { id: editingClubRole.id, roleName: clubRoleName }
-      : { roleName: clubRoleName };
-
     const res = await fetch("/api/duty-roles", {
-      method,
+      method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ roleName: clubRoleName }),
     });
 
     if (res.ok) {
-      toast.success(editingClubRole ? "Role renamed" : "Role created");
+      toast.success("Role created");
       setClubRoleDialogOpen(false);
       fetchGlobalRoles();
       fetchTeamRoles();
@@ -191,20 +178,6 @@ export default function ManagerRosterPage() {
       toast.error(data.error || "Failed to save");
     }
     setLoading(false);
-  }
-
-  async function handleDeleteClubRole(id: string) {
-    if (!confirm("Delete this role from the club? This will remove it from all teams.")) return;
-    const res = await fetch("/api/duty-roles", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
-    });
-    if (res.ok) {
-      toast.success("Role deleted");
-      fetchGlobalRoles();
-      fetchTeamRoles();
-    }
   }
 
   // === Team Config ===
@@ -368,19 +341,8 @@ export default function ManagerRosterPage() {
             <p className="text-gray-500">No roles defined yet. Add your first role above.</p>
           ) : (
             globalRoles.map((role) => (
-              <Badge
-                key={role.id}
-                variant="outline"
-                className="px-3 py-1.5 text-sm cursor-pointer hover:bg-gray-100 gap-2"
-                onClick={() => openEditClubRole(role)}
-              >
+              <Badge key={role.id} variant="outline" className="px-3 py-1.5 text-sm">
                 {role.roleName}
-                <button
-                  className="ml-1 text-gray-400 hover:text-red-500"
-                  onClick={(e) => { e.stopPropagation(); handleDeleteClubRole(role.id); }}
-                >
-                  &times;
-                </button>
               </Badge>
             ))
           )}
@@ -617,7 +579,7 @@ export default function ManagerRosterPage() {
       <Dialog open={clubRoleDialogOpen} onOpenChange={setClubRoleDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingClubRole ? "Edit Role" : "Add Role"}</DialogTitle>
+            <DialogTitle>Add Role</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
