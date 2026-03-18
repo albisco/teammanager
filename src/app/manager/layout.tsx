@@ -12,6 +12,7 @@ const navItems = [
   { href: "/manager/fixture", label: "Fixture" },
   { href: "/manager/voting", label: "Voting" },
   { href: "/manager/roster", label: "Roster" },
+  { href: "/manager/awards", label: "Awards" },
 ];
 
 export default function ManagerLayout({ children }: { children: React.ReactNode }) {

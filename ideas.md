@@ -5,7 +5,7 @@
 - ~~Currently slow to load~~ — fixed (single consolidated API request)
 - ~~Family allocation / duty tally~~ — built (shows per-family counts on roster page)
 - ~~Multi-slot roles~~ — built (e.g. B&F Voting needs 3 people, Timekeeper × 2)
-- Draggable swap interface — drag a family from one round to another to swap duties
+- ~~Draggable swap interface~~ — built (drag name to another round in same role row to swap)
 
 
 ### Team awards
@@ -44,7 +44,6 @@
 
 
 ## What's NOT Built Yet
-- Draggable roster swap UI
 - Family portal (availability management, view duties)
 - Family exclusions UI (model exists, no UI)
 - Admin dashboard with live counts
