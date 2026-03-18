@@ -121,6 +121,10 @@ export default function ManagerRosterPage() {
   const [overrideCell, setOverrideCell] = useState<{ roundId: string; roleId: string; roleName: string; roundNumber: number; slot: number } | null>(null);
   const [overrideFamilyId, setOverrideFamilyId] = useState("");
 
+  // Drag-and-drop state
+  const [dragSource, setDragSource] = useState<{ roundId: string; roleId: string; slot: number; familyId: string } | null>(null);
+  const [dragOverKey, setDragOverKey] = useState<string | null>(null);
+
   // Single fetch for all page data
   const fetchAll = useCallback(async () => {
     const res = await fetch("/api/manager/roster");
@@ -318,6 +322,34 @@ export default function ManagerRosterPage() {
     setLoading(false);
   }
 
+  // === Drag-and-drop swap ===
+  async function handleDrop(targetRoundId: string, targetRoleId: string, targetSlot: number, targetFamilyId: string | null) {
+    if (!dragSource || !teamId) return;
+    if (dragSource.roundId === targetRoundId && dragSource.slot === targetSlot) return;
+
+    setDragSource(null);
+    setDragOverKey(null);
+
+    const assign = (roundId: string, slot: number, familyId: string | null) =>
+      fetch(`/api/teams/${teamId}/roster/assign`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ roundId, teamDutyRoleId: targetRoleId, assignedFamilyId: familyId, slot }),
+      });
+
+    const [r1, r2] = await Promise.all([
+      assign(dragSource.roundId, dragSource.slot, targetFamilyId),
+      assign(targetRoundId, targetSlot, dragSource.familyId),
+    ]);
+
+    if (r1.ok && r2.ok) {
+      toast.success("Assignments swapped");
+      fetchRosterData();
+    } else {
+      toast.error("Swap failed");
+    }
+  }
+
   const activeRounds = rosterData?.rounds.filter((r) => !r.isBye) || [];
   const hasAssignments = rosterData && Object.keys(rosterData.assignments).length > 0;
 
@@ -508,11 +540,25 @@ export default function ManagerRosterPage() {
                           <div className="flex flex-col gap-0.5">
                             {Array.from({ length: totalSlots }).map((_, slot) => {
                               const a = slotAssignments.find((x) => x.slot === slot);
+                              const dropKey = `${round.id}:${role.id}:${slot}`;
+                              const isDropTarget = dragOverKey === dropKey && dragSource?.roleId === role.id;
+                              const isDragging = dragSource?.roundId === round.id && dragSource?.roleId === role.id && dragSource?.slot === slot;
                               return (
                                 <div
                                   key={slot}
-                                  className={isFixed ? "" : "cursor-pointer hover:bg-blue-50 rounded px-1"}
-                                  onClick={() => { if (!isFixed) openOverrideDialog(round.id, role.id, role.roleName, round.roundNumber, slot); }}
+                                  draggable={!isFixed && !!a}
+                                  className={[
+                                    "rounded px-1 select-none",
+                                    isFixed ? "" : "cursor-pointer hover:bg-blue-50",
+                                    isDropTarget ? "ring-2 ring-blue-400 bg-blue-100" : "",
+                                    isDragging ? "opacity-40" : "",
+                                  ].join(" ")}
+                                  onDragStart={() => a && setDragSource({ roundId: round.id, roleId: role.id, slot, familyId: a.familyId })}
+                                  onDragEnd={() => { setDragSource(null); setDragOverKey(null); }}
+                                  onDragOver={(e) => { if (!isFixed && dragSource?.roleId === role.id) { e.preventDefault(); setDragOverKey(dropKey); } }}
+                                  onDragLeave={() => setDragOverKey(null)}
+                                  onDrop={() => handleDrop(round.id, role.id, slot, a?.familyId ?? null)}
+                                  onClick={() => { if (!isFixed && !dragSource) openOverrideDialog(round.id, role.id, role.roleName, round.roundNumber, slot); }}
                                 >
                                   {a ? a.familyName : <span className="text-gray-300">—</span>}
                                 </div>
@@ -527,7 +573,7 @@ export default function ManagerRosterPage() {
               </TableBody>
             </Table>
           </div>
-          <p className="text-xs text-gray-400 mt-2">Click a cell to reassign. Fixed roles cannot be changed.</p>
+          <p className="text-xs text-gray-400 mt-2">Click a cell to reassign. Drag a name to swap with another round. Fixed roles cannot be changed.</p>
         </div>
       )}
 
