@@ -6,8 +6,13 @@ import { generateRoster } from "@/lib/roster-algorithm";
 
 export async function POST(_req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
-  if (session?.user?.role !== "ADMIN" && session?.user?.role !== "SUPER_ADMIN") {
+  const role = session?.user?.role;
+  if (role !== "ADMIN" && role !== "SUPER_ADMIN" && role !== "TEAM_MANAGER") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  if (role === "TEAM_MANAGER") {
+    const teamId = (session!.user as Record<string, unknown>)?.teamId as string;
+    if (params.id !== teamId) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const teamId = params.id;
