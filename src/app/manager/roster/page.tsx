@@ -90,6 +90,7 @@ export default function ManagerRosterPage() {
   const [teamRoles, setTeamRoles] = useState<TeamRoleConfig[]>([]);
   const [globalRoles, setGlobalRoles] = useState<GlobalDutyRole[]>([]);
   const [users, setUsers] = useState<UserInfo[]>([]);
+  const [pageLoading, setPageLoading] = useState(true);
   const [loading, setLoading] = useState(false);
 
   // Roster grid data
@@ -118,11 +119,20 @@ export default function ManagerRosterPage() {
   const [overrideCell, setOverrideCell] = useState<{ roundId: string; roleId: string; roleName: string; roundNumber: number } | null>(null);
   const [overrideFamilyId, setOverrideFamilyId] = useState("");
 
-  const fetchUsers = useCallback(async () => {
-    const res = await fetch("/api/users");
-    if (res.ok) setUsers(await res.json());
+  // Single fetch for all page data
+  const fetchAll = useCallback(async () => {
+    const res = await fetch("/api/manager/roster");
+    if (!res.ok) return;
+    const data = await res.json();
+    setUsers(data.users);
+    setGlobalRoles(data.globalRoles);
+    setTeamRoles(data.teamRoles);
+    setRosterData(data.roster);
+    setUnavailabilities(new Set(data.unavailabilities.map((u: { familyId: string; roundId: string }) => `${u.familyId}:${u.roundId}`)));
+    setPageLoading(false);
   }, []);
 
+  // Lightweight refreshes after mutations (skip users which rarely change)
   const fetchGlobalRoles = useCallback(async () => {
     const res = await fetch("/api/duty-roles");
     if (res.ok) setGlobalRoles(await res.json());
@@ -140,27 +150,7 @@ export default function ManagerRosterPage() {
     if (res.ok) setRosterData(await res.json());
   }, [teamId]);
 
-  const fetchUnavailabilities = useCallback(async () => {
-    if (!teamId) return;
-    const res = await fetch(`/api/teams/${teamId}/unavailability`);
-    if (res.ok) {
-      const records: { familyId: string; roundId: string }[] = await res.json();
-      setUnavailabilities(new Set(records.map((r) => `${r.familyId}:${r.roundId}`)));
-    }
-  }, [teamId]);
-
-  useEffect(() => {
-    fetchUsers();
-    fetchGlobalRoles();
-  }, [fetchUsers, fetchGlobalRoles]);
-
-  useEffect(() => {
-    if (teamId) {
-      fetchTeamRoles();
-      fetchRosterData();
-      fetchUnavailabilities();
-    }
-  }, [teamId, fetchTeamRoles, fetchRosterData, fetchUnavailabilities]);
+  useEffect(() => { fetchAll(); }, [fetchAll]);
 
   // === Club Role CRUD ===
   function openAddClubRole() {
@@ -351,7 +341,7 @@ export default function ManagerRosterPage() {
   const activeRounds = rosterData?.rounds.filter((r) => !r.isBye) || [];
   const hasAssignments = rosterData && Object.keys(rosterData.assignments).length > 0;
 
-  if (!teamId) return <p className="text-gray-500">Loading...</p>;
+  if (pageLoading) return <p className="text-gray-500">Loading...</p>;
 
   return (
     <div>
