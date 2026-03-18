@@ -1,12 +1,38 @@
 # Things to consider
 
 ### Team only specific dashboard.
+- We introduce  the team manager of the Griffens view. A specific ID. 
 - So a Griffens U10 only view of the world.
-- Perhaps this is the team manager of the Griffens view
+-- Players for their team
+-- Fixture for their team
+-- Voting and roster for their team
+- User Id linked to the manager role. That manager had access to a team only view. Not a family user.
+- Game day checklist (future) 
+- Voting at a club level. The team then follow the pattern for voting, they don't get a choice
+- Team season page. 
+-- Link to the ground 
+
+
+### Duty Roster Page
+-- Currently slow to load
+-- Family allocation of roles for the season. 
+    -- How many times have the "Savio's done duty" 
+-- Do we want a "trello style" dragable interface (nice to have)
+
+
+
+### Team awards 
+- Add team awards functionality at a team level
+
 
 ### Parent-Team only view. 
 -- What do we show families associated with the Team
 -- Do they get access to a family portal where they can show upcoming roster for the team and what they are allocated
+
+## Players/Families 
+-- We may link 1 family member to more than 2 family members
+-- LATER: Populate with more details
+
 ### Do we link up with a team whatsapp chat ? 
 -- Have a link or snippet of the upcoming roster for the week ?
 -- How would a parent say they are unavailble. In the app or managed by the team manager manually changing ? 

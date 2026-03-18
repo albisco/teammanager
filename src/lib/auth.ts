@@ -43,7 +43,17 @@ export const authOptions: NextAuthOptions = {
         const u = user as unknown as Record<string, unknown>;
         token.role = u.role as string;
         token.id = user.id;
-        token.clubId = u.clubId as string;
+        token.clubId = (u.clubId as string) ?? null;
+        token.teamId = null;
+
+        if (u.role === "TEAM_MANAGER") {
+          const { prisma } = await import("./prisma");
+          const team = await prisma.team.findFirst({
+            where: { managerId: user.id },
+            select: { id: true },
+          });
+          token.teamId = team?.id ?? null;
+        }
       }
       return token;
     },
@@ -53,6 +63,7 @@ export const authOptions: NextAuthOptions = {
         s.role = token.role;
         s.id = token.id;
         s.clubId = token.clubId;
+        s.teamId = token.teamId ?? null;
       }
       return session;
     },

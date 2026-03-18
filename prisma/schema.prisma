@@ -23,6 +23,7 @@ model Club {
 enum Role {
   SUPER_ADMIN
   ADMIN
+  TEAM_MANAGER
   FAMILY
 }
 
