@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
@@ -13,19 +13,6 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-
-interface TeamSummary {
-  id: string;
-  name: string;
-  ageGroup: string;
-}
-
-interface Season {
-  id: string;
-  name: string;
-  year: number;
-  teams: TeamSummary[];
-}
 
 interface UserInfo {
   id: string;
@@ -98,12 +85,14 @@ const ROLE_TYPE_VARIANTS: Record<string, "default" | "secondary" | "outline"> = 
   FREQUENCY: "secondary",
 };
 
-export default function RosterPage() {
-  const [seasons, setSeasons] = useState<Season[]>([]);
-  const [selectedTeam, setSelectedTeam] = useState<TeamSummary | null>(null);
+export default function ManagerRosterPage() {
+  const { data: session } = useSession();
+  const teamId = (session?.user as Record<string, unknown>)?.teamId as string | null;
+
   const [teamRoles, setTeamRoles] = useState<TeamRoleConfig[]>([]);
   const [globalRoles, setGlobalRoles] = useState<GlobalDutyRole[]>([]);
   const [users, setUsers] = useState<UserInfo[]>([]);
+  const [pageLoading, setPageLoading] = useState(true);
   const [loading, setLoading] = useState(false);
 
   // Roster grid data
@@ -114,7 +103,6 @@ export default function RosterPage() {
 
   // Club role dialog
   const [clubRoleDialogOpen, setClubRoleDialogOpen] = useState(false);
-  const [editingClubRole, setEditingClubRole] = useState<GlobalDutyRole | null>(null);
   const [clubRoleName, setClubRoleName] = useState("");
 
   // Team config dialog
@@ -133,99 +121,67 @@ export default function RosterPage() {
   const [overrideCell, setOverrideCell] = useState<{ roundId: string; roleId: string; roleName: string; roundNumber: number; slot: number } | null>(null);
   const [overrideFamilyId, setOverrideFamilyId] = useState("");
 
-  const fetchSeasons = useCallback(async () => {
-    const res = await fetch("/api/season");
-    if (res.ok) setSeasons(await res.json());
+  // Drag-and-drop state
+  const [dragSource, setDragSource] = useState<{ roundId: string; roleId: string; slot: number; familyId: string } | null>(null);
+  const [dragOverKey, setDragOverKey] = useState<string | null>(null);
+
+  // Single fetch for all page data
+  const fetchAll = useCallback(async () => {
+    const res = await fetch("/api/manager/roster");
+    if (!res.ok) return;
+    const data = await res.json();
+    setUsers(data.users);
+    setGlobalRoles(data.globalRoles);
+    setTeamRoles(data.teamRoles);
+    setRosterData(data.roster);
+    setUnavailabilities(new Set(data.unavailabilities.map((u: { familyId: string; roundId: string }) => `${u.familyId}:${u.roundId}`)));
+    setPageLoading(false);
   }, []);
 
-  const fetchUsers = useCallback(async () => {
-    const res = await fetch("/api/users");
-    if (res.ok) setUsers(await res.json());
-  }, []);
-
+  // Lightweight refreshes after mutations (skip users which rarely change)
   const fetchGlobalRoles = useCallback(async () => {
     const res = await fetch("/api/duty-roles");
     if (res.ok) setGlobalRoles(await res.json());
   }, []);
 
-  const fetchTeamRoles = useCallback(async (teamId: string) => {
+  const fetchTeamRoles = useCallback(async () => {
+    if (!teamId) return;
     const res = await fetch(`/api/teams/${teamId}/duty-roles`);
     if (res.ok) setTeamRoles(await res.json());
-  }, []);
+  }, [teamId]);
 
-  const fetchRosterData = useCallback(async (teamId: string) => {
+  const fetchRosterData = useCallback(async () => {
+    if (!teamId) return;
     const res = await fetch(`/api/teams/${teamId}/roster`);
     if (res.ok) setRosterData(await res.json());
-  }, []);
+  }, [teamId]);
 
-  const fetchUnavailabilities = useCallback(async (teamId: string) => {
-    const res = await fetch(`/api/teams/${teamId}/unavailability`);
-    if (res.ok) {
-      const records: { familyId: string; roundId: string }[] = await res.json();
-      setUnavailabilities(new Set(records.map((r) => `${r.familyId}:${r.roundId}`)));
-    }
-  }, []);
-
-  useEffect(() => { fetchSeasons(); fetchUsers(); fetchGlobalRoles(); }, [fetchSeasons, fetchUsers, fetchGlobalRoles]);
-
-  useEffect(() => {
-    if (selectedTeam) {
-      fetchTeamRoles(selectedTeam.id);
-      fetchRosterData(selectedTeam.id);
-      fetchUnavailabilities(selectedTeam.id);
-    }
-  }, [selectedTeam, fetchTeamRoles, fetchRosterData, fetchUnavailabilities]);
+  useEffect(() => { fetchAll(); }, [fetchAll]);
 
   // === Club Role CRUD ===
   function openAddClubRole() {
-    setEditingClubRole(null);
     setClubRoleName("");
-    setClubRoleDialogOpen(true);
-  }
-
-  function openEditClubRole(role: GlobalDutyRole) {
-    setEditingClubRole(role);
-    setClubRoleName(role.roleName);
     setClubRoleDialogOpen(true);
   }
 
   async function handleSaveClubRole() {
     setLoading(true);
-    const method = editingClubRole ? "PUT" : "POST";
-    const body = editingClubRole
-      ? { id: editingClubRole.id, roleName: clubRoleName }
-      : { roleName: clubRoleName };
-
     const res = await fetch("/api/duty-roles", {
-      method,
+      method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ roleName: clubRoleName }),
     });
 
     if (res.ok) {
-      toast.success(editingClubRole ? "Role renamed" : "Role created");
+      toast.success("Role created");
       setClubRoleDialogOpen(false);
       fetchGlobalRoles();
-      if (selectedTeam) fetchTeamRoles(selectedTeam.id);
+      fetchTeamRoles();
     } else {
       const data = await res.json();
       toast.error(data.error || "Failed to save");
     }
     setLoading(false);
-  }
-
-  async function handleDeleteClubRole(id: string) {
-    if (!confirm("Delete this role from the club? This will remove it from all teams.")) return;
-    const res = await fetch("/api/duty-roles", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
-    });
-    if (res.ok) {
-      toast.success("Role deleted");
-      fetchGlobalRoles();
-      if (selectedTeam) fetchTeamRoles(selectedTeam.id);
-    }
   }
 
   // === Team Config ===
@@ -242,10 +198,10 @@ export default function RosterPage() {
   }
 
   async function handleSaveConfig() {
-    if (!selectedTeam || !configRole) return;
+    if (!teamId || !configRole) return;
     setLoading(true);
 
-    const res = await fetch(`/api/teams/${selectedTeam.id}/duty-roles`, {
+    const res = await fetch(`/api/teams/${teamId}/duty-roles`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -261,7 +217,7 @@ export default function RosterPage() {
     if (res.ok) {
       toast.success("Role configured");
       setConfigDialogOpen(false);
-      fetchTeamRoles(selectedTeam.id);
+      fetchTeamRoles();
     } else {
       const data = await res.json();
       toast.error(data.error || "Failed to save");
@@ -295,15 +251,15 @@ export default function RosterPage() {
 
   // === Roster Generation ===
   async function handleGenerate() {
-    if (!selectedTeam) return;
+    if (!teamId) return;
     if (!confirm("This will overwrite any existing roster assignments for this team. Continue?")) return;
 
     setGenerating(true);
-    const res = await fetch(`/api/teams/${selectedTeam.id}/roster/generate`, { method: "POST" });
+    const res = await fetch(`/api/teams/${teamId}/roster/generate`, { method: "POST" });
     if (res.ok) {
       const data = await res.json();
       toast.success(`Roster generated — ${data.count} assignments created`);
-      fetchRosterData(selectedTeam.id);
+      fetchRosterData();
     } else {
       const data = await res.json();
       toast.error(data.error || "Failed to generate roster");
@@ -313,11 +269,11 @@ export default function RosterPage() {
 
   // === Unavailability Toggle ===
   async function toggleUnavailability(familyId: string, roundId: string) {
-    if (!selectedTeam) return;
+    if (!teamId) return;
     const key = `${familyId}:${roundId}`;
     const isUnavailable = unavailabilities.has(key);
 
-    const res = await fetch(`/api/teams/${selectedTeam.id}/unavailability`, {
+    const res = await fetch(`/api/teams/${teamId}/unavailability`, {
       method: isUnavailable ? "DELETE" : "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ familyId, roundId }),
@@ -342,10 +298,10 @@ export default function RosterPage() {
   }
 
   async function handleOverride() {
-    if (!overrideCell || !selectedTeam) return;
+    if (!overrideCell || !teamId) return;
     setLoading(true);
 
-    const res = await fetch(`/api/teams/${selectedTeam.id}/roster/assign`, {
+    const res = await fetch(`/api/teams/${teamId}/roster/assign`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -359,15 +315,45 @@ export default function RosterPage() {
     if (res.ok) {
       toast.success("Assignment updated");
       setOverrideDialogOpen(false);
-      fetchRosterData(selectedTeam.id);
+      fetchRosterData();
     } else {
       toast.error("Failed to update");
     }
     setLoading(false);
   }
 
+  // === Drag-and-drop swap ===
+  async function handleDrop(targetRoundId: string, targetRoleId: string, targetSlot: number, targetFamilyId: string | null) {
+    if (!dragSource || !teamId) return;
+    if (dragSource.roundId === targetRoundId && dragSource.slot === targetSlot) return;
+
+    setDragSource(null);
+    setDragOverKey(null);
+
+    const assign = (roundId: string, slot: number, familyId: string | null) =>
+      fetch(`/api/teams/${teamId}/roster/assign`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ roundId, teamDutyRoleId: targetRoleId, assignedFamilyId: familyId, slot }),
+      });
+
+    const [r1, r2] = await Promise.all([
+      assign(dragSource.roundId, dragSource.slot, targetFamilyId),
+      assign(targetRoundId, targetSlot, dragSource.familyId),
+    ]);
+
+    if (r1.ok && r2.ok) {
+      toast.success("Assignments swapped");
+      fetchRosterData();
+    } else {
+      toast.error("Swap failed");
+    }
+  }
+
   const activeRounds = rosterData?.rounds.filter((r) => !r.isBye) || [];
   const hasAssignments = rosterData && Object.keys(rosterData.assignments).length > 0;
+
+  if (pageLoading) return <p className="text-gray-500">Loading...</p>;
 
   return (
     <div>
@@ -376,297 +362,270 @@ export default function RosterPage() {
       {/* Club Roles Section */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-xl font-semibold">Club Duty Roles</h2>
+          <h2 className="text-xl font-semibold">Duty Roles</h2>
           <Button onClick={openAddClubRole}>Add Role</Button>
         </div>
         <p className="text-sm text-gray-500 mb-3">
-          These roles apply to all teams. Each team configures how they fill them.
+          Roles are shared across the club. Configure how your team fills each one below.
         </p>
         <div className="flex gap-2 flex-wrap">
           {globalRoles.length === 0 ? (
-            <p className="text-gray-500">No roles defined yet.</p>
+            <p className="text-gray-500">No roles defined yet. Add your first role above.</p>
           ) : (
             globalRoles.map((role) => (
-              <Badge
-                key={role.id}
-                variant="outline"
-                className="px-3 py-1.5 text-sm cursor-pointer hover:bg-gray-100 gap-2"
-                onClick={() => openEditClubRole(role)}
-              >
+              <Badge key={role.id} variant="outline" className="px-3 py-1.5 text-sm">
                 {role.roleName}
-                <button
-                  className="ml-1 text-gray-400 hover:text-red-500"
-                  onClick={(e) => { e.stopPropagation(); handleDeleteClubRole(role.id); }}
-                >
-                  &times;
-                </button>
               </Badge>
             ))
           )}
         </div>
       </div>
 
-      {/* Team selector */}
-      <div className="flex gap-3 mb-6 flex-wrap">
-        {seasons.map((season) =>
-          season.teams.map((team) => (
-            <Card
-              key={team.id}
-              className={`cursor-pointer transition-colors ${selectedTeam?.id === team.id ? "ring-2 ring-primary" : ""}`}
-              onClick={() => setSelectedTeam(team)}
-            >
-              <CardHeader className="p-4 pb-2">
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary">{team.ageGroup}</Badge>
-                  <CardTitle className="text-base">{team.name}</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent className="p-4 pt-0">
-                <p className="text-xs text-gray-400">{season.name}</p>
-              </CardContent>
-            </Card>
-          ))
-        )}
-      </div>
-
       {/* Team role configuration */}
-      {selectedTeam && (
+      {teamRoles.length > 0 && (
         <>
-          <h2 className="text-xl font-semibold mb-4">
-            {selectedTeam.ageGroup} {selectedTeam.name} — Role Configuration
-          </h2>
+          <h2 className="text-xl font-semibold mb-4">Role Configuration</h2>
+          <div className="bg-white rounded-lg border mb-6">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Role</TableHead>
+                  <TableHead className="w-28">Type</TableHead>
+                  <TableHead>Details</TableHead>
+                  <TableHead className="w-28">Status</TableHead>
+                  <TableHead className="w-24">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {teamRoles.map((role) => (
+                  <TableRow key={role.dutyRoleId}>
+                    <TableCell className="font-medium">{role.roleName}</TableCell>
+                    <TableCell>
+                      <Badge variant={ROLE_TYPE_VARIANTS[role.roleType]}>
+                        {ROLE_TYPE_LABELS[role.roleType]}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm text-gray-600">{roleDetail(role)}</TableCell>
+                    <TableCell>
+                      {role.configured ? (
+                        <Badge className="bg-green-600">Configured</Badge>
+                      ) : (
+                        <Badge variant="outline">Default</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Button variant="outline" size="sm" onClick={() => openConfigDialog(role)}>
+                        Configure
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </>
+      )}
 
-          {teamRoles.length === 0 ? (
-            <p className="text-gray-500 mb-6">No club roles defined. Add roles above first.</p>
-          ) : (
-            <div className="bg-white rounded-lg border mb-6">
+      {/* Unavailability Section */}
+      {rosterData && rosterData.families.length > 0 && activeRounds.length > 0 && (
+        <div className="mb-6">
+          <div className="flex items-center gap-3 mb-3">
+            <h2 className="text-xl font-semibold">Family Unavailability</h2>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowUnavailability(!showUnavailability)}
+            >
+              {showUnavailability ? "Hide" : "Show"}
+            </Button>
+          </div>
+
+          {showUnavailability && (
+            <div className="bg-white rounded-lg border overflow-x-auto mb-4">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Role</TableHead>
-                    <TableHead className="w-28">Type</TableHead>
-                    <TableHead>Details</TableHead>
-                    <TableHead className="w-28">Status</TableHead>
-                    <TableHead className="w-24">Actions</TableHead>
+                    <TableHead className="sticky left-0 bg-white z-10 min-w-[150px]">Family</TableHead>
+                    {activeRounds.map((r) => (
+                      <TableHead key={r.id} className="text-center min-w-[60px]">
+                        R{r.roundNumber}
+                      </TableHead>
+                    ))}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {teamRoles.map((role) => (
-                    <TableRow key={role.dutyRoleId}>
-                      <TableCell className="font-medium">{role.roleName}</TableCell>
-                      <TableCell>
-                        <Badge variant={ROLE_TYPE_VARIANTS[role.roleType]}>
-                          {ROLE_TYPE_LABELS[role.roleType]}
-                        </Badge>
+                  {rosterData.families.map((family) => (
+                    <TableRow key={family.id}>
+                      <TableCell className="sticky left-0 bg-white z-10 font-medium">
+                        {family.name}
                       </TableCell>
-                      <TableCell className="text-sm text-gray-600">{roleDetail(role)}</TableCell>
-                      <TableCell>
-                        {role.configured ? (
-                          <Badge className="bg-green-600">Configured</Badge>
-                        ) : (
-                          <Badge variant="outline">Default</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Button variant="outline" size="sm" onClick={() => openConfigDialog(role)}>
-                          Configure
-                        </Button>
-                      </TableCell>
+                      {activeRounds.map((round) => {
+                        const isUnavailable = unavailabilities.has(`${family.id}:${round.id}`);
+                        return (
+                          <TableCell key={round.id} className="text-center">
+                            <input
+                              type="checkbox"
+                              className="rounded border-gray-300 cursor-pointer"
+                              checked={isUnavailable}
+                              onChange={() => toggleUnavailability(family.id, round.id)}
+                              title={isUnavailable ? "Mark available" : "Mark unavailable"}
+                            />
+                          </TableCell>
+                        );
+                      })}
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
             </div>
           )}
+        </div>
+      )}
 
-          {/* Unavailability Section */}
-          {rosterData && rosterData.families.length > 0 && activeRounds.length > 0 && (
-            <div className="mb-6">
-              <div className="flex items-center gap-3 mb-3">
-                <h2 className="text-xl font-semibold">Family Unavailability</h2>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowUnavailability(!showUnavailability)}
-                >
-                  {showUnavailability ? "Hide" : "Show"}
-                </Button>
-              </div>
-
-              {showUnavailability && (
-                <div className="bg-white rounded-lg border overflow-x-auto mb-4">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="sticky left-0 bg-white z-10 min-w-[150px]">Family</TableHead>
-                        {activeRounds.map((r) => (
-                          <TableHead key={r.id} className="text-center min-w-[60px]">
-                            R{r.roundNumber}
-                          </TableHead>
-                        ))}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {rosterData.families.map((family) => (
-                        <TableRow key={family.id}>
-                          <TableCell className="sticky left-0 bg-white z-10 font-medium">
-                            {family.name}
-                          </TableCell>
-                          {activeRounds.map((round) => {
-                            const isUnavailable = unavailabilities.has(`${family.id}:${round.id}`);
-                            return (
-                              <TableCell key={round.id} className="text-center">
-                                <input
-                                  type="checkbox"
-                                  className="rounded border-gray-300 cursor-pointer"
-                                  checked={isUnavailable}
-                                  onChange={() => toggleUnavailability(family.id, round.id)}
-                                  title={isUnavailable ? "Available" : "Mark unavailable"}
-                                />
-                              </TableCell>
-                            );
-                          })}
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </div>
+      {/* Generate Button */}
+      {teamRoles.length > 0 && (
+        <div className="flex items-center gap-4 mb-6">
+          <Button onClick={handleGenerate} disabled={generating}>
+            {generating ? "Generating..." : hasAssignments ? "Regenerate Roster" : "Generate Roster"}
+          </Button>
+          {hasAssignments && (
+            <p className="text-sm text-gray-500">
+              {Object.keys(rosterData!.assignments).length} assignments across {activeRounds.length} rounds
+            </p>
           )}
-
-          {/* Generate Button */}
-          {teamRoles.length > 0 && (
-            <div className="flex items-center gap-4 mb-6">
-              <Button onClick={handleGenerate} disabled={generating}>
-                {generating ? "Generating..." : hasAssignments ? "Regenerate Roster" : "Generate Roster"}
-              </Button>
-              {hasAssignments && (
-                <p className="text-sm text-gray-500">
-                  {Object.keys(rosterData!.assignments).length} assignments across {activeRounds.length} rounds
-                </p>
-              )}
-              {rosterData && rosterData.families.length === 0 && (
-                <p className="text-sm text-amber-600">
-                  No families linked. Players must have a linked family user to be rostered.
-                </p>
-              )}
-            </div>
+          {rosterData && rosterData.families.length === 0 && (
+            <p className="text-sm text-amber-600">
+              No families linked. Players must have a linked family user to be rostered.
+            </p>
           )}
+        </div>
+      )}
 
-          {/* Roster Grid */}
-          {hasAssignments && rosterData && rosterData.roles.length > 0 && (
-            <div className="mb-6">
-              <h2 className="text-xl font-semibold mb-4">Roster</h2>
-              <div className="bg-white rounded-lg border overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="sticky left-0 bg-white z-10 min-w-[150px]">Role</TableHead>
-                      {activeRounds.map((r) => (
-                        <TableHead key={r.id} className="text-center min-w-[100px]">
-                          <div>R{r.roundNumber}</div>
-                          {r.opponent && (
-                            <div className="text-xs font-normal text-gray-400">{r.opponent}</div>
-                          )}
-                        </TableHead>
-                      ))}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {rosterData.roles.map((role) => (
-                      <TableRow key={role.id}>
-                        <TableCell className="sticky left-0 bg-white z-10 font-medium">
-                          <div className="flex items-center gap-2">
-                            {role.roleName}
-                            <Badge variant={ROLE_TYPE_VARIANTS[role.roleType] || "outline"} className="text-xs">
-                              {ROLE_TYPE_LABELS[role.roleType] || role.roleType}
-                            </Badge>
+      {/* Roster Grid */}
+      {hasAssignments && rosterData && rosterData.roles.length > 0 && (
+        <div className="mb-6">
+          <h2 className="text-xl font-semibold mb-4">Roster</h2>
+          <div className="bg-white rounded-lg border overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="sticky left-0 bg-white z-10 min-w-[150px]">Role</TableHead>
+                  {activeRounds.map((r) => (
+                    <TableHead key={r.id} className="text-center min-w-[100px]">
+                      <div>R{r.roundNumber}</div>
+                      {r.opponent && (
+                        <div className="text-xs font-normal text-gray-400">{r.opponent}</div>
+                      )}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rosterData.roles.map((role) => (
+                  <TableRow key={role.id}>
+                    <TableCell className="sticky left-0 bg-white z-10 font-medium">
+                      <div className="flex items-center gap-2">
+                        {role.roleName}
+                        <Badge variant={ROLE_TYPE_VARIANTS[role.roleType] || "outline"} className="text-xs">
+                          {ROLE_TYPE_LABELS[role.roleType] || role.roleType}
+                        </Badge>
+                      </div>
+                    </TableCell>
+                    {activeRounds.map((round) => {
+                      const slotAssignments = rosterData.assignments[`${round.id}:${role.id}`] || [];
+                      const isFixed = role.roleType === "FIXED";
+                      const totalSlots = role.slots ?? 1;
+                      return (
+                        <TableCell key={round.id} className={`text-center text-sm align-top py-2 ${isFixed ? "bg-gray-50 text-gray-500" : ""}`}>
+                          <div className="flex flex-col gap-0.5">
+                            {Array.from({ length: totalSlots }).map((_, slot) => {
+                              const a = slotAssignments.find((x) => x.slot === slot);
+                              const dropKey = `${round.id}:${role.id}:${slot}`;
+                              const isDropTarget = dragOverKey === dropKey && dragSource?.roleId === role.id;
+                              const isDragging = dragSource?.roundId === round.id && dragSource?.roleId === role.id && dragSource?.slot === slot;
+                              return (
+                                <div
+                                  key={slot}
+                                  draggable={!isFixed && !!a}
+                                  className={[
+                                    "rounded px-1 select-none",
+                                    isFixed ? "" : "cursor-pointer hover:bg-blue-50",
+                                    isDropTarget ? "ring-2 ring-blue-400 bg-blue-100" : "",
+                                    isDragging ? "opacity-40" : "",
+                                  ].join(" ")}
+                                  onDragStart={() => a && setDragSource({ roundId: round.id, roleId: role.id, slot, familyId: a.familyId })}
+                                  onDragEnd={() => { setDragSource(null); setDragOverKey(null); }}
+                                  onDragOver={(e) => { if (!isFixed && dragSource?.roleId === role.id) { e.preventDefault(); setDragOverKey(dropKey); } }}
+                                  onDragLeave={() => setDragOverKey(null)}
+                                  onDrop={() => handleDrop(round.id, role.id, slot, a?.familyId ?? null)}
+                                  onClick={() => { if (!isFixed && !dragSource) openOverrideDialog(round.id, role.id, role.roleName, round.roundNumber, slot); }}
+                                >
+                                  {a ? a.familyName : <span className="text-gray-300">—</span>}
+                                </div>
+                              );
+                            })}
                           </div>
                         </TableCell>
-                        {activeRounds.map((round) => {
-                          const slotAssignments = rosterData.assignments[`${round.id}:${role.id}`] || [];
-                          const isFixed = role.roleType === "FIXED";
-                          const totalSlots = role.slots ?? 1;
-                          return (
-                            <TableCell key={round.id} className={`text-center text-sm align-top py-2 ${isFixed ? "bg-gray-50 text-gray-500" : ""}`}>
-                              <div className="flex flex-col gap-0.5">
-                                {Array.from({ length: totalSlots }).map((_, slot) => {
-                                  const a = slotAssignments.find((x) => x.slot === slot);
-                                  return (
-                                    <div
-                                      key={slot}
-                                      className={isFixed ? "" : "cursor-pointer hover:bg-blue-50 rounded px-1"}
-                                      onClick={() => { if (!isFixed) openOverrideDialog(round.id, role.id, role.roleName, round.roundNumber, slot); }}
-                                    >
-                                      {a ? a.familyName : <span className="text-gray-300">—</span>}
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </TableCell>
-                          );
-                        })}
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-              <p className="text-xs text-gray-400 mt-2">Click a cell to reassign. Fixed roles cannot be changed here.</p>
-            </div>
-          )}
-
-          {/* Duty Counts Summary */}
-          {hasAssignments && rosterData && rosterData.families.length > 0 && (
-            <div className="mb-6">
-              <h2 className="text-xl font-semibold mb-4">Duty Tally</h2>
-              <div className="bg-white rounded-lg border overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="sticky left-0 bg-white z-10 min-w-[150px]">Family</TableHead>
-                      {rosterData.roles.filter((r) => r.roleType !== "FIXED").map((role) => (
-                        <TableHead key={role.id} className="text-center min-w-[100px] text-xs">
-                          {role.roleName}
-                        </TableHead>
-                      ))}
-                      <TableHead className="text-center min-w-[70px] font-semibold">Total</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {rosterData.families.map((family) => {
-                      const counts = rosterData.dutyCounts[family.id] || {};
-                      const rotatingRoles = rosterData.roles.filter((r) => r.roleType !== "FIXED");
-                      const total = Object.values(counts).reduce((sum, n) => sum + n, 0);
-                      return (
-                        <TableRow key={family.id}>
-                          <TableCell className="sticky left-0 bg-white z-10 font-medium">{family.name}</TableCell>
-                          {rotatingRoles.map((role) => (
-                            <TableCell key={role.id} className="text-center text-sm">
-                              {counts[role.id] ? (
-                                <span className="font-medium">{counts[role.id]}</span>
-                              ) : (
-                                <span className="text-gray-300">—</span>
-                              )}
-                            </TableCell>
-                          ))}
-                          <TableCell className="text-center font-semibold">{total || <span className="text-gray-300">0</span>}</TableCell>
-                        </TableRow>
                       );
                     })}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
-          )}
-        </>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          <p className="text-xs text-gray-400 mt-2">Click a cell to reassign. Drag a name to swap with another round. Fixed roles cannot be changed.</p>
+        </div>
+      )}
+
+      {/* Duty Counts Summary */}
+      {hasAssignments && rosterData && rosterData.families.length > 0 && (
+        <div className="mb-6">
+          <h2 className="text-xl font-semibold mb-4">Duty Tally</h2>
+          <div className="bg-white rounded-lg border overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="sticky left-0 bg-white z-10 min-w-[150px]">Family</TableHead>
+                  {rosterData.roles.filter((r) => r.roleType !== "FIXED").map((role) => (
+                    <TableHead key={role.id} className="text-center min-w-[100px] text-xs">
+                      {role.roleName}
+                    </TableHead>
+                  ))}
+                  <TableHead className="text-center min-w-[70px] font-semibold">Total</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rosterData.families.map((family) => {
+                  const counts = rosterData.dutyCounts[family.id] || {};
+                  const rotatingRoles = rosterData.roles.filter((r) => r.roleType !== "FIXED");
+                  const total = Object.values(counts).reduce((sum, n) => sum + n, 0);
+                  return (
+                    <TableRow key={family.id}>
+                      <TableCell className="sticky left-0 bg-white z-10 font-medium">{family.name}</TableCell>
+                      {rotatingRoles.map((role) => (
+                        <TableCell key={role.id} className="text-center text-sm">
+                          {counts[role.id] ? (
+                            <span className="font-medium">{counts[role.id]}</span>
+                          ) : (
+                            <span className="text-gray-300">—</span>
+                          )}
+                        </TableCell>
+                      ))}
+                      <TableCell className="text-center font-semibold">{total || <span className="text-gray-300">0</span>}</TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
       )}
 
       {/* Club Role Dialog */}
       <Dialog open={clubRoleDialogOpen} onOpenChange={setClubRoleDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingClubRole ? "Edit Club Role" : "Add Club Role"}</DialogTitle>
+            <DialogTitle>Add Role</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">

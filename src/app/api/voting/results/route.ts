@@ -5,12 +5,21 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (session?.user?.role !== "ADMIN" && session?.user?.role !== "SUPER_ADMIN") {
+  const role = session?.user?.role;
+  if (role !== "ADMIN" && role !== "SUPER_ADMIN" && role !== "TEAM_MANAGER") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const teamId = req.nextUrl.searchParams.get("teamId");
   const roundId = req.nextUrl.searchParams.get("roundId");
+
+  // TEAM_MANAGER: enforce their own teamId
+  if (role === "TEAM_MANAGER") {
+    const managerTeamId = (session!.user as Record<string, unknown>)?.teamId as string;
+    if (teamId !== managerTeamId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  }
 
   if (!teamId) {
     return NextResponse.json({ error: "teamId is required" }, { status: 400 });
