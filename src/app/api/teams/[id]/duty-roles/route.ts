@@ -45,23 +45,16 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
-  const role = session?.user?.role;
-  if (role !== "ADMIN" && role !== "SUPER_ADMIN" && role !== "TEAM_MANAGER") {
+  if (session?.user?.role !== "ADMIN" && session?.user?.role !== "SUPER_ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-  if (role === "TEAM_MANAGER") {
-    const teamId = (session!.user as Record<string, unknown>)?.teamId as string;
-    if (params.id !== teamId) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const body = await req.json();
-  const { dutyRoleId, roleType, assignedUserId, frequencyWeeks, slots, specialistUserIds } = body;
+  const { dutyRoleId, roleType, assignedUserId, frequencyWeeks, specialistUserIds } = body;
 
   if (!dutyRoleId || !roleType) {
     return NextResponse.json({ error: "Duty role ID and type are required" }, { status: 400 });
   }
-
-  const slotsValue = roleType === "FIXED" ? 1 : Math.max(1, parseInt(slots) || 1);
 
   try {
     // Upsert: create or update team config for this role
@@ -79,7 +72,6 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           roleType,
           assignedUserId: roleType === "FIXED" ? assignedUserId : null,
           frequencyWeeks: roleType === "FREQUENCY" ? (parseInt(frequencyWeeks) || 1) : 1,
-          slots: slotsValue,
           specialists: roleType === "SPECIALIST" && specialistUserIds?.length
             ? { create: specialistUserIds.map((userId: string) => ({ userId })) }
             : undefined,
@@ -99,7 +91,6 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           roleType,
           assignedUserId: roleType === "FIXED" ? assignedUserId : null,
           frequencyWeeks: roleType === "FREQUENCY" ? (parseInt(frequencyWeeks) || 1) : 1,
-          slots: slotsValue,
           specialists: roleType === "SPECIALIST" && specialistUserIds?.length
             ? { create: specialistUserIds.map((userId: string) => ({ userId })) }
             : undefined,

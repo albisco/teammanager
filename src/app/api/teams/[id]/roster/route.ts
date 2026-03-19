@@ -47,22 +47,13 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     }
   }
 
-  // Build assignment map: key = "roundId:teamDutyRoleId" -> sorted array of slots
-  const assignmentMap: Record<string, Array<{ familyId: string; familyName: string; slot: number }>> = {};
-  // duty counts: familyId -> roleId -> count
-  const dutyCounts: Record<string, Record<string, number>> = {};
-
+  // Build assignment map: key = "roundId:teamDutyRoleId"
+  const assignmentMap: Record<string, { familyId: string; familyName: string }> = {};
   for (const a of assignments) {
-    const key = `${a.roundId}:${a.teamDutyRoleId}`;
-    if (!assignmentMap[key]) assignmentMap[key] = [];
-    assignmentMap[key].push({ familyId: a.assignedFamily.id, familyName: a.assignedFamily.name, slot: a.slot });
-    const fId = a.assignedFamily.id;
-    if (!dutyCounts[fId]) dutyCounts[fId] = {};
-    dutyCounts[fId][a.teamDutyRoleId] = (dutyCounts[fId][a.teamDutyRoleId] || 0) + 1;
-  }
-  // Sort each cell's slots in order
-  for (const key of Object.keys(assignmentMap)) {
-    assignmentMap[key].sort((a, b) => a.slot - b.slot);
+    assignmentMap[`${a.roundId}:${a.teamDutyRoleId}`] = {
+      familyId: a.assignedFamily.id,
+      familyName: a.assignedFamily.name,
+    };
   }
 
   return NextResponse.json({
@@ -71,10 +62,8 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       id: r.id,
       roleName: r.dutyRole.roleName,
       roleType: r.roleType,
-      slots: r.slots,
     })),
     assignments: assignmentMap,
     families: Array.from(familyMap.values()).sort((a, b) => a.name.localeCompare(b.name)),
-    dutyCounts,
   });
 }

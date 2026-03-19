@@ -51,7 +51,6 @@ interface TeamRoleConfig {
   roleType: "FIXED" | "SPECIALIST" | "ROTATING" | "FREQUENCY";
   assignedUser: { id: string; name: string } | null;
   frequencyWeeks: number;
-  slots: number;
   specialists: Specialist[];
   configured: boolean;
 }
@@ -68,7 +67,6 @@ interface RosterRole {
   id: string;
   roleName: string;
   roleType: string;
-  slots: number;
 }
 
 interface RosterFamily {
@@ -79,9 +77,8 @@ interface RosterFamily {
 interface RosterData {
   rounds: RosterRound[];
   roles: RosterRole[];
-  assignments: Record<string, Array<{ familyId: string; familyName: string; slot: number }>>;
+  assignments: Record<string, { familyId: string; familyName: string }>;
   families: RosterFamily[];
-  dutyCounts: Record<string, Record<string, number>>;
 }
 
 const ROLE_TYPE_LABELS: Record<string, string> = {
@@ -124,13 +121,12 @@ export default function RosterPage() {
     roleType: "ROTATING" as TeamRoleConfig["roleType"],
     assignedUserId: "",
     frequencyWeeks: "1",
-    slots: "1",
     specialistUserIds: [] as string[],
   });
 
   // Override dialog
   const [overrideDialogOpen, setOverrideDialogOpen] = useState(false);
-  const [overrideCell, setOverrideCell] = useState<{ roundId: string; roleId: string; roleName: string; roundNumber: number; slot: number } | null>(null);
+  const [overrideCell, setOverrideCell] = useState<{ roundId: string; roleId: string; roleName: string; roundNumber: number } | null>(null);
   const [overrideFamilyId, setOverrideFamilyId] = useState("");
 
   const fetchSeasons = useCallback(async () => {
@@ -235,7 +231,6 @@ export default function RosterPage() {
       roleType: role.roleType,
       assignedUserId: role.assignedUser?.id || "",
       frequencyWeeks: String(role.frequencyWeeks),
-      slots: String(role.slots ?? 1),
       specialistUserIds: role.specialists.map((s) => s.user.id),
     });
     setConfigDialogOpen(true);
@@ -253,7 +248,6 @@ export default function RosterPage() {
         roleType: configForm.roleType,
         assignedUserId: configForm.roleType === "FIXED" ? configForm.assignedUserId : null,
         frequencyWeeks: configForm.roleType === "FREQUENCY" ? configForm.frequencyWeeks : "1",
-        slots: configForm.slots,
         specialistUserIds: configForm.roleType === "SPECIALIST" ? configForm.specialistUserIds : [],
       }),
     });
@@ -280,16 +274,15 @@ export default function RosterPage() {
 
   function roleDetail(role: TeamRoleConfig): string {
     if (!role.configured) return "Not configured";
-    const slotSuffix = (role.slots ?? 1) > 1 ? ` × ${role.slots}` : "";
     switch (role.roleType) {
       case "FIXED":
         return role.assignedUser?.name || "Unassigned";
       case "SPECIALIST":
-        return (role.specialists.map((s) => s.user.name).join(", ") || "No specialists") + slotSuffix;
+        return role.specialists.map((s) => s.user.name).join(", ") || "No specialists";
       case "FREQUENCY":
-        return `Every ${role.frequencyWeeks} week${role.frequencyWeeks !== 1 ? "s" : ""}${slotSuffix}`;
+        return `Every ${role.frequencyWeeks} week${role.frequencyWeeks !== 1 ? "s" : ""}`;
       case "ROTATING":
-        return "All families" + slotSuffix;
+        return "All families";
     }
   }
 
@@ -334,10 +327,10 @@ export default function RosterPage() {
   }
 
   // === Manual Override ===
-  function openOverrideDialog(roundId: string, roleId: string, roleName: string, roundNumber: number, slot: number) {
-    const slotData = rosterData?.assignments[`${roundId}:${roleId}`]?.find((a) => a.slot === slot);
-    setOverrideCell({ roundId, roleId, roleName, roundNumber, slot });
-    setOverrideFamilyId(slotData?.familyId || "");
+  function openOverrideDialog(roundId: string, roleId: string, roleName: string, roundNumber: number) {
+    const current = rosterData?.assignments[`${roundId}:${roleId}`];
+    setOverrideCell({ roundId, roleId, roleName, roundNumber });
+    setOverrideFamilyId(current?.familyId || "");
     setOverrideDialogOpen(true);
   }
 
@@ -352,7 +345,6 @@ export default function RosterPage() {
         roundId: overrideCell.roundId,
         teamDutyRoleId: overrideCell.roleId,
         assignedFamilyId: overrideFamilyId || null,
-        slot: overrideCell.slot,
       }),
     });
 
@@ -585,25 +577,25 @@ export default function RosterPage() {
                           </div>
                         </TableCell>
                         {activeRounds.map((round) => {
-                          const slotAssignments = rosterData.assignments[`${round.id}:${role.id}`] || [];
+                          const assignment = rosterData.assignments[`${round.id}:${role.id}`];
                           const isFixed = role.roleType === "FIXED";
-                          const totalSlots = role.slots ?? 1;
                           return (
-                            <TableCell key={round.id} className={`text-center text-sm align-top py-2 ${isFixed ? "bg-gray-50 text-gray-500" : ""}`}>
-                              <div className="flex flex-col gap-0.5">
-                                {Array.from({ length: totalSlots }).map((_, slot) => {
-                                  const a = slotAssignments.find((x) => x.slot === slot);
-                                  return (
-                                    <div
-                                      key={slot}
-                                      className={isFixed ? "" : "cursor-pointer hover:bg-blue-50 rounded px-1"}
-                                      onClick={() => { if (!isFixed) openOverrideDialog(round.id, role.id, role.roleName, round.roundNumber, slot); }}
-                                    >
-                                      {a ? a.familyName : <span className="text-gray-300">—</span>}
-                                    </div>
-                                  );
-                                })}
-                              </div>
+                            <TableCell
+                              key={round.id}
+                              className={`text-center text-sm ${
+                                isFixed
+                                  ? "bg-gray-50 text-gray-500"
+                                  : "cursor-pointer hover:bg-blue-50"
+                              }`}
+                              onClick={() => {
+                                if (!isFixed) openOverrideDialog(round.id, role.id, role.roleName, round.roundNumber);
+                              }}
+                            >
+                              {assignment ? (
+                                <span className={isFixed ? "" : ""}>{assignment.familyName}</span>
+                              ) : (
+                                <span className="text-gray-300">—</span>
+                              )}
                             </TableCell>
                           );
                         })}
@@ -613,50 +605,6 @@ export default function RosterPage() {
                 </Table>
               </div>
               <p className="text-xs text-gray-400 mt-2">Click a cell to reassign. Fixed roles cannot be changed here.</p>
-            </div>
-          )}
-
-          {/* Duty Counts Summary */}
-          {hasAssignments && rosterData && rosterData.families.length > 0 && (
-            <div className="mb-6">
-              <h2 className="text-xl font-semibold mb-4">Duty Tally</h2>
-              <div className="bg-white rounded-lg border overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="sticky left-0 bg-white z-10 min-w-[150px]">Family</TableHead>
-                      {rosterData.roles.filter((r) => r.roleType !== "FIXED").map((role) => (
-                        <TableHead key={role.id} className="text-center min-w-[100px] text-xs">
-                          {role.roleName}
-                        </TableHead>
-                      ))}
-                      <TableHead className="text-center min-w-[70px] font-semibold">Total</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {rosterData.families.map((family) => {
-                      const counts = rosterData.dutyCounts[family.id] || {};
-                      const rotatingRoles = rosterData.roles.filter((r) => r.roleType !== "FIXED");
-                      const total = Object.values(counts).reduce((sum, n) => sum + n, 0);
-                      return (
-                        <TableRow key={family.id}>
-                          <TableCell className="sticky left-0 bg-white z-10 font-medium">{family.name}</TableCell>
-                          {rotatingRoles.map((role) => (
-                            <TableCell key={role.id} className="text-center text-sm">
-                              {counts[role.id] ? (
-                                <span className="font-medium">{counts[role.id]}</span>
-                              ) : (
-                                <span className="text-gray-300">—</span>
-                              )}
-                            </TableCell>
-                          ))}
-                          <TableCell className="text-center font-semibold">{total || <span className="text-gray-300">0</span>}</TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
             </div>
           )}
         </>
@@ -705,7 +653,6 @@ export default function RosterPage() {
                   assignedUserId: "",
                   specialistUserIds: [],
                   frequencyWeeks: "1",
-                  slots: "1",
                 })}
               >
                 <option value="ROTATING">Rotating — any family each round</option>
@@ -714,20 +661,6 @@ export default function RosterPage() {
                 <option value="FREQUENCY">Frequency — rotating, every N weeks</option>
               </select>
             </div>
-
-            {configForm.roleType !== "FIXED" && (
-              <div className="space-y-2">
-                <Label>People required per round</Label>
-                <Input
-                  type="number"
-                  min="1"
-                  max="10"
-                  value={configForm.slots}
-                  onChange={(e) => setConfigForm({ ...configForm, slots: e.target.value })}
-                />
-                <p className="text-xs text-gray-500">How many families are needed for this duty each round</p>
-              </div>
-            )}
 
             {configForm.roleType === "FIXED" && (
               <div className="space-y-2">
@@ -802,7 +735,7 @@ export default function RosterPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {overrideCell?.roleName}{overrideCell && overrideCell.slot > 0 ? ` (slot ${overrideCell.slot + 1})` : ""} — Round {overrideCell?.roundNumber}
+              {overrideCell?.roleName} — Round {overrideCell?.roundNumber}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">

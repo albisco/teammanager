@@ -5,18 +5,17 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  const userRole = session?.user?.role;
-  if (userRole !== "ADMIN" && userRole !== "SUPER_ADMIN" && userRole !== "TEAM_MANAGER") {
+  if (session?.user?.role !== "ADMIN" && session?.user?.role !== "SUPER_ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const clubId = (session!.user as Record<string, unknown>)?.clubId as string;
+  const clubId = (session.user as Record<string, unknown>)?.clubId as string;
   const role = req.nextUrl.searchParams.get("role");
 
   const users = await prisma.user.findMany({
     where: {
       clubId,
-      ...(role ? { role: role as "ADMIN" | "TEAM_MANAGER" | "FAMILY" } : {}),
+      ...(role ? { role: role as "ADMIN" | "FAMILY" } : {}),
     },
     select: { id: true, name: true, email: true, role: true },
     orderBy: { name: "asc" },

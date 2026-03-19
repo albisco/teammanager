@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const clubId = (session!.user as Record<string, unknown>)?.clubId as string;
+  const clubId = (session.user as Record<string, unknown>)?.clubId as string;
 
   const roles = await prisma.dutyRole.findMany({
     where: { clubId },
@@ -18,8 +18,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  const role = session?.user?.role;
-  if (role !== "ADMIN" && role !== "SUPER_ADMIN" && role !== "TEAM_MANAGER") {
+  if (session?.user?.role !== "ADMIN" && session?.user?.role !== "SUPER_ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -28,7 +27,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Role name is required" }, { status: 400 });
   }
 
-  const clubId = (session!.user as Record<string, unknown>)?.clubId as string;
+  const clubId = (session.user as Record<string, unknown>)?.clubId as string;
 
   try {
     const role = await prisma.dutyRole.create({ data: { roleName: roleName.trim(), clubId } });
@@ -43,12 +42,11 @@ export async function POST(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  const role = session?.user?.role;
-  if (role !== "ADMIN" && role !== "SUPER_ADMIN") {
+  if (session?.user?.role !== "ADMIN" && session?.user?.role !== "SUPER_ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const clubId = (session!.user as Record<string, unknown>)?.clubId as string;
+  const clubId = (session.user as Record<string, unknown>)?.clubId as string;
   const { id, roleName } = await req.json();
   if (!id || !roleName?.trim()) {
     return NextResponse.json({ error: "ID and role name are required" }, { status: 400 });
@@ -75,12 +73,11 @@ export async function PUT(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  const role = session?.user?.role;
-  if (role !== "ADMIN" && role !== "SUPER_ADMIN") {
+  if (session?.user?.role !== "ADMIN" && session?.user?.role !== "SUPER_ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const clubId = (session!.user as Record<string, unknown>)?.clubId as string;
+  const clubId = (session.user as Record<string, unknown>)?.clubId as string;
   const { id } = await req.json();
   if (!id) {
     return NextResponse.json({ error: "ID is required" }, { status: 400 });

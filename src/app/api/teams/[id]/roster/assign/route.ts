@@ -3,39 +3,30 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  const role = session?.user?.role;
-  if (role !== "ADMIN" && role !== "SUPER_ADMIN" && role !== "TEAM_MANAGER") {
+  if (session?.user?.role !== "ADMIN" && session?.user?.role !== "SUPER_ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  // TEAM_MANAGER: verify this team is theirs
-  if (role === "TEAM_MANAGER") {
-    const teamId = (session!.user as Record<string, unknown>)?.teamId as string;
-    if (params.id !== teamId) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-  }
-
-  const { roundId, teamDutyRoleId, assignedFamilyId, slot = 0 } = await req.json();
+  const { roundId, teamDutyRoleId, assignedFamilyId } = await req.json();
 
   if (!roundId || !teamDutyRoleId) {
     return NextResponse.json({ error: "roundId and teamDutyRoleId are required" }, { status: 400 });
   }
 
-  // Clear a specific slot
+  // Clear assignment
   if (!assignedFamilyId) {
     await prisma.rosterAssignment.deleteMany({
-      where: { roundId, teamDutyRoleId, slot },
+      where: { roundId, teamDutyRoleId },
     });
     return NextResponse.json({ success: true });
   }
 
-  // Upsert assignment for this slot
+  // Upsert assignment
   const assignment = await prisma.rosterAssignment.upsert({
-    where: { roundId_teamDutyRoleId_slot: { roundId, teamDutyRoleId, slot } },
-    create: { roundId, teamDutyRoleId, assignedFamilyId, slot },
+    where: { roundId_teamDutyRoleId: { roundId, teamDutyRoleId } },
+    create: { roundId, teamDutyRoleId, assignedFamilyId },
     update: { assignedFamilyId },
     include: { assignedFamily: { select: { id: true, name: true } } },
   });

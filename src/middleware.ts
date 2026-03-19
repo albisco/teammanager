@@ -10,10 +10,6 @@ export default withAuth(
       return NextResponse.redirect(new URL("/login", req.url));
     }
 
-    if (path.startsWith("/manager") && token?.role !== "TEAM_MANAGER") {
-      return NextResponse.redirect(new URL("/login", req.url));
-    }
-
     return NextResponse.next();
   },
   {
@@ -24,5 +20,5 @@ export default withAuth(
 );
 
 export const config = {
-  matcher: ["/admin/:path*", "/family/:path*", "/manager/:path*"],
+  matcher: ["/admin/:path*", "/family/:path*"],
 };
