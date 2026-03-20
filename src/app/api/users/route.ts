@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
   const users = await prisma.user.findMany({
     where: {
       clubId,
-      ...(role ? { role: role as import("@prisma/client").Role } : {}),
+      ...(role ? { role: role as import("@/generated/prisma").Role } : {}),
     },
     select: { id: true, name: true, email: true, role: true },
     orderBy: { name: "asc" },
