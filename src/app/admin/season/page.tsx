@@ -168,8 +168,12 @@ export default function SeasonPage() {
         fetchSeasons();
       }
     } else {
-      const err = await res.json();
-      toast.error(err.error || "Failed to create team manager");
+      try {
+        const err = await res.json();
+        toast.error(err.error || `Failed to create team manager (${res.status})`);
+      } catch {
+        toast.error(`Failed to create team manager (${res.status})`);
+      }
     }
     setNewTMLoading(false);
   }
