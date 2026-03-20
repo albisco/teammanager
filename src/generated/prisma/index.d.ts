@@ -101,6 +101,7 @@ export namespace $Enums {
   export const Role: {
   SUPER_ADMIN: 'SUPER_ADMIN',
   ADMIN: 'ADMIN',
+  TEAM_MANAGER: 'TEAM_MANAGER',
   FAMILY: 'FAMILY'
 };
 
