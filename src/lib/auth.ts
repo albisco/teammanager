@@ -27,12 +27,22 @@ export const authOptions: NextAuthOptions = {
         );
         if (!isValid) return null;
 
+        let teamId: string | null = null;
+        if (user.role === "TEAM_MANAGER") {
+          const team = await prisma.team.findFirst({
+            where: { managerId: user.id },
+            select: { id: true },
+          });
+          teamId = team?.id ?? null;
+        }
+
         return {
           id: user.id,
           email: user.email,
           name: user.name,
           role: user.role,
           clubId: user.clubId,
+          teamId,
         };
       },
     }),
@@ -44,6 +54,7 @@ export const authOptions: NextAuthOptions = {
         token.role = u.role as string;
         token.id = user.id;
         token.clubId = u.clubId as string;
+        token.teamId = u.teamId as string | null;
       }
       return token;
     },
@@ -53,6 +64,7 @@ export const authOptions: NextAuthOptions = {
         s.role = token.role;
         s.id = token.id;
         s.clubId = token.clubId;
+        s.teamId = token.teamId;
       }
       return session;
     },

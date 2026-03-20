@@ -8,6 +8,7 @@ declare module "next-auth" {
       name: string;
       role: "SUPER_ADMIN" | "ADMIN" | "TEAM_MANAGER" | "FAMILY";
       clubId: string | null;
+      teamId: string | null;
     };
   }
 }
@@ -17,5 +18,6 @@ declare module "next-auth/jwt" {
     role: string;
     id: string;
     clubId: string | null;
+    teamId: string | null;
   }
 }
