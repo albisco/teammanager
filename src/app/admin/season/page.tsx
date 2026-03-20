@@ -165,6 +165,7 @@ export default function SeasonPage() {
           body: JSON.stringify({ managerId: user.id }),
         });
         toast.success("Manager assigned to team");
+        setSelectedTeamSummary({ ...selectedTeamSummary, manager: { id: user.id, name: user.name } });
         fetchSeasons();
       }
     } else {
@@ -402,6 +403,8 @@ export default function SeasonPage() {
                     });
                     if (res.ok) {
                       toast.success(managerId ? "Manager assigned" : "Manager removed");
+                      const selected = managerId ? teamManagers.find(u => u.id === managerId) ?? null : null;
+                      setSelectedTeamSummary({ ...selectedTeamSummary!, manager: selected });
                       fetchSeasons();
                     }
                   }}
