@@ -6,7 +6,7 @@ declare module "next-auth" {
       id: string;
       email: string;
       name: string;
-      role: "SUPER_ADMIN" | "ADMIN" | "FAMILY";
+      role: "SUPER_ADMIN" | "ADMIN" | "TEAM_MANAGER" | "FAMILY";
       clubId: string | null;
     };
   }

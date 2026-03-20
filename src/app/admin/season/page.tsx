@@ -72,7 +72,12 @@ export default function SeasonPage() {
   const [selectedTeamDetail, setSelectedTeamDetail] = useState<TeamDetail | null>(null);
   const [teamLoading, setTeamLoading] = useState(false);
   const [teamTab, setTeamTab] = useState<"rounds" | "players">("rounds");
-  const [clubUsers, setClubUsers] = useState<{ id: string; name: string; role: string }[]>([]);
+  const [teamManagers, setTeamManagers] = useState<{ id: string; name: string }[]>([]);
+
+  // New team manager dialog
+  const [newTMDialogOpen, setNewTMDialogOpen] = useState(false);
+  const [newTMForm, setNewTMForm] = useState({ name: "", email: "", password: "" });
+  const [newTMLoading, setNewTMLoading] = useState(false);
 
   // Season dialog
   const [seasonDialogOpen, setSeasonDialogOpen] = useState(false);
@@ -131,12 +136,43 @@ export default function SeasonPage() {
     await fetchSeasons();
   }, [selectedTeamSummary, fetchTeamDetail, fetchSeasons]);
 
-  const fetchUsers = useCallback(async () => {
-    const res = await fetch("/api/users");
-    if (res.ok) setClubUsers(await res.json());
+  const fetchTeamManagers = useCallback(async () => {
+    const res = await fetch("/api/users?role=TEAM_MANAGER");
+    if (res.ok) setTeamManagers(await res.json());
   }, []);
 
-  useEffect(() => { fetchSeasons(); fetchUsers(); }, [fetchSeasons, fetchUsers]);
+  useEffect(() => { fetchSeasons(); fetchTeamManagers(); }, [fetchSeasons, fetchTeamManagers]);
+
+  // === Team Manager creation ===
+  async function handleCreateTM() {
+    setNewTMLoading(true);
+    const res = await fetch("/api/users", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...newTMForm, role: "TEAM_MANAGER" }),
+    });
+    if (res.ok) {
+      const user = await res.json();
+      toast.success(`Team manager ${user.name} created`);
+      setNewTMDialogOpen(false);
+      setNewTMForm({ name: "", email: "", password: "" });
+      await fetchTeamManagers();
+      // Auto-assign to current team
+      if (selectedTeamSummary) {
+        await fetch(`/api/teams/${selectedTeamSummary.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ managerId: user.id }),
+        });
+        toast.success("Manager assigned to team");
+        fetchSeasons();
+      }
+    } else {
+      const err = await res.json();
+      toast.error(err.error || "Failed to create team manager");
+    }
+    setNewTMLoading(false);
+  }
 
   // === Season CRUD ===
   function openAddSeason() {
@@ -367,10 +403,16 @@ export default function SeasonPage() {
                   }}
                 >
                   <option value="">— No manager —</option>
-                  {clubUsers.map((u) => (
+                  {teamManagers.map((u) => (
                     <option key={u.id} value={u.id}>{u.name}</option>
                   ))}
                 </select>
+                <button
+                  className="text-sm text-blue-600 hover:underline"
+                  onClick={() => { setNewTMForm({ name: "", email: "", password: "" }); setNewTMDialogOpen(true); }}
+                >
+                  + New
+                </button>
               </div>
             </div>
             <div className="flex gap-2">
@@ -606,6 +648,52 @@ export default function SeasonPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setRoundDialogOpen(false)}>Cancel</Button>
             <Button onClick={handleSaveRound} disabled={loading}>{loading ? "Saving..." : "Save"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* New Team Manager Dialog */}
+      <Dialog open={newTMDialogOpen} onOpenChange={setNewTMDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Team Manager</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Name</Label>
+              <Input
+                value={newTMForm.name}
+                onChange={(e) => setNewTMForm({ ...newTMForm, name: e.target.value })}
+                placeholder="e.g. John Smith"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <Input
+                type="email"
+                value={newTMForm.email}
+                onChange={(e) => setNewTMForm({ ...newTMForm, email: e.target.value })}
+                placeholder="john@example.com"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Password</Label>
+              <Input
+                type="password"
+                value={newTMForm.password}
+                onChange={(e) => setNewTMForm({ ...newTMForm, password: e.target.value })}
+                placeholder="Initial password"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNewTMDialogOpen(false)}>Cancel</Button>
+            <Button
+              onClick={handleCreateTM}
+              disabled={newTMLoading || !newTMForm.name.trim() || !newTMForm.email.trim() || !newTMForm.password.trim()}
+            >
+              {newTMLoading ? "Creating..." : "Create & Assign"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
