@@ -1,0 +1,245 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+  output          = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Club {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+
+  users     User[]
+  seasons   Season[]
+  players   Player[]
+  dutyRoles DutyRole[]
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  FAMILY
+}
+
+enum VotingStatus {
+  OPEN
+  CLOSED
+}
+
+enum VoterType {
+  PARENT
+  COACH
+}
+
+enum DutyRoleType {
+  FIXED
+  SPECIALIST
+  ROTATING
+  FREQUENCY
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(FAMILY)
+  name         String
+  clubId       String?
+  club         Club?    @relation(fields: [clubId], references: [id])
+  createdAt    DateTime @default(now())
+
+  players                 Player[]
+  votes                   Vote[]
+  managedTeams            Team[]                   @relation("TeamManager")
+  teamDutyRoleAssignments TeamDutyRole[]           @relation("FixedAssignment")
+  teamDutyRoleSpecialists TeamDutyRoleSpecialist[]
+  rosterAssignments       RosterAssignment[]
+  familyExclusions        FamilyExclusion[]
+  familyUnavailabilities  FamilyUnavailability[]
+}
+
+model Player {
+  id           String    @id @default(cuid())
+  jumperNumber Int
+  firstName    String
+  surname      String
+  dateOfBirth  DateTime?
+  phone        String?
+  contactEmail String?
+  parent1      String?
+  parent2      String?
+  spare1       String?
+  spare2       String?
+  familyId     String?
+  family       User?     @relation(fields: [familyId], references: [id])
+  clubId       String
+  club         Club      @relation(fields: [clubId], references: [id])
+
+  teamPlayers      TeamPlayer[]
+  unavailabilities PlayerUnavailability[]
+}
+
+model Season {
+  id     String @id @default(cuid())
+  name   String
+  year   Int
+  clubId String
+  club   Club   @relation(fields: [clubId], references: [id])
+
+  teams Team[]
+}
+
+model Team {
+  id               String  @id @default(cuid())
+  name             String
+  ageGroup         String
+  seasonId         String
+  season           Season  @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  managerId        String?
+  manager          User?   @relation("TeamManager", fields: [managerId], references: [id])
+  votingScheme     Json    @default("[5,4,3,2,1]")
+  parentVoterCount Int     @default(3)
+  coachVoterCount  Int     @default(1)
+
+  players       TeamPlayer[]
+  rounds        Round[]
+  teamDutyRoles TeamDutyRole[]
+}
+
+model TeamPlayer {
+  id       String @id @default(cuid())
+  teamId   String
+  team     Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  playerId String
+  player   Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, playerId])
+}
+
+model Round {
+  id          String    @id @default(cuid())
+  teamId      String
+  team        Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  roundNumber Int
+  date        DateTime?
+  isBye       Boolean   @default(false)
+  opponent    String?
+  venue       String?
+
+  votingSession          VotingSession?
+  rosterAssignments      RosterAssignment[]
+  familyUnavailabilities FamilyUnavailability[]
+  playerUnavailabilities PlayerUnavailability[]
+
+  @@unique([teamId, roundNumber])
+}
+
+model VotingSession {
+  id      String       @id @default(cuid())
+  roundId String       @unique
+  round   Round        @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  status  VotingStatus @default(OPEN)
+  qrToken String       @unique @default(cuid())
+
+  votes Vote[]
+}
+
+model Vote {
+  id              String        @id @default(cuid())
+  votingSessionId String
+  votingSession   VotingSession @relation(fields: [votingSessionId], references: [id], onDelete: Cascade)
+  voterId         String
+  voter           User          @relation(fields: [voterId], references: [id])
+  voterType       VoterType
+  rankings        Json
+  submittedAt     DateTime      @default(now())
+
+  @@unique([votingSessionId, voterId])
+}
+
+model DutyRole {
+  id       String @id @default(cuid())
+  roleName String
+  clubId   String
+  club     Club   @relation(fields: [clubId], references: [id])
+
+  teamDutyRoles TeamDutyRole[]
+
+  @@unique([clubId, roleName])
+}
+
+model TeamDutyRole {
+  id             String       @id @default(cuid())
+  teamId         String
+  team           Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  dutyRoleId     String
+  dutyRole       DutyRole     @relation(fields: [dutyRoleId], references: [id], onDelete: Cascade)
+  roleType       DutyRoleType @default(ROTATING)
+  assignedUserId String?
+  assignedUser   User?        @relation("FixedAssignment", fields: [assignedUserId], references: [id])
+  frequencyWeeks Int          @default(1)
+
+  specialists       TeamDutyRoleSpecialist[]
+  rosterAssignments RosterAssignment[]
+  familyExclusions  FamilyExclusion[]
+
+  @@unique([teamId, dutyRoleId])
+}
+
+model TeamDutyRoleSpecialist {
+  id             String       @id @default(cuid())
+  teamDutyRoleId String
+  teamDutyRole   TeamDutyRole @relation(fields: [teamDutyRoleId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id])
+
+  @@unique([teamDutyRoleId, userId])
+}
+
+model RosterAssignment {
+  id               String       @id @default(cuid())
+  roundId          String
+  round            Round        @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  teamDutyRoleId   String
+  teamDutyRole     TeamDutyRole @relation(fields: [teamDutyRoleId], references: [id], onDelete: Cascade)
+  assignedFamilyId String
+  assignedFamily   User         @relation(fields: [assignedFamilyId], references: [id])
+
+  @@unique([roundId, teamDutyRoleId])
+}
+
+model FamilyExclusion {
+  id             String       @id @default(cuid())
+  familyId       String
+  family         User         @relation(fields: [familyId], references: [id])
+  teamDutyRoleId String
+  teamDutyRole   TeamDutyRole @relation(fields: [teamDutyRoleId], references: [id], onDelete: Cascade)
+
+  @@unique([familyId, teamDutyRoleId])
+}
+
+model FamilyUnavailability {
+  id       String @id @default(cuid())
+  familyId String
+  family   User   @relation(fields: [familyId], references: [id])
+  roundId  String
+  round    Round  @relation(fields: [roundId], references: [id], onDelete: Cascade)
+
+  @@unique([familyId, roundId])
+}
+
+model PlayerUnavailability {
+  id       String @id @default(cuid())
+  playerId String
+  player   Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  roundId  String
+  round    Round  @relation(fields: [roundId], references: [id], onDelete: Cascade)
+
+  @@unique([playerId, roundId])
+}
