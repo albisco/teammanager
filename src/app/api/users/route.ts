@@ -55,6 +55,8 @@ export async function POST(req: NextRequest) {
     if (err && typeof err === "object" && "code" in err && err.code === "P2002") {
       return NextResponse.json({ error: "A user with this email already exists" }, { status: 409 });
     }
-    throw err;
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("User create error:", message);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
