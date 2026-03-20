@@ -7,8 +7,8 @@ import { Toaster } from "@/components/ui/sonner";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Team Manager - AFL Footy",
-  description: "Manage your AFL footy team",
+  title: "Team Manager",
+  description: "Sport team management for clubs and families",
 };
 
 export default function RootLayout({

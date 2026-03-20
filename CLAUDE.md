@@ -2,7 +2,7 @@
 
 ## Project
 
-Team Manager — Multi-tenant AFL Footy web app for managing multiple clubs, each with teams across age groups. Replaces spreadsheets with player management, best & fairest voting (QR codes), duty rostering, and family self-service.
+Team Manager — Multi-tenant sport team management web app for managing multiple clubs, each with teams across age groups. Replaces spreadsheets with player management, best & fairest voting (QR codes), duty rostering, and family self-service.
 
 ## Tech Stack
 

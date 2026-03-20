@@ -3,7 +3,7 @@
 import { Toaster as SonnerToaster } from "sonner";
 
 function Toaster() {
-  return <SonnerToaster position="top-right" richColors />;
+  return <SonnerToaster position="bottom-right" richColors duration={2500} />;
 }
 
 export { Toaster };
