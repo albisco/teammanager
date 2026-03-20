@@ -36,4 +36,4 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# src/generated/prisma is committed so Vercel always has a valid client
+/src/generated/

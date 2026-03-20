@@ -1,7 +1,6 @@
 generator client {
   provider        = "prisma-client-js"
   previewFeatures = ["driverAdapters"]
-  output          = "../src/generated/prisma"
 }
 
 datasource db {
@@ -84,6 +83,7 @@ model Player {
 
   teamPlayers      TeamPlayer[]
   unavailabilities PlayerUnavailability[]
+  awards           Award[]
 }
 
 model Season {
@@ -111,6 +111,7 @@ model Team {
   players         TeamPlayer[]
   rounds          Round[]
   teamDutyRoles   TeamDutyRole[]
+  awardTypes      AwardType[]
 }
 
 model TeamPlayer {
@@ -137,6 +138,7 @@ model Round {
   rosterAssignments      RosterAssignment[]
   familyUnavailabilities FamilyUnavailability[]
   playerUnavailabilities PlayerUnavailability[]
+  awards                 Award[]
 
   @@unique([teamId, roundNumber])
 }
@@ -185,6 +187,7 @@ model TeamDutyRole {
   assignedUserId  String?
   assignedUser    User?        @relation("FixedAssignment", fields: [assignedUserId], references: [id])
   frequencyWeeks  Int          @default(1)
+  slots           Int          @default(1)
 
   specialists       TeamDutyRoleSpecialist[]
   rosterAssignments RosterAssignment[]
@@ -211,8 +214,9 @@ model RosterAssignment {
   teamDutyRole     TeamDutyRole @relation(fields: [teamDutyRoleId], references: [id], onDelete: Cascade)
   assignedFamilyId String
   assignedFamily   User         @relation(fields: [assignedFamilyId], references: [id])
+  slot             Int          @default(0)
 
-  @@unique([roundId, teamDutyRoleId])
+  @@unique([roundId, teamDutyRoleId, slot])
 }
 
 model FamilyExclusion {
@@ -243,4 +247,31 @@ model PlayerUnavailability {
   round    Round  @relation(fields: [roundId], references: [id], onDelete: Cascade)
 
   @@unique([playerId, roundId])
+}
+
+model AwardType {
+  id          String  @id @default(cuid())
+  teamId      String
+  team        Team    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  quantity    Int     @default(1)
+  awards      Award[]
+
+  @@unique([teamId, name])
+}
+
+model Award {
+  id          String    @id @default(cuid())
+  roundId     String
+  round       Round     @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  awardTypeId String
+  awardType   AwardType @relation(fields: [awardTypeId], references: [id], onDelete: Cascade)
+  playerId    String
+  player      Player    @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  slot        Int       @default(0)
+  notes       String?
+  createdAt   DateTime  @default(now())
+
+  @@unique([roundId, awardTypeId, slot])
 }
