@@ -2,12 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
 } from "@/components/ui/table";
-import { toast } from "sonner";
 
 interface Player {
   id: string;
@@ -27,8 +25,6 @@ export default function ManagerPlayersPage() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
-  const [linking, setLinking] = useState(false);
-
   function fetchPlayers() {
     fetch("/api/manager/team")
       .then((r) => r.json())
@@ -43,22 +39,6 @@ export default function ManagerPlayersPage() {
 
   useEffect(() => { fetchPlayers(); }, []);
 
-  async function handleAutoLink() {
-    setLinking(true);
-    const res = await fetch("/api/manager/auto-link-families", { method: "POST" });
-    const data = await res.json();
-    if (res.ok) {
-      if (data.created === 0 && data.linked === 0) {
-        toast.info("All players already linked to families");
-      } else {
-        toast.success(`Created ${data.created} families, linked ${data.linked} players`);
-      }
-      fetchPlayers();
-    } else {
-      toast.error(data.error || "Failed to auto-link families");
-    }
-    setLinking(false);
-  }
 
   const filtered = players.filter(
     (p) =>
@@ -71,12 +51,7 @@ export default function ManagerPlayersPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold">Players</h1>
-        <Button onClick={handleAutoLink} disabled={linking}>
-          {linking ? "Linking..." : "Auto-link Families"}
-        </Button>
-      </div>
+      <h1 className="text-3xl font-bold mb-6">Players</h1>
 
       <Input
         placeholder="Search by name or jumper..."
