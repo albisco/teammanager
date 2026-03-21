@@ -77,7 +77,7 @@ interface RosterFamily {
 interface RosterData {
   rounds: RosterRound[];
   roles: RosterRole[];
-  assignments: Record<string, { familyId: string; familyName: string }>;
+  assignments: Record<string, Array<{ familyId: string; familyName: string; slot: number }>>;
   families: RosterFamily[];
 }
 
@@ -328,7 +328,7 @@ export default function RosterPage() {
 
   // === Manual Override ===
   function openOverrideDialog(roundId: string, roleId: string, roleName: string, roundNumber: number) {
-    const current = rosterData?.assignments[`${roundId}:${roleId}`];
+    const current = rosterData?.assignments[`${roundId}:${roleId}`]?.[0];
     setOverrideCell({ roundId, roleId, roleName, roundNumber });
     setOverrideFamilyId(current?.familyId || "");
     setOverrideDialogOpen(true);
@@ -579,7 +579,8 @@ export default function RosterPage() {
                           </div>
                         </TableCell>
                         {activeRounds.map((round) => {
-                          const assignment = rosterData.assignments[`${round.id}:${role.id}`];
+                          const assignments = rosterData.assignments[`${round.id}:${role.id}`];
+                          const assignment = assignments?.[0];
                           const isFixed = role.roleType === "FIXED";
                           return (
                             <TableCell
@@ -594,7 +595,7 @@ export default function RosterPage() {
                               }}
                             >
                               {assignment ? (
-                                <span className={isFixed ? "" : ""}>{assignment.familyName}</span>
+                                <span>{assignment.familyName}</span>
                               ) : (
                                 <span className="text-gray-300">—</span>
                               )}

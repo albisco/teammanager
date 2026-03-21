@@ -39,6 +39,22 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
     }),
   ]);
 
+  // Validate prerequisites
+  const activeRounds = rounds.filter((r) => !r.isBye);
+  if (activeRounds.length === 0) {
+    return NextResponse.json(
+      { error: "No rounds found for this team. Add rounds before generating a roster." },
+      { status: 400 }
+    );
+  }
+
+  if (teamDutyRoles.length === 0) {
+    return NextResponse.json(
+      { error: "No duty roles have been configured for this team. Configure at least one role before generating." },
+      { status: 400 }
+    );
+  }
+
   // Derive families from player surnames (grouped by surname)
   const familyMap = new Map<string, { id: string; name: string }>();
   for (const tp of teamPlayers) {
