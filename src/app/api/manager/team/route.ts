@@ -20,6 +20,7 @@ export async function GET() {
             select: {
               id: true, firstName: true, surname: true, jumperNumber: true,
               dateOfBirth: true, phone: true, contactEmail: true, parent1: true, parent2: true,
+              familyId: true, family: { select: { id: true, name: true } },
             },
           },
         },

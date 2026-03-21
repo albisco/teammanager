@@ -2,9 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
 } from "@/components/ui/table";
+import { toast } from "sonner";
 
 interface Player {
   id: string;
@@ -16,14 +19,17 @@ interface Player {
   contactEmail: string | null;
   parent1: string | null;
   parent2: string | null;
+  familyId: string | null;
+  family: { id: string; name: string } | null;
 }
 
 export default function ManagerPlayersPage() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [linking, setLinking] = useState(false);
 
-  useEffect(() => {
+  function fetchPlayers() {
     fetch("/api/manager/team")
       .then((r) => r.json())
       .then((data) => {
@@ -33,7 +39,26 @@ export default function ManagerPlayersPage() {
         setPlayers(sorted);
         setLoading(false);
       });
-  }, []);
+  }
+
+  useEffect(() => { fetchPlayers(); }, []);
+
+  async function handleAutoLink() {
+    setLinking(true);
+    const res = await fetch("/api/manager/auto-link-families", { method: "POST" });
+    const data = await res.json();
+    if (res.ok) {
+      if (data.created === 0 && data.linked === 0) {
+        toast.info("All players already linked to families");
+      } else {
+        toast.success(`Created ${data.created} families, linked ${data.linked} players`);
+      }
+      fetchPlayers();
+    } else {
+      toast.error(data.error || "Failed to auto-link families");
+    }
+    setLinking(false);
+  }
 
   const filtered = players.filter(
     (p) =>
@@ -46,7 +71,12 @@ export default function ManagerPlayersPage() {
 
   return (
     <div>
-      <h1 className="text-3xl font-bold mb-6">Players</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-3xl font-bold">Players</h1>
+        <Button onClick={handleAutoLink} disabled={linking}>
+          {linking ? "Linking..." : "Auto-link Families"}
+        </Button>
+      </div>
 
       <Input
         placeholder="Search by name or jumper..."
@@ -66,12 +96,13 @@ export default function ManagerPlayersPage() {
               <TableHead>Phone</TableHead>
               <TableHead>Parent 1</TableHead>
               <TableHead>Parent 2</TableHead>
+              <TableHead>Family</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-gray-500 py-8">
+                <TableCell colSpan={8} className="text-center text-gray-500 py-8">
                   {players.length === 0 ? "No players in this team." : "No matches found."}
                 </TableCell>
               </TableRow>
@@ -89,6 +120,13 @@ export default function ManagerPlayersPage() {
                   <TableCell className="whitespace-nowrap text-sm">{p.phone || "—"}</TableCell>
                   <TableCell className="text-sm">{p.parent1 || "—"}</TableCell>
                   <TableCell className="text-sm">{p.parent2 || "—"}</TableCell>
+                  <TableCell>
+                    {p.family ? (
+                      <Badge variant="secondary" className="text-xs">{p.family.name}</Badge>
+                    ) : (
+                      <span className="text-gray-400 text-xs">—</span>
+                    )}
+                  </TableCell>
                 </TableRow>
               ))
             )}
