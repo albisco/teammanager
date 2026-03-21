@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { findOrCreateFamily } from "@/lib/link-family";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
@@ -32,6 +33,13 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   const body = await req.json();
   const { jumperNumber, firstName, surname, dateOfBirth, phone, contactEmail, parent1, parent2, spare1, spare2, familyId } = body;
 
+  // Auto-link family if parent1 changed and no explicit familyId
+  let resolvedFamilyId = familyId ?? undefined;
+  if (parent1 !== undefined && !familyId && !existing.familyId) {
+    const linked = await findOrCreateFamily(clubId, parent1, contactEmail ?? existing.contactEmail);
+    if (linked) resolvedFamilyId = linked;
+  }
+
   const player = await prisma.player.update({
     where: { id: params.id },
     data: {
@@ -45,7 +53,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       parent2: parent2 ?? undefined,
       spare1: spare1 ?? undefined,
       spare2: spare2 ?? undefined,
-      familyId: familyId ?? undefined,
+      familyId: resolvedFamilyId,
     },
   });
 
