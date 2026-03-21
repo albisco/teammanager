@@ -124,6 +124,13 @@ Current system uses free-text voter name with deterministic ID (`anon_{sessionId
 
 Decision depends on how family accounts work — tackle after rostering is built.
 
+## Dev Workflow
+- **Never push directly to `main`.** Always use feature branches and pull requests.
+- Create a feature branch: `git checkout -b feat/my-feature`
+- Run tests before committing: `npm test`
+- Push branch and create PR: `git push -u origin feat/my-feature && gh pr create`
+- Merge via PR only — Vercel deploys a preview per branch with its own Neon DB branch
+
 ## Conventions
 - UI components in `src/components/ui/` — Tailwind v3 compatible, no radix dependencies
 - All API routes check auth via `getServerSession(authOptions)`, extract `clubId` from session
