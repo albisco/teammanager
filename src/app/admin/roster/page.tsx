@@ -338,6 +338,7 @@ export default function RosterPage() {
     if (!overrideCell || !selectedTeam) return;
     setLoading(true);
 
+    const selectedFamily = rosterData?.families.find((f) => f.id === overrideFamilyId);
     const res = await fetch(`/api/teams/${selectedTeam.id}/roster/assign`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -345,6 +346,7 @@ export default function RosterPage() {
         roundId: overrideCell.roundId,
         teamDutyRoleId: overrideCell.roleId,
         assignedFamilyId: overrideFamilyId || null,
+        assignedFamilyName: selectedFamily?.name || null,
       }),
     });
 
@@ -540,7 +542,7 @@ export default function RosterPage() {
               )}
               {rosterData && rosterData.families.length === 0 && (
                 <p className="text-sm text-amber-600">
-                  No families linked. Players must have a linked family user to be rostered.
+                  No players found on this team. Add players to the team first.
                 </p>
               )}
             </div>

@@ -28,9 +28,7 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
     prisma.teamPlayer.findMany({
       where: { teamId },
       include: {
-        player: {
-          include: { family: { select: { id: true, name: true } } },
-        },
+        player: { select: { surname: true } },
       },
     }),
     prisma.familyExclusion.findMany({
@@ -41,18 +39,20 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
     }),
   ]);
 
-  // Deduplicate families from team players
+  // Derive families from player surnames (grouped by surname)
   const familyMap = new Map<string, { id: string; name: string }>();
   for (const tp of teamPlayers) {
-    if (tp.player.family) {
-      familyMap.set(tp.player.family.id, tp.player.family);
+    const surname = tp.player.surname;
+    const familyId = `family_${surname.toLowerCase().replace(/\s+/g, "_")}`;
+    if (!familyMap.has(familyId)) {
+      familyMap.set(familyId, { id: familyId, name: surname });
     }
   }
   const families = Array.from(familyMap.values());
 
   if (families.length === 0) {
     return NextResponse.json(
-      { error: "No families found. Players must be linked to family users first." },
+      { error: "No players found on this team." },
       { status: 400 }
     );
   }
@@ -95,6 +95,7 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
         roundId: a.roundId,
         teamDutyRoleId: a.teamDutyRoleId,
         assignedFamilyId: a.assignedFamilyId,
+        assignedFamilyName: familyMap.get(a.assignedFamilyId)?.name || a.assignedFamilyId,
       })),
     }),
   ]);

@@ -22,28 +22,23 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     }),
     prisma.rosterAssignment.findMany({
       where: { round: { teamId } },
-      include: {
-        assignedFamily: { select: { id: true, name: true } },
-      },
     }),
-    // Get families: distinct users linked to players on this team
+    // Get families: derive from player surnames
     prisma.teamPlayer.findMany({
       where: { teamId },
       include: {
-        player: {
-          include: {
-            family: { select: { id: true, name: true } },
-          },
-        },
+        player: { select: { surname: true } },
       },
     }),
   ]);
 
-  // Deduplicate families
+  // Derive families from player surnames
   const familyMap = new Map<string, { id: string; name: string }>();
   for (const tp of families) {
-    if (tp.player.family) {
-      familyMap.set(tp.player.family.id, tp.player.family);
+    const surname = tp.player.surname;
+    const familyId = `family_${surname.toLowerCase().replace(/\s+/g, "_")}`;
+    if (!familyMap.has(familyId)) {
+      familyMap.set(familyId, { id: familyId, name: surname });
     }
   }
 
@@ -51,8 +46,8 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   const assignmentMap: Record<string, { familyId: string; familyName: string }> = {};
   for (const a of assignments) {
     assignmentMap[`${a.roundId}:${a.teamDutyRoleId}`] = {
-      familyId: a.assignedFamily.id,
-      familyName: a.assignedFamily.name,
+      familyId: a.assignedFamilyId,
+      familyName: a.assignedFamilyName,
     };
   }
 

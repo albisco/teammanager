@@ -301,6 +301,7 @@ export default function ManagerRosterPage() {
     if (!overrideCell || !teamId) return;
     setLoading(true);
 
+    const selectedFamily = rosterData?.families.find((f) => f.id === overrideFamilyId);
     const res = await fetch(`/api/teams/${teamId}/roster/assign`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -308,6 +309,7 @@ export default function ManagerRosterPage() {
         roundId: overrideCell.roundId,
         teamDutyRoleId: overrideCell.roleId,
         assignedFamilyId: overrideFamilyId || null,
+        assignedFamilyName: selectedFamily?.name || null,
         slot: overrideCell.slot,
       }),
     });
@@ -330,12 +332,14 @@ export default function ManagerRosterPage() {
     setDragSource(null);
     setDragOverKey(null);
 
-    const assign = (roundId: string, slot: number, familyId: string | null) =>
-      fetch(`/api/teams/${teamId}/roster/assign`, {
+    const assign = (roundId: string, slot: number, familyId: string | null) => {
+      const family = rosterData?.families.find((f) => f.id === familyId);
+      return fetch(`/api/teams/${teamId}/roster/assign`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ roundId, teamDutyRoleId: targetRoleId, assignedFamilyId: familyId, slot }),
+        body: JSON.stringify({ roundId, teamDutyRoleId: targetRoleId, assignedFamilyId: familyId, assignedFamilyName: family?.name || null, slot }),
       });
+    };
 
     const [r1, r2] = await Promise.all([
       assign(dragSource.roundId, dragSource.slot, targetFamilyId),
@@ -495,7 +499,7 @@ export default function ManagerRosterPage() {
           )}
           {rosterData && rosterData.families.length === 0 && (
             <p className="text-sm text-amber-600">
-              No families linked. Players must have a linked family user to be rostered.
+              No players found on this team. Add players to the team first.
             </p>
           )}
         </div>

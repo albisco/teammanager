@@ -59,7 +59,6 @@ model User {
   managedTeams         Team[]               @relation("TeamManager")
   teamDutyRoleAssignments TeamDutyRole[]       @relation("FixedAssignment")
   teamDutyRoleSpecialists TeamDutyRoleSpecialist[]
-  rosterAssignments    RosterAssignment[]
   familyExclusions     FamilyExclusion[]
   familyUnavailabilities FamilyUnavailability[]
 }
@@ -212,9 +211,9 @@ model RosterAssignment {
   round            Round        @relation(fields: [roundId], references: [id], onDelete: Cascade)
   teamDutyRoleId   String
   teamDutyRole     TeamDutyRole @relation(fields: [teamDutyRoleId], references: [id], onDelete: Cascade)
-  assignedFamilyId String
-  assignedFamily   User         @relation(fields: [assignedFamilyId], references: [id])
-  slot             Int          @default(0)
+  assignedFamilyId   String
+  assignedFamilyName String     @default("")
+  slot               Int          @default(0)
 
   @@unique([roundId, teamDutyRoleId, slot])
 }

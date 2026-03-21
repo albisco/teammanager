@@ -51,11 +51,11 @@ export async function GET() {
     }),
     prisma.rosterAssignment.findMany({
       where: { round: { teamId } },
-      select: { id: true, roundId: true, teamDutyRoleId: true, assignedFamilyId: true, slot: true, assignedFamily: { select: { id: true, name: true } } },
+      select: { id: true, roundId: true, teamDutyRoleId: true, assignedFamilyId: true, assignedFamilyName: true, slot: true },
     }),
     prisma.teamPlayer.findMany({
       where: { teamId },
-      include: { player: { include: { family: { select: { id: true, name: true } } } } },
+      include: { player: { select: { surname: true } } },
     }),
     prisma.familyUnavailability.findMany({
       where: { round: { teamId } },
@@ -63,10 +63,14 @@ export async function GET() {
     }),
   ]);
 
-  // Deduplicate families from team players
+  // Derive families from player surnames
   const familyMap = new Map<string, { id: string; name: string }>();
   for (const tp of teamPlayers) {
-    if (tp.player.family) familyMap.set(tp.player.family.id, tp.player.family);
+    const surname = tp.player.surname;
+    const familyId = `family_${surname.toLowerCase().replace(/\s+/g, "_")}`;
+    if (!familyMap.has(familyId)) {
+      familyMap.set(familyId, { id: familyId, name: surname });
+    }
   }
   const families = Array.from(familyMap.values()).sort((a, b) => a.name.localeCompare(b.name));
 
@@ -76,8 +80,8 @@ export async function GET() {
   for (const a of assignments) {
     const key = `${a.roundId}:${a.teamDutyRoleId}`;
     if (!assignmentMap[key]) assignmentMap[key] = [];
-    assignmentMap[key].push({ familyId: a.assignedFamily.id, familyName: a.assignedFamily.name, slot: a.slot });
-    const fId = a.assignedFamily.id;
+    assignmentMap[key].push({ familyId: a.assignedFamilyId, familyName: a.assignedFamilyName, slot: a.slot });
+    const fId = a.assignedFamilyId;
     if (!dutyCounts[fId]) dutyCounts[fId] = {};
     dutyCounts[fId][a.teamDutyRoleId] = (dutyCounts[fId][a.teamDutyRoleId] || 0) + 1;
   }

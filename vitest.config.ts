@@ -3,7 +3,8 @@ import path from "path";
 
 export default defineConfig({
   test: {
-    dir: "./tests/api",
+    dir: "./tests",
+    exclude: ["**/node_modules/**", "**/*.spec.ts"],
     setupFiles: ["./tests/api/setup.ts"],
     testTimeout: 10000,
   },
