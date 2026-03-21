@@ -99,6 +99,12 @@ export default function ManagerDashboard() {
       {!nextRound && (
         <p className="text-gray-500">No upcoming rounds scheduled.</p>
       )}
+
+      {process.env.NEXT_PUBLIC_VERCEL_ENV && process.env.NEXT_PUBLIC_VERCEL_ENV !== "production" && (
+        <p className="fixed bottom-2 right-2 text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded">
+          {process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_REF} &middot; {process.env.NEXT_PUBLIC_VERCEL_ENV}
+        </p>
+      )}
     </div>
   );
 }
