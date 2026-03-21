@@ -18,7 +18,8 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (session?.user?.role !== "ADMIN" && session?.user?.role !== "SUPER_ADMIN") {
+  const role = session?.user?.role;
+  if (role !== "ADMIN" && role !== "SUPER_ADMIN" && role !== "TEAM_MANAGER") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -27,7 +28,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Role name is required" }, { status: 400 });
   }
 
-  const clubId = (session.user as Record<string, unknown>)?.clubId as string;
+  const clubId = (session!.user as Record<string, unknown>)?.clubId as string;
 
   try {
     const role = await prisma.dutyRole.create({ data: { roleName: roleName.trim(), clubId } });

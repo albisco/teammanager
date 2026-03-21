@@ -25,14 +25,15 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string;
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string; roleId: string } }) {
   const session = await getServerSession(authOptions);
-  if (session?.user?.role !== "ADMIN" && session?.user?.role !== "SUPER_ADMIN") {
+  const role = session?.user?.role;
+  if (role !== "ADMIN" && role !== "SUPER_ADMIN" && role !== "TEAM_MANAGER") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const body = await req.json();
   const { roleName, roleType, assignedUserId, frequencyWeeks, specialistUserIds } = body;
 
-  const clubId = (session.user as Record<string, unknown>)?.clubId as string;
+  const clubId = (session!.user as Record<string, unknown>)?.clubId as string;
 
   try {
     // Update global role name if changed
