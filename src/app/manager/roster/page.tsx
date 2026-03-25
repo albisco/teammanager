@@ -128,6 +128,7 @@ export default function ManagerRosterPage() {
   const [overrideDialogOpen, setOverrideDialogOpen] = useState(false);
   const [overrideCell, setOverrideCell] = useState<{ roundId: string; roleId: string; roleName: string; roundNumber: number; slot: number } | null>(null);
   const [overrideFamilyId, setOverrideFamilyId] = useState("");
+  const [overridePersonName, setOverridePersonName] = useState("");
 
   // Drag-and-drop state
   const [dragSource, setDragSource] = useState<{ roundId: string; roleId: string; slot: number; familyId: string } | null>(null);
@@ -374,6 +375,14 @@ export default function ManagerRosterPage() {
     const slotData = rosterData?.assignments[`${roundId}:${roleId}`]?.find((a) => a.slot === slot);
     setOverrideCell({ roundId, roleId, roleName, roundNumber, slot });
     setOverrideFamilyId(slotData?.familyId || "");
+    // Try to resolve person name for pre-selection in person-role dropdowns
+    const role = teamRoles.find((r) => r.teamDutyRoleId === roleId);
+    if (slotData?.familyId && (role?.roleType === "SPECIALIST" || role?.roleType === "FIXED")) {
+      const fm = familyMembers.find((m) => m.familyId === slotData.familyId);
+      setOverridePersonName(fm?.personName || "");
+    } else {
+      setOverridePersonName("");
+    }
     setOverrideDialogOpen(true);
   }
 
@@ -388,7 +397,11 @@ export default function ManagerRosterPage() {
         roundId: overrideCell.roundId,
         teamDutyRoleId: overrideCell.roleId,
         assignedFamilyId: overrideFamilyId || null,
-        assignedFamilyName: overrideFamilyId ? resolveAssignName(overrideCell.roleId, overrideFamilyId) : null,
+        assignedFamilyName: overrideFamilyId
+          ? (overridePersonName
+            ? `${overridePersonName} ${rosterData?.families.find((f) => f.id === overrideFamilyId)?.name || ""}`.trim()
+            : resolveAssignName(overrideCell.roleId, overrideFamilyId))
+          : null,
         slot: overrideCell.slot,
       }),
     });
@@ -891,21 +904,48 @@ export default function ManagerRosterPage() {
               {overrideCell?.roleName}{overrideCell && overrideCell.slot > 0 ? ` (slot ${overrideCell.slot + 1})` : ""} — Round {overrideCell?.roundNumber}
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Assign to Family</Label>
-              <select
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-                value={overrideFamilyId}
-                onChange={(e) => setOverrideFamilyId(e.target.value)}
-              >
-                <option value="">— Unassigned —</option>
-                {rosterData?.families.map((f) => (
-                  <option key={f.id} value={f.id}>{f.name}</option>
-                ))}
-              </select>
-            </div>
-          </div>
+          {(() => {
+            const overrideRole = overrideCell ? teamRoles.find((r) => r.teamDutyRoleId === overrideCell.roleId) : null;
+            const isPersonRole = overrideRole?.roleType === "SPECIALIST" || overrideRole?.roleType === "FIXED";
+            return (
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label>{isPersonRole ? "Assign to Person" : "Assign to Family"}</Label>
+                  {isPersonRole ? (
+                    <select
+                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                      value={overrideFamilyId ? `${overrideFamilyId}:${overridePersonName}` : ""}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (!val) { setOverrideFamilyId(""); setOverridePersonName(""); return; }
+                        const sep = val.indexOf(":");
+                        setOverrideFamilyId(val.substring(0, sep));
+                        setOverridePersonName(val.substring(sep + 1));
+                      }}
+                    >
+                      <option value="">— Unassigned —</option>
+                      {familyMembers.map((fm) => (
+                        <option key={`${fm.familyId}:${fm.personName}`} value={`${fm.familyId}:${fm.personName}`}>
+                          {fm.personName} {rosterData?.families.find((f) => f.id === fm.familyId)?.name || ""}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <select
+                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                      value={overrideFamilyId}
+                      onChange={(e) => { setOverrideFamilyId(e.target.value); setOverridePersonName(""); }}
+                    >
+                      <option value="">— Unassigned —</option>
+                      {rosterData?.families.map((f) => (
+                        <option key={f.id} value={f.id}>{f.name}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
           <DialogFooter>
             <Button variant="outline" onClick={() => setOverrideDialogOpen(false)}>Cancel</Button>
             <Button onClick={handleOverride} disabled={loading}>
