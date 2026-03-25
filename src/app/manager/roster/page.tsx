@@ -698,7 +698,7 @@ export default function ManagerRosterPage() {
                 {rosterData.families.map((family) => {
                   const counts = rosterData.dutyCounts[family.id] || {};
                   const rotatingRoles = rosterData.roles.filter((r) => r.roleType !== "FIXED");
-                  const total = Object.values(counts).reduce((sum, n) => sum + n, 0);
+                  const total = rotatingRoles.reduce((sum, role) => sum + (counts[role.id] || 0), 0);
                   return (
                     <TableRow key={family.id}>
                       <TableCell className="sticky left-0 bg-white z-10 font-medium">{family.name}</TableCell>
