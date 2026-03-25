@@ -53,7 +53,7 @@ export default function ManagerLayout({ children }: { children: React.ReactNode 
           </Button>
         </div>
       </aside>
-      <main className="flex-1 bg-gray-50 p-8">{children}</main>
+      <main className="flex-1 min-w-0 bg-gray-50 p-8 overflow-x-auto">{children}</main>
     </div>
   );
 }

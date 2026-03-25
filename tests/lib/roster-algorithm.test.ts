@@ -141,6 +141,70 @@ describe("generateRoster", () => {
     expect(result.length).toBe(0);
   });
 
+  it("generates multiple assignments per round when slots > 1", () => {
+    const input = {
+      rounds: baseRounds,
+      families: baseFamilies,
+      teamDutyRoles: [
+        { id: "tdr1", roleName: "Canteen", roleType: "ROTATING" as const, assignedUserId: null, frequencyWeeks: 1, slots: 2, specialistFamilyIds: [] },
+      ],
+      exclusions: [],
+      unavailabilities: [],
+    };
+
+    const result = generateRoster(input);
+    // 3 rounds × 2 slots = 6 assignments
+    expect(result.length).toBe(6);
+
+    // Each round should have exactly 2 assignments with different families and different slot numbers
+    for (const round of baseRounds) {
+      const roundAssignments = result.filter((a) => a.roundId === round.id);
+      expect(roundAssignments.length).toBe(2);
+      expect(roundAssignments[0].assignedFamilyId).not.toBe(roundAssignments[1].assignedFamilyId);
+      expect(roundAssignments.map((a) => a.slot).sort()).toEqual([0, 1]);
+    }
+  });
+
+  it("does not assign the same family to multiple slots of the same role in one round", () => {
+    const input = {
+      rounds: [{ id: "r1", roundNumber: 1, isBye: false }],
+      families: [
+        { id: "family_smith", name: "Smith" },
+        { id: "family_jones", name: "Jones" },
+        { id: "family_brown", name: "Brown" },
+      ],
+      teamDutyRoles: [
+        { id: "tdr1", roleName: "Canteen", roleType: "ROTATING" as const, assignedUserId: null, frequencyWeeks: 1, slots: 3, specialistFamilyIds: [] },
+      ],
+      exclusions: [],
+      unavailabilities: [],
+    };
+
+    const result = generateRoster(input);
+    expect(result.length).toBe(3);
+    const familyIds = result.map((a) => a.assignedFamilyId);
+    expect(new Set(familyIds).size).toBe(3); // all different families
+  });
+
+  it("fills fewer slots when not enough eligible families", () => {
+    const input = {
+      rounds: [{ id: "r1", roundNumber: 1, isBye: false }],
+      families: [
+        { id: "family_smith", name: "Smith" },
+      ],
+      teamDutyRoles: [
+        { id: "tdr1", roleName: "Canteen", roleType: "ROTATING" as const, assignedUserId: null, frequencyWeeks: 1, slots: 3, specialistFamilyIds: [] },
+      ],
+      exclusions: [],
+      unavailabilities: [],
+    };
+
+    const result = generateRoster(input);
+    // Only 1 family available, so only 1 slot can be filled
+    expect(result.length).toBe(1);
+    expect(result[0].slot).toBe(0);
+  });
+
   it("distributes duties fairly across families", () => {
     const rounds = Array.from({ length: 9 }, (_, i) => ({
       id: `r${i + 1}`,
