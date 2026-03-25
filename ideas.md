@@ -51,3 +51,10 @@
 - User management (admin creating family/TM accounts, club onboarding)
 - Vote duplicate prevention
 - ~~Team awards~~ — built
+
+## LM Notes
+- I addded players using the admin login, logged out then went to the team manager login and the players I added weren't showing
+- Did 4 lots of voting and closed them, used the QR code for three and the link for one, all good so far.  Closed the voting, might be good to remove the QRCode when closed.  I did try to add more votes after closing and it wouldn't let me, so it is not a major issue
+- As messaged, roster not loading for me
+- Add scores for each round.  As the team manager we have to load scores into 
+- 
