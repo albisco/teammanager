@@ -622,10 +622,9 @@ export default function ManagerRosterPage() {
                     </TableCell>
                     {activeRounds.map((round) => {
                       const slotAssignments = rosterData.assignments[`${round.id}:${role.id}`] || [];
-                      const isFixed = role.roleType === "FIXED";
                       const totalSlots = role.slots ?? 1;
                       return (
-                        <TableCell key={round.id} className={`text-center text-sm align-top py-2 ${isFixed ? "bg-gray-50 text-gray-500" : ""}`}>
+                        <TableCell key={round.id} className="text-center text-sm align-top py-2">
                           <div className="flex flex-col gap-0.5">
                             {Array.from({ length: totalSlots }).map((_, slot) => {
                               const a = slotAssignments.find((x) => x.slot === slot);
@@ -635,19 +634,18 @@ export default function ManagerRosterPage() {
                               return (
                                 <div
                                   key={slot}
-                                  draggable={!isFixed && !!a}
+                                  draggable={!!a}
                                   className={[
-                                    "rounded px-1 select-none",
-                                    isFixed ? "" : "cursor-pointer hover:bg-blue-50",
+                                    "rounded px-1 select-none cursor-pointer hover:bg-blue-50",
                                     isDropTarget ? "ring-2 ring-blue-400 bg-blue-100" : "",
                                     isDragging ? "opacity-40" : "",
                                   ].join(" ")}
                                   onDragStart={() => a && setDragSource({ roundId: round.id, roleId: role.id, slot, familyId: a.familyId })}
                                   onDragEnd={() => { setDragSource(null); setDragOverKey(null); }}
-                                  onDragOver={(e) => { if (!isFixed && dragSource?.roleId === role.id) { e.preventDefault(); setDragOverKey(dropKey); } }}
+                                  onDragOver={(e) => { if (dragSource?.roleId === role.id) { e.preventDefault(); setDragOverKey(dropKey); } }}
                                   onDragLeave={() => setDragOverKey(null)}
                                   onDrop={() => handleDrop(round.id, role.id, slot, a?.familyId ?? null)}
-                                  onClick={() => { if (!isFixed && !dragSource) openOverrideDialog(round.id, role.id, role.roleName, round.roundNumber, slot); }}
+                                  onClick={() => { if (!dragSource) openOverrideDialog(round.id, role.id, role.roleName, round.roundNumber, slot); }}
                                 >
                                   {a ? a.familyName : <span className="text-gray-300">—</span>}
                                 </div>

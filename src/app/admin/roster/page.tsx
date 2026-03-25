@@ -617,17 +617,12 @@ export default function RosterPage() {
                         {activeRounds.map((round) => {
                           const assignments = rosterData.assignments[`${round.id}:${role.id}`];
                           const assignment = assignments?.[0];
-                          const isFixed = role.roleType === "FIXED";
                           return (
                             <TableCell
                               key={round.id}
-                              className={`text-center text-sm ${
-                                isFixed
-                                  ? "bg-gray-50 text-gray-500"
-                                  : "cursor-pointer hover:bg-blue-50"
-                              }`}
+                              className="text-center text-sm cursor-pointer hover:bg-blue-50"
                               onClick={() => {
-                                if (!isFixed) openOverrideDialog(round.id, role.id, role.roleName, round.roundNumber);
+                                openOverrideDialog(round.id, role.id, role.roleName, round.roundNumber);
                               }}
                             >
                               {assignment ? (
