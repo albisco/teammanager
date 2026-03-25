@@ -5,7 +5,7 @@ interface RosterInput {
     id: string;
     roleName: string;
     roleType: "FIXED" | "SPECIALIST" | "ROTATING" | "FREQUENCY";
-    assignedUserId?: string | null;
+    assignedFamilyId?: string | null;
     frequencyWeeks: number;
     slots?: number;
     specialistFamilyIds: string[];
@@ -54,11 +54,11 @@ export function generateRoster(input: RosterInput): RosterOutput[] {
     for (const role of teamDutyRoles) {
       // FIXED: same person every round
       if (role.roleType === "FIXED") {
-        if (role.assignedUserId) {
+        if (role.assignedFamilyId) {
           assignments.push({
             roundId: round.id,
             teamDutyRoleId: role.id,
-            assignedFamilyId: role.assignedUserId,
+            assignedFamilyId: role.assignedFamilyId,
             slot: 0,
           });
         }
@@ -82,11 +82,14 @@ export function generateRoster(input: RosterInput): RosterOutput[] {
         const eligible = eligiblePool.filter((f) => {
           if (exclusionSet.has(`${f.id}:${role.id}`)) return false;
           if (unavailabilitySet.has(`${f.id}:${round.id}`)) return false;
-          // Don't assign same family to multiple roles in one round
-          const alreadyAssigned = assignments.some(
-            (a) => a.roundId === round.id && a.assignedFamilyId === f.id
+          // Don't assign same family to multiple rotating/frequency roles in one round
+          // (fixed/specialist assignments don't block a family from other duties)
+          const alreadyAssignedRotating = assignments.some(
+            (a) => a.roundId === round.id && a.assignedFamilyId === f.id &&
+              teamDutyRoles.find((r) => r.id === a.teamDutyRoleId)?.roleType !== "FIXED" &&
+              teamDutyRoles.find((r) => r.id === a.teamDutyRoleId)?.roleType !== "SPECIALIST"
           );
-          if (alreadyAssigned) return false;
+          if (alreadyAssignedRotating) return false;
           // Don't assign same family to multiple slots of the same role
           if (chosenThisRole.includes(f.id)) return false;
           return true;
@@ -110,7 +113,10 @@ export function generateRoster(input: RosterInput): RosterOutput[] {
           assignedFamilyId: chosen.id,
           slot,
         });
-        totalAssignments[chosen.id]++;
+        // Only count rotating/frequency assignments for fairness distribution
+        if (role.roleType === "ROTATING" || role.roleType === "FREQUENCY") {
+          totalAssignments[chosen.id]++;
+        }
         roleAssignments[chosen.id][role.id]++;
         chosenThisRole.push(chosen.id);
       }
@@ -118,4 +124,77 @@ export function generateRoster(input: RosterInput): RosterOutput[] {
   }
 
   return assignments;
+}
+
+interface DisplayNameInput {
+  teamDutyRoles: {
+    id: string;
+    roleType: "FIXED" | "SPECIALIST" | "ROTATING" | "FREQUENCY";
+    assignedFamilyId?: string | null;
+    assignedPersonName?: string | null;
+    specialists: { personName: string; familyId: string | null }[];
+  }[];
+  familyMap: Map<string, { id: string; name: string }>;
+}
+
+/**
+ * Resolves the display name for a roster assignment.
+ * For SPECIALIST/FIXED roles, returns the person's name (e.g. "Kylie").
+ * For ROTATING/FREQUENCY roles, returns the family surname (e.g. "Lawson").
+ */
+export function resolveDisplayName(
+  input: DisplayNameInput,
+  assignment: { teamDutyRoleId: string; assignedFamilyId: string }
+): string {
+  for (const tdr of input.teamDutyRoles) {
+    if (tdr.id !== assignment.teamDutyRoleId) continue;
+
+    if (tdr.roleType === "FIXED" && tdr.assignedFamilyId && tdr.assignedPersonName) {
+      if (assignment.assignedFamilyId === tdr.assignedFamilyId) {
+        const surname = input.familyMap.get(tdr.assignedFamilyId)?.name;
+        return surname ? `${tdr.assignedPersonName} ${surname}` : tdr.assignedPersonName;
+      }
+    }
+
+    if (tdr.roleType === "SPECIALIST") {
+      for (const s of tdr.specialists) {
+        const fId = s.familyId || `external_${s.personName.toLowerCase().replace(/\s+/g, "_")}`;
+        if (assignment.assignedFamilyId === fId) {
+          // Full name: "Gav Prendergast" for family-linked, just name for external
+          const surname = s.familyId ? input.familyMap.get(s.familyId)?.name : null;
+          return surname ? `${s.personName} ${surname}` : s.personName;
+        }
+      }
+    }
+
+    break;
+  }
+
+  return input.familyMap.get(assignment.assignedFamilyId)?.name || assignment.assignedFamilyId;
+}
+
+/**
+ * Derives unique family members (parents) from team players for specialist/fixed role configuration.
+ * Returns deduplicated, sorted list with labels like "Kylie (Lawson)".
+ */
+export function deriveFamilyMembers(
+  players: { surname: string; parent1: string | null; parent2: string | null }[]
+): { familyId: string; personName: string; label: string }[] {
+  const seen = new Set<string>();
+  const members: { familyId: string; personName: string; label: string }[] = [];
+
+  for (const player of players) {
+    const familyId = `family_${player.surname.toLowerCase().replace(/\s+/g, "_")}`;
+    for (const parentName of [player.parent1, player.parent2]) {
+      if (!parentName?.trim()) continue;
+      const name = parentName.trim();
+      const key = `${familyId}:${name}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        members.push({ familyId, personName: name, label: `${name} (${player.surname})` });
+      }
+    }
+  }
+
+  return members.sort((a, b) => a.label.localeCompare(b.label));
 }

@@ -16,10 +16,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     where: { teamId: params.id },
     include: {
       dutyRole: true,
-      assignedUser: { select: { id: true, name: true } },
-      specialists: {
-        include: { user: { select: { id: true, name: true } } },
-      },
+      specialists: true,
     },
   });
 
@@ -33,10 +30,15 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       roleName: role.roleName,
       teamDutyRoleId: config?.id || null,
       roleType: config?.roleType || "ROTATING",
-      assignedUser: config?.assignedUser || null,
+      assignedPersonName: config?.assignedPersonName || null,
+      assignedFamilyId: config?.assignedFamilyId || null,
       frequencyWeeks: config?.frequencyWeeks || 1,
       slots: config?.slots || 1,
-      specialists: config?.specialists || [],
+      specialists: (config?.specialists || []).map((s) => ({
+        id: s.id,
+        personName: s.personName,
+        familyId: s.familyId,
+      })),
       configured: !!config,
     };
   });
@@ -52,7 +54,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   }
 
   const body = await req.json();
-  const { dutyRoleId, roleType, assignedUserId, frequencyWeeks, slots, specialistUserIds } = body;
+  const { dutyRoleId, roleType, assignedPersonName, assignedFamilyId, frequencyWeeks, slots, specialists } = body;
   const slotsValue = Math.max(1, Math.min(10, parseInt(slots) || 1));
 
   if (!dutyRoleId || !roleType) {
@@ -65,26 +67,31 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       where: { teamId_dutyRoleId: { teamId: params.id, dutyRoleId } },
     });
 
+    const specialistData = roleType === "SPECIALIST" && Array.isArray(specialists) && specialists.length
+      ? { create: specialists.map((s: { personName: string; familyId?: string }) => ({ personName: s.personName, familyId: s.familyId || null })) }
+      : undefined;
+
+    const data = {
+      roleType,
+      assignedPersonName: roleType === "FIXED" ? (assignedPersonName || null) : null,
+      assignedFamilyId: roleType === "FIXED" ? (assignedFamilyId || null) : null,
+      frequencyWeeks: roleType === "FREQUENCY" ? (parseInt(frequencyWeeks) || 1) : 1,
+      slots: slotsValue,
+      specialists: specialistData,
+    };
+
+    const include = {
+      dutyRole: true,
+      specialists: true,
+    };
+
     if (existing) {
-      // Delete old specialists
       await prisma.teamDutyRoleSpecialist.deleteMany({ where: { teamDutyRoleId: existing.id } });
 
       const updated = await prisma.teamDutyRole.update({
         where: { id: existing.id },
-        data: {
-          roleType,
-          assignedUserId: roleType === "FIXED" ? assignedUserId : null,
-          frequencyWeeks: roleType === "FREQUENCY" ? (parseInt(frequencyWeeks) || 1) : 1,
-          slots: slotsValue,
-          specialists: roleType === "SPECIALIST" && specialistUserIds?.length
-            ? { create: specialistUserIds.map((userId: string) => ({ userId })) }
-            : undefined,
-        },
-        include: {
-          dutyRole: true,
-          assignedUser: { select: { id: true, name: true } },
-          specialists: { include: { user: { select: { id: true, name: true } } } },
-        },
+        data,
+        include,
       });
       return NextResponse.json(updated);
     } else {
@@ -92,19 +99,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         data: {
           teamId: params.id,
           dutyRoleId,
-          roleType,
-          assignedUserId: roleType === "FIXED" ? assignedUserId : null,
-          frequencyWeeks: roleType === "FREQUENCY" ? (parseInt(frequencyWeeks) || 1) : 1,
-          slots: slotsValue,
-          specialists: roleType === "SPECIALIST" && specialistUserIds?.length
-            ? { create: specialistUserIds.map((userId: string) => ({ userId })) }
-            : undefined,
+          ...data,
         },
-        include: {
-          dutyRole: true,
-          assignedUser: { select: { id: true, name: true } },
-          specialists: { include: { user: { select: { id: true, name: true } } } },
-        },
+        include,
       });
       return NextResponse.json(created, { status: 201 });
     }

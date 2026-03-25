@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { deriveFamilyMembers } from "@/lib/roster-algorithm";
 
 // Returns all data needed to render the manager roster page in a single request
 export async function GET() {
@@ -39,8 +40,7 @@ export async function GET() {
       where: { teamId },
       include: {
         dutyRole: true,
-        assignedUser: { select: { id: true, name: true } },
-        specialists: { include: { user: { select: { id: true, name: true } } } },
+        specialists: true,
       },
       orderBy: { dutyRole: { roleName: "asc" } },
     }),
@@ -55,7 +55,7 @@ export async function GET() {
     }),
     prisma.teamPlayer.findMany({
       where: { teamId },
-      include: { player: { select: { surname: true } } },
+      include: { player: { select: { surname: true, parent1: true, parent2: true } } },
     }),
     prisma.familyUnavailability.findMany({
       where: { round: { teamId } },
@@ -73,6 +73,11 @@ export async function GET() {
     }
   }
   const families = Array.from(familyMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+
+  // Derive family members (parents) for specialist/fixed role config
+  const familyMembers = deriveFamilyMembers(
+    teamPlayers.map((tp) => tp.player)
+  );
 
   // Build assignment map and duty counts
   const assignmentMap: Record<string, Array<{ familyId: string; familyName: string; slot: number }>> = {};
@@ -98,10 +103,15 @@ export async function GET() {
       roleName: role.roleName,
       teamDutyRoleId: config?.id || null,
       roleType: config?.roleType || "ROTATING",
-      assignedUser: config?.assignedUser || null,
+      assignedPersonName: config?.assignedPersonName || null,
+      assignedFamilyId: config?.assignedFamilyId || null,
       frequencyWeeks: config?.frequencyWeeks || 1,
       slots: config?.slots || 1,
-      specialists: config?.specialists || [],
+      specialists: (config?.specialists || []).map((s) => ({
+        id: s.id,
+        personName: s.personName,
+        familyId: s.familyId,
+      })),
       configured: !!config,
     };
   });
@@ -110,6 +120,7 @@ export async function GET() {
     users,
     globalRoles,
     teamRoles,
+    familyMembers,
     roster: {
       rounds,
       roles: teamDutyRoles.map((r) => ({

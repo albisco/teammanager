@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { generateRoster } from "@/lib/roster-algorithm";
+import { generateRoster, resolveDisplayName } from "@/lib/roster-algorithm";
 
 export async function POST(_req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
@@ -73,6 +73,29 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
     );
   }
 
+  // Add external specialists/fixed people to the families list so the algorithm can assign them
+  for (const tdr of teamDutyRoles) {
+    if (tdr.roleType === "FIXED" && tdr.assignedFamilyId && !familyMap.has(tdr.assignedFamilyId)) {
+      const extId = tdr.assignedFamilyId;
+      familyMap.set(extId, { id: extId, name: tdr.assignedPersonName || extId });
+      families.push(familyMap.get(extId)!);
+    }
+    for (const s of tdr.specialists) {
+      if (s.familyId && !familyMap.has(s.familyId)) {
+        familyMap.set(s.familyId, { id: s.familyId, name: s.personName });
+        families.push(familyMap.get(s.familyId)!);
+      }
+      if (!s.familyId) {
+        // External person without a family link — give them a synthetic ID
+        const extId = `external_${s.personName.toLowerCase().replace(/\s+/g, "_")}`;
+        if (!familyMap.has(extId)) {
+          familyMap.set(extId, { id: extId, name: s.personName });
+          families.push(familyMap.get(extId)!);
+        }
+      }
+    }
+  }
+
   const input = {
     rounds: rounds.map((r) => ({
       id: r.id,
@@ -84,10 +107,12 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
       id: tdr.id,
       roleName: tdr.dutyRole.roleName,
       roleType: tdr.roleType,
-      assignedUserId: tdr.assignedUserId,
+      assignedFamilyId: tdr.assignedFamilyId,
       frequencyWeeks: tdr.frequencyWeeks,
       slots: tdr.slots,
-      specialistFamilyIds: tdr.specialists.map((s) => s.userId),
+      specialistFamilyIds: tdr.specialists.map((s) =>
+        s.familyId || `external_${s.personName.toLowerCase().replace(/\s+/g, "_")}`
+      ),
     })),
     exclusions: exclusions.map((e) => ({
       familyId: e.familyId,
@@ -101,6 +126,18 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
 
   const assignments = generateRoster(input);
 
+  // Prepare display name resolver input
+  const displayNameInput = {
+    teamDutyRoles: teamDutyRoles.map((tdr) => ({
+      id: tdr.id,
+      roleType: tdr.roleType as "FIXED" | "SPECIALIST" | "ROTATING" | "FREQUENCY",
+      assignedFamilyId: tdr.assignedFamilyId,
+      assignedPersonName: tdr.assignedPersonName,
+      specialists: tdr.specialists.map((s) => ({ personName: s.personName, familyId: s.familyId })),
+    })),
+    familyMap,
+  };
+
   // Delete existing assignments and create new ones in a transaction
   const roundIds = rounds.map((r) => r.id);
   await prisma.$transaction([
@@ -112,7 +149,7 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
         roundId: a.roundId,
         teamDutyRoleId: a.teamDutyRoleId,
         assignedFamilyId: a.assignedFamilyId,
-        assignedFamilyName: familyMap.get(a.assignedFamilyId)?.name || a.assignedFamilyId,
+        assignedFamilyName: resolveDisplayName(displayNameInput, a),
         slot: a.slot,
       })),
     }),
