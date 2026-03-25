@@ -24,11 +24,11 @@ const TM_USER = {
   password: "testpass123",
 };
 const PLAYERS = [
-  { jumper: "1", first: "Jack", surname: "Smith" },
-  { jumper: "2", first: "Tom", surname: "Jones" },
-  { jumper: "3", first: "Sam", surname: "Brown" },
-  { jumper: "4", first: "Liam", surname: "Smith" },
-  { jumper: "5", first: "Noah", surname: "Wilson" },
+  { jumper: "1", first: "Jack", surname: "Smith", parent1: "Sarah", parent2: "Mike" },
+  { jumper: "2", first: "Tom", surname: "Jones", parent1: "Kylie", parent2: "" },
+  { jumper: "3", first: "Sam", surname: "Brown", parent1: "Grant", parent2: "Lisa" },
+  { jumper: "4", first: "Liam", surname: "Smith", parent1: "Sarah", parent2: "Mike" },
+  { jumper: "5", first: "Noah", surname: "Wilson", parent1: "Dave", parent2: "" },
 ];
 const SEASON = { name: `${PREFIX} Season 2026`, year: "2026" };
 const TEAM = { ageGroup: "U10", name: "Thunder" };
@@ -155,6 +155,8 @@ test.describe("Full Onboarding Flow", () => {
       await fillField(dialog, "Jumper Number", player.jumper);
       await fillField(dialog, "First Name", player.first);
       await fillField(dialog, "Surname", player.surname);
+      if (player.parent1) await fillField(dialog, "Parent 1", player.parent1);
+      if (player.parent2) await fillField(dialog, "Parent 2", player.parent2);
 
       await dialog.getByRole("button", { name: "Save" }).click();
       await waitForToast(page, "Player added");
@@ -355,6 +357,87 @@ test.describe("Full Onboarding Flow", () => {
     await configDialog2.getByRole("button", { name: "Save" }).click();
     await waitForToast(page, "Role configured");
     await expect(configDialog2).not.toBeVisible({ timeout: 10000 });
+
+    // Add and configure "Umpire" as SPECIALIST with 2 parents
+    await page.getByRole("button", { name: "Add Role" }).click();
+    const roleDialog3 = page.getByRole("dialog");
+    await expect(roleDialog3).toBeVisible();
+    await roleDialog3.getByPlaceholder("e.g. Goal Umpire, Canteen, Photographer").fill("Umpire");
+    await roleDialog3.getByRole("button", { name: "Save" }).click();
+    await waitForToast(page, "Role created");
+    await expect(roleDialog3).not.toBeVisible({ timeout: 10000 });
+
+    const umpireRow = page.locator("tr", { hasText: "Umpire" });
+    await umpireRow.getByRole("button", { name: "Configure" }).click();
+    const umpireDialog = page.getByRole("dialog");
+    await expect(umpireDialog).toBeVisible();
+
+    // Change role type to Specialist
+    await umpireDialog.locator("select").first().selectOption("SPECIALIST");
+
+    // Select Kylie (Jones) and Grant (Brown) as specialists via checkboxes
+    await umpireDialog.locator("label", { hasText: "Kylie (Jones)" }).click();
+    await umpireDialog.locator("label", { hasText: "Grant (Brown)" }).click();
+
+    // Verify 2 specialists selected
+    await expect(umpireDialog.getByText("2 selected")).toBeVisible();
+
+    await umpireDialog.getByRole("button", { name: "Save" }).click();
+    await waitForToast(page, "Role configured");
+    await expect(umpireDialog).not.toBeVisible({ timeout: 10000 });
+
+    // Verify the role detail shows person names after save
+    await expect(umpireRow.getByText("Kylie (Jones)")).toBeVisible({ timeout: 10000 });
+    await expect(umpireRow.getByText("Grant (Brown)")).toBeVisible({ timeout: 10000 });
+
+    // Add and configure "Coach" as FIXED with Sarah (Smith)
+    await page.getByRole("button", { name: "Add Role" }).click();
+    const roleDialog4 = page.getByRole("dialog");
+    await expect(roleDialog4).toBeVisible();
+    await roleDialog4.getByPlaceholder("e.g. Goal Umpire, Canteen, Photographer").fill("Coach");
+    await roleDialog4.getByRole("button", { name: "Save" }).click();
+    await waitForToast(page, "Role created");
+    await expect(roleDialog4).not.toBeVisible({ timeout: 10000 });
+
+    const coachRow = page.locator("tr", { hasText: "Coach" });
+    await coachRow.getByRole("button", { name: "Configure" }).click();
+    const coachDialog = page.getByRole("dialog");
+    await expect(coachDialog).toBeVisible();
+
+    // Change role type to Fixed
+    await coachDialog.locator("select").first().selectOption("FIXED");
+
+    // Select Sarah (Smith) from the assigned person dropdown
+    await coachDialog.locator("select").nth(1).selectOption({ label: "Sarah (Smith)" });
+
+    await coachDialog.getByRole("button", { name: "Save" }).click();
+    await waitForToast(page, "Role configured");
+    await expect(coachDialog).not.toBeVisible({ timeout: 10000 });
+
+    // Verify the role detail shows "Sarah" after save
+    await expect(coachRow.getByText("Sarah")).toBeVisible({ timeout: 10000 });
+  });
+
+  test("3.1b — TM re-opens specialist config and sees persisted selections", async ({ page }) => {
+    await login(page, TM_USER.email, TM_USER.password, "/manager/dashboard");
+    await page.goto("/manager/roster");
+    await expect(page.getByText("Duty Roster")).toBeVisible({ timeout: 15000 });
+
+    // Re-open Umpire config and verify specialists persisted
+    const umpireRow = page.locator("tr", { hasText: "Umpire" });
+    await umpireRow.getByRole("button", { name: "Configure" }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+
+    // Verify checkboxes are checked (specialists persisted across page reload)
+    const kylieCheckbox = dialog.locator("label", { hasText: "Kylie (Jones)" }).locator("input[type='checkbox']");
+    await expect(kylieCheckbox).toBeChecked();
+    const grantCheckbox = dialog.locator("label", { hasText: "Grant (Brown)" }).locator("input[type='checkbox']");
+    await expect(grantCheckbox).toBeChecked();
+
+    // Close without saving
+    await dialog.getByRole("button", { name: "Save" }).click();
+    await waitForToast(page, "Role configured");
   });
 
   test("3.2 — TM generates roster", async ({ page }) => {
@@ -369,8 +452,16 @@ test.describe("Full Onboarding Flow", () => {
     await waitForToast(page, "Roster generated");
 
     // After generation, page reloads roster data — wait for the roster grid to show assignments
-    // At least some family name should appear (Smith has 2 players, most likely to be assigned)
+    // Rotating roles should show family surnames
     await expect(page.getByText("Smith").first()).toBeVisible({ timeout: 15000 });
+
+    // Specialist role (Umpire) should show full names, not just family surnames
+    // Kylie Jones and Grant Brown should appear in the roster grid
+    await expect(page.getByText("Kylie Jones").first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("Grant Brown").first()).toBeVisible({ timeout: 10000 });
+
+    // Fixed role (Coach) should show full name "Sarah Smith", not just "Smith"
+    await expect(page.getByText("Sarah Smith").first()).toBeVisible({ timeout: 10000 });
   });
 
   test("3.3 — TM creates award types", async ({ page }) => {
