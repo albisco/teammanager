@@ -126,6 +126,25 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
 
   const assignments = generateRoster(input);
 
+  // Build a lookup: for specialist/fixed roles, map familyId → personName
+  // so the grid shows "Kylie" instead of "Lawson"
+  const specialistNameByRole = new Map<string, Map<string, string>>();
+  for (const tdr of teamDutyRoles) {
+    if (tdr.roleType === "FIXED" && tdr.assignedFamilyId && tdr.assignedPersonName) {
+      const roleMap = new Map<string, string>();
+      roleMap.set(tdr.assignedFamilyId, tdr.assignedPersonName);
+      specialistNameByRole.set(tdr.id, roleMap);
+    }
+    if (tdr.roleType === "SPECIALIST") {
+      const roleMap = new Map<string, string>();
+      for (const s of tdr.specialists) {
+        const fId = s.familyId || `external_${s.personName.toLowerCase().replace(/\s+/g, "_")}`;
+        roleMap.set(fId, s.personName);
+      }
+      specialistNameByRole.set(tdr.id, roleMap);
+    }
+  }
+
   // Delete existing assignments and create new ones in a transaction
   const roundIds = rounds.map((r) => r.id);
   await prisma.$transaction([
@@ -133,13 +152,20 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
       where: { roundId: { in: roundIds }, teamDutyRoleId: { in: teamDutyRoles.map((r) => r.id) } },
     }),
     prisma.rosterAssignment.createMany({
-      data: assignments.map((a) => ({
-        roundId: a.roundId,
-        teamDutyRoleId: a.teamDutyRoleId,
-        assignedFamilyId: a.assignedFamilyId,
-        assignedFamilyName: familyMap.get(a.assignedFamilyId)?.name || a.assignedFamilyId,
-        slot: a.slot,
-      })),
+      data: assignments.map((a) => {
+        // For specialist/fixed roles, show person name; for others, show family surname
+        const roleNameMap = specialistNameByRole.get(a.teamDutyRoleId);
+        const displayName = roleNameMap?.get(a.assignedFamilyId)
+          || familyMap.get(a.assignedFamilyId)?.name
+          || a.assignedFamilyId;
+        return {
+          roundId: a.roundId,
+          teamDutyRoleId: a.teamDutyRoleId,
+          assignedFamilyId: a.assignedFamilyId,
+          assignedFamilyName: displayName,
+          slot: a.slot,
+        };
+      }),
     }),
   ]);
 
