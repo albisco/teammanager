@@ -57,8 +57,6 @@ model User {
   players              Player[]
   votes                Vote[]
   managedTeams         Team[]               @relation("TeamManager")
-  teamDutyRoleAssignments TeamDutyRole[]       @relation("FixedAssignment")
-  teamDutyRoleSpecialists TeamDutyRoleSpecialist[]
   familyExclusions     FamilyExclusion[]
   familyUnavailabilities FamilyUnavailability[]
 }
@@ -177,16 +175,16 @@ model DutyRole {
 }
 
 model TeamDutyRole {
-  id              String       @id @default(cuid())
-  teamId          String
-  team            Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  dutyRoleId      String
-  dutyRole        DutyRole     @relation(fields: [dutyRoleId], references: [id], onDelete: Cascade)
-  roleType        DutyRoleType @default(ROTATING)
-  assignedUserId  String?
-  assignedUser    User?        @relation("FixedAssignment", fields: [assignedUserId], references: [id])
-  frequencyWeeks  Int          @default(1)
-  slots           Int          @default(1)
+  id                 String       @id @default(cuid())
+  teamId             String
+  team               Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  dutyRoleId         String
+  dutyRole           DutyRole     @relation(fields: [dutyRoleId], references: [id], onDelete: Cascade)
+  roleType           DutyRoleType @default(ROTATING)
+  assignedPersonName String?
+  assignedFamilyId   String?
+  frequencyWeeks     Int          @default(1)
+  slots              Int          @default(1)
 
   specialists       TeamDutyRoleSpecialist[]
   rosterAssignments RosterAssignment[]
@@ -199,10 +197,10 @@ model TeamDutyRoleSpecialist {
   id             String       @id @default(cuid())
   teamDutyRoleId String
   teamDutyRole   TeamDutyRole @relation(fields: [teamDutyRoleId], references: [id], onDelete: Cascade)
-  userId         String
-  user           User         @relation(fields: [userId], references: [id])
+  personName     String
+  familyId       String?
 
-  @@unique([teamDutyRoleId, userId])
+  @@unique([teamDutyRoleId, personName])
 }
 
 model RosterAssignment {

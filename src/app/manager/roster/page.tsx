@@ -14,21 +14,21 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 
-interface UserInfo {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-}
-
 interface GlobalDutyRole {
   id: string;
   roleName: string;
 }
 
-interface Specialist {
+interface SpecialistEntry {
   id: string;
-  user: { id: string; name: string };
+  personName: string;
+  familyId: string | null;
+}
+
+interface FamilyMember {
+  familyId: string;
+  personName: string;
+  label: string;
 }
 
 interface TeamRoleConfig {
@@ -36,10 +36,11 @@ interface TeamRoleConfig {
   roleName: string;
   teamDutyRoleId: string | null;
   roleType: "FIXED" | "SPECIALIST" | "ROTATING" | "FREQUENCY";
-  assignedUser: { id: string; name: string } | null;
+  assignedPersonName: string | null;
+  assignedFamilyId: string | null;
   frequencyWeeks: number;
   slots: number;
-  specialists: Specialist[];
+  specialists: SpecialistEntry[];
   configured: boolean;
 }
 
@@ -85,13 +86,18 @@ const ROLE_TYPE_VARIANTS: Record<string, "default" | "secondary" | "outline"> = 
   FREQUENCY: "secondary",
 };
 
+interface SpecialistFormEntry {
+  personName: string;
+  familyId: string | null;
+}
+
 export default function ManagerRosterPage() {
   const { data: session } = useSession();
   const teamId = (session?.user as Record<string, unknown>)?.teamId as string | null;
 
   const [teamRoles, setTeamRoles] = useState<TeamRoleConfig[]>([]);
   const [globalRoles, setGlobalRoles] = useState<GlobalDutyRole[]>([]);
-  const [users, setUsers] = useState<UserInfo[]>([]);
+  const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
   const [pageLoading, setPageLoading] = useState(true);
   const [loading, setLoading] = useState(false);
 
@@ -110,11 +116,13 @@ export default function ManagerRosterPage() {
   const [configRole, setConfigRole] = useState<TeamRoleConfig | null>(null);
   const [configForm, setConfigForm] = useState({
     roleType: "ROTATING" as TeamRoleConfig["roleType"],
-    assignedUserId: "",
+    assignedPersonName: "",
+    assignedFamilyId: "" as string | null,
     frequencyWeeks: "1",
     slots: "1",
-    specialistUserIds: [] as string[],
+    specialists: [] as SpecialistFormEntry[],
   });
+  const [customSpecialistName, setCustomSpecialistName] = useState("");
 
   // Override dialog
   const [overrideDialogOpen, setOverrideDialogOpen] = useState(false);
@@ -130,15 +138,15 @@ export default function ManagerRosterPage() {
     const res = await fetch("/api/manager/roster");
     if (!res.ok) return;
     const data = await res.json();
-    setUsers(data.users);
     setGlobalRoles(data.globalRoles);
     setTeamRoles(data.teamRoles);
+    setFamilyMembers(data.familyMembers || []);
     setRosterData(data.roster);
     setUnavailabilities(new Set(data.unavailabilities.map((u: { familyId: string; roundId: string }) => `${u.familyId}:${u.roundId}`)));
     setPageLoading(false);
   }, []);
 
-  // Lightweight refreshes after mutations (skip users which rarely change)
+  // Lightweight refreshes after mutations
   const fetchGlobalRoles = useCallback(async () => {
     const res = await fetch("/api/duty-roles");
     if (res.ok) setGlobalRoles(await res.json());
@@ -189,11 +197,13 @@ export default function ManagerRosterPage() {
     setConfigRole(role);
     setConfigForm({
       roleType: role.roleType,
-      assignedUserId: role.assignedUser?.id || "",
+      assignedPersonName: role.assignedPersonName || "",
+      assignedFamilyId: role.assignedFamilyId || null,
       frequencyWeeks: String(role.frequencyWeeks),
       slots: String(role.slots ?? 1),
-      specialistUserIds: role.specialists.map((s) => s.user.id),
+      specialists: role.specialists.map((s) => ({ personName: s.personName, familyId: s.familyId })),
     });
+    setCustomSpecialistName("");
     setConfigDialogOpen(true);
   }
 
@@ -207,10 +217,11 @@ export default function ManagerRosterPage() {
       body: JSON.stringify({
         dutyRoleId: configRole.dutyRoleId,
         roleType: configForm.roleType,
-        assignedUserId: configForm.roleType === "FIXED" ? configForm.assignedUserId : null,
+        assignedPersonName: configForm.roleType === "FIXED" ? configForm.assignedPersonName : null,
+        assignedFamilyId: configForm.roleType === "FIXED" ? configForm.assignedFamilyId : null,
         frequencyWeeks: configForm.roleType === "FREQUENCY" ? configForm.frequencyWeeks : "1",
         slots: configForm.slots,
-        specialistUserIds: configForm.roleType === "SPECIALIST" ? configForm.specialistUserIds : [],
+        specialists: configForm.roleType === "SPECIALIST" ? configForm.specialists : [],
       }),
     });
 
@@ -225,23 +236,71 @@ export default function ManagerRosterPage() {
     setLoading(false);
   }
 
-  function toggleSpecialist(userId: string) {
+  function toggleFamilyMemberSpecialist(fm: FamilyMember) {
+    setConfigForm((prev) => {
+      const exists = prev.specialists.some((s) => s.personName === fm.personName && s.familyId === fm.familyId);
+      return {
+        ...prev,
+        specialists: exists
+          ? prev.specialists.filter((s) => !(s.personName === fm.personName && s.familyId === fm.familyId))
+          : [...prev.specialists, { personName: fm.personName, familyId: fm.familyId }],
+      };
+    });
+  }
+
+  function addCustomSpecialist() {
+    const name = customSpecialistName.trim();
+    if (!name) return;
+    if (configForm.specialists.some((s) => s.personName === name && !s.familyId)) return;
     setConfigForm((prev) => ({
       ...prev,
-      specialistUserIds: prev.specialistUserIds.includes(userId)
-        ? prev.specialistUserIds.filter((id) => id !== userId)
-        : [...prev.specialistUserIds, userId],
+      specialists: [...prev.specialists, { personName: name, familyId: null }],
     }));
+    setCustomSpecialistName("");
+  }
+
+  function removeSpecialist(index: number) {
+    setConfigForm((prev) => ({
+      ...prev,
+      specialists: prev.specialists.filter((_, i) => i !== index),
+    }));
+  }
+
+  function selectFixedPerson(value: string) {
+    if (value === "__custom__") {
+      setConfigForm((prev) => ({ ...prev, assignedPersonName: "", assignedFamilyId: null }));
+    } else {
+      const fm = familyMembers.find((m) => `${m.familyId}:${m.personName}` === value);
+      if (fm) {
+        setConfigForm((prev) => ({ ...prev, assignedPersonName: fm.personName, assignedFamilyId: fm.familyId }));
+      }
+    }
+  }
+
+  function specialistLabel(s: SpecialistFormEntry): string {
+    if (s.familyId) {
+      const fm = familyMembers.find((m) => m.familyId === s.familyId && m.personName === s.personName);
+      return fm?.label || s.personName;
+    }
+    return s.personName;
   }
 
   function roleDetail(role: TeamRoleConfig): string {
     if (!role.configured) return "Not configured";
-    const slotSuffix = (role.slots ?? 1) > 1 ? ` × ${role.slots}` : "";
+    const slotSuffix = (role.slots ?? 1) > 1 ? ` x ${role.slots}` : "";
     switch (role.roleType) {
       case "FIXED":
-        return role.assignedUser?.name || "Unassigned";
-      case "SPECIALIST":
-        return (role.specialists.map((s) => s.user.name).join(", ") || "No specialists") + slotSuffix;
+        return role.assignedPersonName || "Unassigned";
+      case "SPECIALIST": {
+        const names = role.specialists.map((s) => {
+          if (s.familyId) {
+            const fm = familyMembers.find((m) => m.familyId === s.familyId && m.personName === s.personName);
+            return fm?.label || s.personName;
+          }
+          return s.personName;
+        });
+        return (names.join(", ") || "No specialists") + slotSuffix;
+      }
       case "FREQUENCY":
         return `Every ${role.frequencyWeeks} week${role.frequencyWeeks !== 1 ? "s" : ""}${slotSuffix}`;
       case "ROTATING":
@@ -356,6 +415,13 @@ export default function ManagerRosterPage() {
 
   const activeRounds = rosterData?.rounds.filter((r) => !r.isBye) || [];
   const hasAssignments = rosterData && Object.keys(rosterData.assignments).length > 0;
+
+  // For the fixed role dropdown, determine current selection key
+  const fixedDropdownValue = configForm.assignedFamilyId && configForm.assignedPersonName
+    ? `${configForm.assignedFamilyId}:${configForm.assignedPersonName}`
+    : configForm.assignedPersonName && !configForm.assignedFamilyId
+      ? "__custom__"
+      : "";
 
   if (pageLoading) return <p className="text-gray-500">Loading...</p>;
 
@@ -665,8 +731,9 @@ export default function ManagerRosterPage() {
                 onChange={(e) => setConfigForm({
                   ...configForm,
                   roleType: e.target.value as TeamRoleConfig["roleType"],
-                  assignedUserId: "",
-                  specialistUserIds: [],
+                  assignedPersonName: "",
+                  assignedFamilyId: null,
+                  specialists: [],
                   frequencyWeeks: "1",
                   slots: "1",
                 })}
@@ -697,41 +764,80 @@ export default function ManagerRosterPage() {
                 <Label>Assigned Person *</Label>
                 <select
                   className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-                  value={configForm.assignedUserId}
-                  onChange={(e) => setConfigForm({ ...configForm, assignedUserId: e.target.value })}
+                  value={fixedDropdownValue}
+                  onChange={(e) => selectFixedPerson(e.target.value)}
                 >
                   <option value="">Select a person...</option>
-                  {users.map((u) => (
-                    <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
+                  {familyMembers.map((fm) => (
+                    <option key={`${fm.familyId}:${fm.personName}`} value={`${fm.familyId}:${fm.personName}`}>
+                      {fm.label}
+                    </option>
                   ))}
+                  <option value="__custom__">Other (type a name)...</option>
                 </select>
+                {(fixedDropdownValue === "__custom__" || (configForm.assignedPersonName && !configForm.assignedFamilyId)) && (
+                  <Input
+                    placeholder="Type person's name"
+                    value={configForm.assignedPersonName}
+                    onChange={(e) => setConfigForm({ ...configForm, assignedPersonName: e.target.value, assignedFamilyId: null })}
+                  />
+                )}
               </div>
             )}
 
             {configForm.roleType === "SPECIALIST" && (
               <div className="space-y-2">
                 <Label>Eligible Specialists *</Label>
+                {/* Selected specialists as badges */}
+                {configForm.specialists.length > 0 && (
+                  <div className="flex gap-1.5 flex-wrap">
+                    {configForm.specialists.map((s, i) => (
+                      <Badge key={i} variant="secondary" className="gap-1 pl-2 pr-1 py-1">
+                        {specialistLabel(s)}
+                        <button
+                          className="ml-0.5 text-gray-400 hover:text-red-500"
+                          onClick={() => removeSpecialist(i)}
+                        >
+                          &times;
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+                {/* Family member checkboxes */}
                 <div className="border rounded-md max-h-48 overflow-y-auto p-2 space-y-1">
-                  {users.length === 0 ? (
-                    <p className="text-sm text-gray-500 p-2">No users found</p>
+                  {familyMembers.length === 0 ? (
+                    <p className="text-sm text-gray-500 p-2">No family members found. Add players with parent names first.</p>
                   ) : (
-                    users.map((u) => (
-                      <label key={u.id} className="flex items-center gap-2 px-2 py-1 hover:bg-gray-50 rounded cursor-pointer">
-                        <input
-                          type="checkbox"
-                          className="rounded border-gray-300"
-                          checked={configForm.specialistUserIds.includes(u.id)}
-                          onChange={() => toggleSpecialist(u.id)}
-                        />
-                        <span className="text-sm">{u.name}</span>
-                        <span className="text-xs text-gray-400">({u.role})</span>
-                      </label>
-                    ))
+                    familyMembers.map((fm) => {
+                      const isSelected = configForm.specialists.some((s) => s.personName === fm.personName && s.familyId === fm.familyId);
+                      return (
+                        <label key={`${fm.familyId}:${fm.personName}`} className="flex items-center gap-2 px-2 py-1 hover:bg-gray-50 rounded cursor-pointer">
+                          <input
+                            type="checkbox"
+                            className="rounded border-gray-300"
+                            checked={isSelected}
+                            onChange={() => toggleFamilyMemberSpecialist(fm)}
+                          />
+                          <span className="text-sm">{fm.label}</span>
+                        </label>
+                      );
+                    })
                   )}
                 </div>
-                {configForm.specialistUserIds.length > 0 && (
-                  <p className="text-xs text-gray-500">{configForm.specialistUserIds.length} selected</p>
-                )}
+                {/* Add external person */}
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Add other person (e.g. Uncle Dave)"
+                    value={customSpecialistName}
+                    onChange={(e) => setCustomSpecialistName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCustomSpecialist(); } }}
+                  />
+                  <Button variant="outline" size="sm" onClick={addCustomSpecialist} disabled={!customSpecialistName.trim()}>
+                    Add
+                  </Button>
+                </div>
+                <p className="text-xs text-gray-500">{configForm.specialists.length} selected</p>
               </div>
             )}
 

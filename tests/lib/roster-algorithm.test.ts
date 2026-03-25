@@ -19,7 +19,7 @@ describe("generateRoster", () => {
       rounds: baseRounds,
       families: baseFamilies,
       teamDutyRoles: [
-        { id: "tdr1", roleName: "Canteen", roleType: "ROTATING" as const, assignedUserId: null, frequencyWeeks: 1, specialistFamilyIds: [] },
+        { id: "tdr1", roleName: "Canteen", roleType: "ROTATING" as const, assignedFamilyId: null, frequencyWeeks: 1, specialistFamilyIds: [] },
       ],
       exclusions: [],
       unavailabilities: [],
@@ -37,7 +37,7 @@ describe("generateRoster", () => {
       rounds: baseRounds,
       families: baseFamilies,
       teamDutyRoles: [
-        { id: "tdr1", roleName: "Coach", roleType: "FIXED" as const, assignedUserId: "family_smith", frequencyWeeks: 1, specialistFamilyIds: [] },
+        { id: "tdr1", roleName: "Coach", roleType: "FIXED" as const, assignedFamilyId: "family_smith", frequencyWeeks: 1, specialistFamilyIds: [] },
       ],
       exclusions: [],
       unavailabilities: [],
@@ -59,7 +59,7 @@ describe("generateRoster", () => {
       rounds,
       families: baseFamilies,
       teamDutyRoles: [
-        { id: "tdr1", roleName: "Canteen", roleType: "ROTATING" as const, assignedUserId: null, frequencyWeeks: 1, specialistFamilyIds: [] },
+        { id: "tdr1", roleName: "Canteen", roleType: "ROTATING" as const, assignedFamilyId: null, frequencyWeeks: 1, specialistFamilyIds: [] },
       ],
       exclusions: [],
       unavailabilities: [],
@@ -78,7 +78,7 @@ describe("generateRoster", () => {
         { id: "family_jones", name: "Jones" },
       ],
       teamDutyRoles: [
-        { id: "tdr1", roleName: "Canteen", roleType: "ROTATING" as const, assignedUserId: null, frequencyWeeks: 1, specialistFamilyIds: [] },
+        { id: "tdr1", roleName: "Canteen", roleType: "ROTATING" as const, assignedFamilyId: null, frequencyWeeks: 1, specialistFamilyIds: [] },
       ],
       exclusions: [],
       unavailabilities: [{ familyId: "family_smith", roundId: "r1" }],
@@ -100,7 +100,7 @@ describe("generateRoster", () => {
       rounds,
       families: baseFamilies,
       teamDutyRoles: [
-        { id: "tdr1", roleName: "Photographer", roleType: "FREQUENCY" as const, assignedUserId: null, frequencyWeeks: 3, specialistFamilyIds: [] },
+        { id: "tdr1", roleName: "Photographer", roleType: "FREQUENCY" as const, assignedFamilyId: null, frequencyWeeks: 3, specialistFamilyIds: [] },
       ],
       exclusions: [],
       unavailabilities: [],
@@ -115,7 +115,7 @@ describe("generateRoster", () => {
       rounds: [{ id: "r1", roundNumber: 1, isBye: false }],
       families: baseFamilies,
       teamDutyRoles: [
-        { id: "tdr1", roleName: "Umpire", roleType: "SPECIALIST" as const, assignedUserId: null, frequencyWeeks: 1, specialistFamilyIds: ["family_jones"] },
+        { id: "tdr1", roleName: "Umpire", roleType: "SPECIALIST" as const, assignedFamilyId: null, frequencyWeeks: 1, specialistFamilyIds: ["family_jones"] },
       ],
       exclusions: [],
       unavailabilities: [],
@@ -131,7 +131,7 @@ describe("generateRoster", () => {
       rounds: baseRounds,
       families: [],
       teamDutyRoles: [
-        { id: "tdr1", roleName: "Canteen", roleType: "ROTATING" as const, assignedUserId: null, frequencyWeeks: 1, specialistFamilyIds: [] },
+        { id: "tdr1", roleName: "Canteen", roleType: "ROTATING" as const, assignedFamilyId: null, frequencyWeeks: 1, specialistFamilyIds: [] },
       ],
       exclusions: [],
       unavailabilities: [],
@@ -146,7 +146,7 @@ describe("generateRoster", () => {
       rounds: baseRounds,
       families: baseFamilies,
       teamDutyRoles: [
-        { id: "tdr1", roleName: "Canteen", roleType: "ROTATING" as const, assignedUserId: null, frequencyWeeks: 1, slots: 2, specialistFamilyIds: [] },
+        { id: "tdr1", roleName: "Canteen", roleType: "ROTATING" as const, assignedFamilyId: null, frequencyWeeks: 1, slots: 2, specialistFamilyIds: [] },
       ],
       exclusions: [],
       unavailabilities: [],
@@ -174,7 +174,7 @@ describe("generateRoster", () => {
         { id: "family_brown", name: "Brown" },
       ],
       teamDutyRoles: [
-        { id: "tdr1", roleName: "Canteen", roleType: "ROTATING" as const, assignedUserId: null, frequencyWeeks: 1, slots: 3, specialistFamilyIds: [] },
+        { id: "tdr1", roleName: "Canteen", roleType: "ROTATING" as const, assignedFamilyId: null, frequencyWeeks: 1, slots: 3, specialistFamilyIds: [] },
       ],
       exclusions: [],
       unavailabilities: [],
@@ -193,7 +193,7 @@ describe("generateRoster", () => {
         { id: "family_smith", name: "Smith" },
       ],
       teamDutyRoles: [
-        { id: "tdr1", roleName: "Canteen", roleType: "ROTATING" as const, assignedUserId: null, frequencyWeeks: 1, slots: 3, specialistFamilyIds: [] },
+        { id: "tdr1", roleName: "Canteen", roleType: "ROTATING" as const, assignedFamilyId: null, frequencyWeeks: 1, slots: 3, specialistFamilyIds: [] },
       ],
       exclusions: [],
       unavailabilities: [],
@@ -203,6 +203,56 @@ describe("generateRoster", () => {
     // Only 1 family available, so only 1 slot can be filled
     expect(result.length).toBe(1);
     expect(result[0].slot).toBe(0);
+  });
+
+  it("rotates SPECIALIST roles with slots > 1 among eligible families", () => {
+    const rounds = Array.from({ length: 4 }, (_, i) => ({
+      id: `r${i + 1}`,
+      roundNumber: i + 1,
+      isBye: false,
+    }));
+
+    const input = {
+      rounds,
+      families: baseFamilies,
+      teamDutyRoles: [
+        { id: "tdr1", roleName: "Umpire", roleType: "SPECIALIST" as const, assignedFamilyId: null, frequencyWeeks: 1, slots: 2, specialistFamilyIds: ["family_smith", "family_jones", "family_brown"] },
+      ],
+      exclusions: [],
+      unavailabilities: [],
+    };
+
+    const result = generateRoster(input);
+    // 4 rounds × 2 slots = 8 assignments
+    expect(result.length).toBe(8);
+
+    // Each round has 2 different families
+    for (const round of rounds) {
+      const roundAssignments = result.filter((a) => a.roundId === round.id);
+      expect(roundAssignments.length).toBe(2);
+      expect(roundAssignments[0].assignedFamilyId).not.toBe(roundAssignments[1].assignedFamilyId);
+    }
+  });
+
+  it("handles external specialists not in the main families list", () => {
+    const externalFamilies = [
+      ...baseFamilies,
+      { id: "external_uncle_dave", name: "Uncle Dave" },
+    ];
+
+    const input = {
+      rounds: [{ id: "r1", roundNumber: 1, isBye: false }],
+      families: externalFamilies,
+      teamDutyRoles: [
+        { id: "tdr1", roleName: "Umpire", roleType: "SPECIALIST" as const, assignedFamilyId: null, frequencyWeeks: 1, specialistFamilyIds: ["external_uncle_dave"] },
+      ],
+      exclusions: [],
+      unavailabilities: [],
+    };
+
+    const result = generateRoster(input);
+    expect(result.length).toBe(1);
+    expect(result[0].assignedFamilyId).toBe("external_uncle_dave");
   });
 
   it("distributes duties fairly across families", () => {
@@ -216,7 +266,7 @@ describe("generateRoster", () => {
       rounds,
       families: baseFamilies,
       teamDutyRoles: [
-        { id: "tdr1", roleName: "Canteen", roleType: "ROTATING" as const, assignedUserId: null, frequencyWeeks: 1, specialistFamilyIds: [] },
+        { id: "tdr1", roleName: "Canteen", roleType: "ROTATING" as const, assignedFamilyId: null, frequencyWeeks: 1, specialistFamilyIds: [] },
       ],
       exclusions: [],
       unavailabilities: [],

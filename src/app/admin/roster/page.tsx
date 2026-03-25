@@ -27,21 +27,15 @@ interface Season {
   teams: TeamSummary[];
 }
 
-interface UserInfo {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-}
-
 interface GlobalDutyRole {
   id: string;
   roleName: string;
 }
 
-interface Specialist {
+interface SpecialistEntry {
   id: string;
-  user: { id: string; name: string };
+  personName: string;
+  familyId: string | null;
 }
 
 interface TeamRoleConfig {
@@ -49,9 +43,11 @@ interface TeamRoleConfig {
   roleName: string;
   teamDutyRoleId: string | null;
   roleType: "FIXED" | "SPECIALIST" | "ROTATING" | "FREQUENCY";
-  assignedUser: { id: string; name: string } | null;
+  assignedPersonName: string | null;
+  assignedFamilyId: string | null;
   frequencyWeeks: number;
-  specialists: Specialist[];
+  slots: number;
+  specialists: SpecialistEntry[];
   configured: boolean;
 }
 
@@ -100,7 +96,6 @@ export default function RosterPage() {
   const [selectedTeam, setSelectedTeam] = useState<TeamSummary | null>(null);
   const [teamRoles, setTeamRoles] = useState<TeamRoleConfig[]>([]);
   const [globalRoles, setGlobalRoles] = useState<GlobalDutyRole[]>([]);
-  const [users, setUsers] = useState<UserInfo[]>([]);
   const [loading, setLoading] = useState(false);
 
   // Roster grid data
@@ -119,10 +114,13 @@ export default function RosterPage() {
   const [configRole, setConfigRole] = useState<TeamRoleConfig | null>(null);
   const [configForm, setConfigForm] = useState({
     roleType: "ROTATING" as TeamRoleConfig["roleType"],
-    assignedUserId: "",
+    assignedPersonName: "",
+    assignedFamilyId: null as string | null,
     frequencyWeeks: "1",
-    specialistUserIds: [] as string[],
+    slots: "1",
+    specialists: [] as { personName: string; familyId: string | null }[],
   });
+  const [customSpecialistName, setCustomSpecialistName] = useState("");
 
   // Override dialog
   const [overrideDialogOpen, setOverrideDialogOpen] = useState(false);
@@ -132,11 +130,6 @@ export default function RosterPage() {
   const fetchSeasons = useCallback(async () => {
     const res = await fetch("/api/season");
     if (res.ok) setSeasons(await res.json());
-  }, []);
-
-  const fetchUsers = useCallback(async () => {
-    const res = await fetch("/api/users");
-    if (res.ok) setUsers(await res.json());
   }, []);
 
   const fetchGlobalRoles = useCallback(async () => {
@@ -162,7 +155,7 @@ export default function RosterPage() {
     }
   }, []);
 
-  useEffect(() => { fetchSeasons(); fetchUsers(); fetchGlobalRoles(); }, [fetchSeasons, fetchUsers, fetchGlobalRoles]);
+  useEffect(() => { fetchSeasons(); fetchGlobalRoles(); }, [fetchSeasons, fetchGlobalRoles]);
 
   useEffect(() => {
     if (selectedTeam) {
@@ -229,10 +222,13 @@ export default function RosterPage() {
     setConfigRole(role);
     setConfigForm({
       roleType: role.roleType,
-      assignedUserId: role.assignedUser?.id || "",
+      assignedPersonName: role.assignedPersonName || "",
+      assignedFamilyId: role.assignedFamilyId || null,
       frequencyWeeks: String(role.frequencyWeeks),
-      specialistUserIds: role.specialists.map((s) => s.user.id),
+      slots: String(role.slots ?? 1),
+      specialists: role.specialists.map((s) => ({ personName: s.personName, familyId: s.familyId })),
     });
+    setCustomSpecialistName("");
     setConfigDialogOpen(true);
   }
 
@@ -246,9 +242,11 @@ export default function RosterPage() {
       body: JSON.stringify({
         dutyRoleId: configRole.dutyRoleId,
         roleType: configForm.roleType,
-        assignedUserId: configForm.roleType === "FIXED" ? configForm.assignedUserId : null,
+        assignedPersonName: configForm.roleType === "FIXED" ? configForm.assignedPersonName : null,
+        assignedFamilyId: configForm.roleType === "FIXED" ? configForm.assignedFamilyId : null,
         frequencyWeeks: configForm.roleType === "FREQUENCY" ? configForm.frequencyWeeks : "1",
-        specialistUserIds: configForm.roleType === "SPECIALIST" ? configForm.specialistUserIds : [],
+        slots: configForm.slots,
+        specialists: configForm.roleType === "SPECIALIST" ? configForm.specialists : [],
       }),
     });
 
@@ -263,26 +261,36 @@ export default function RosterPage() {
     setLoading(false);
   }
 
-  function toggleSpecialist(userId: string) {
+  function addCustomSpecialist() {
+    const name = customSpecialistName.trim();
+    if (!name) return;
+    if (configForm.specialists.some((s) => s.personName === name)) return;
     setConfigForm((prev) => ({
       ...prev,
-      specialistUserIds: prev.specialistUserIds.includes(userId)
-        ? prev.specialistUserIds.filter((id) => id !== userId)
-        : [...prev.specialistUserIds, userId],
+      specialists: [...prev.specialists, { personName: name, familyId: null }],
+    }));
+    setCustomSpecialistName("");
+  }
+
+  function removeSpecialist(index: number) {
+    setConfigForm((prev) => ({
+      ...prev,
+      specialists: prev.specialists.filter((_, i) => i !== index),
     }));
   }
 
   function roleDetail(role: TeamRoleConfig): string {
     if (!role.configured) return "Not configured";
+    const slotSuffix = (role.slots ?? 1) > 1 ? ` x ${role.slots}` : "";
     switch (role.roleType) {
       case "FIXED":
-        return role.assignedUser?.name || "Unassigned";
+        return role.assignedPersonName || "Unassigned";
       case "SPECIALIST":
-        return role.specialists.map((s) => s.user.name).join(", ") || "No specialists";
+        return (role.specialists.map((s) => s.personName).join(", ") || "No specialists") + slotSuffix;
       case "FREQUENCY":
-        return `Every ${role.frequencyWeeks} week${role.frequencyWeeks !== 1 ? "s" : ""}`;
+        return `Every ${role.frequencyWeeks} week${role.frequencyWeeks !== 1 ? "s" : ""}${slotSuffix}`;
       case "ROTATING":
-        return "All families";
+        return "All families" + slotSuffix;
     }
   }
 
@@ -653,9 +661,11 @@ export default function RosterPage() {
                 onChange={(e) => setConfigForm({
                   ...configForm,
                   roleType: e.target.value as TeamRoleConfig["roleType"],
-                  assignedUserId: "",
-                  specialistUserIds: [],
+                  assignedPersonName: "",
+                  assignedFamilyId: null,
+                  specialists: [],
                   frequencyWeeks: "1",
+                  slots: "1",
                 })}
               >
                 <option value="ROTATING">Rotating — any family each round</option>
@@ -668,43 +678,44 @@ export default function RosterPage() {
             {configForm.roleType === "FIXED" && (
               <div className="space-y-2">
                 <Label>Assigned Person *</Label>
-                <select
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-                  value={configForm.assignedUserId}
-                  onChange={(e) => setConfigForm({ ...configForm, assignedUserId: e.target.value })}
-                >
-                  <option value="">Select a person...</option>
-                  {users.map((u) => (
-                    <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
-                  ))}
-                </select>
+                <Input
+                  placeholder="Type person's name (e.g. Kylie)"
+                  value={configForm.assignedPersonName}
+                  onChange={(e) => setConfigForm({ ...configForm, assignedPersonName: e.target.value, assignedFamilyId: null })}
+                />
               </div>
             )}
 
             {configForm.roleType === "SPECIALIST" && (
               <div className="space-y-2">
                 <Label>Eligible Specialists *</Label>
-                <div className="border rounded-md max-h-48 overflow-y-auto p-2 space-y-1">
-                  {users.length === 0 ? (
-                    <p className="text-sm text-gray-500 p-2">No users found</p>
-                  ) : (
-                    users.map((u) => (
-                      <label key={u.id} className="flex items-center gap-2 px-2 py-1 hover:bg-gray-50 rounded cursor-pointer">
-                        <input
-                          type="checkbox"
-                          className="rounded border-gray-300"
-                          checked={configForm.specialistUserIds.includes(u.id)}
-                          onChange={() => toggleSpecialist(u.id)}
-                        />
-                        <span className="text-sm">{u.name}</span>
-                        <span className="text-xs text-gray-400">({u.role})</span>
-                      </label>
-                    ))
-                  )}
-                </div>
-                {configForm.specialistUserIds.length > 0 && (
-                  <p className="text-xs text-gray-500">{configForm.specialistUserIds.length} selected</p>
+                {configForm.specialists.length > 0 && (
+                  <div className="flex gap-1.5 flex-wrap">
+                    {configForm.specialists.map((s, i) => (
+                      <Badge key={i} variant="secondary" className="gap-1 pl-2 pr-1 py-1">
+                        {s.personName}
+                        <button
+                          className="ml-0.5 text-gray-400 hover:text-red-500"
+                          onClick={() => removeSpecialist(i)}
+                        >
+                          &times;
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
                 )}
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Type person's name"
+                    value={customSpecialistName}
+                    onChange={(e) => setCustomSpecialistName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCustomSpecialist(); } }}
+                  />
+                  <Button variant="outline" size="sm" onClick={addCustomSpecialist} disabled={!customSpecialistName.trim()}>
+                    Add
+                  </Button>
+                </div>
+                <p className="text-xs text-gray-500">{configForm.specialists.length} selected</p>
               </div>
             )}
 

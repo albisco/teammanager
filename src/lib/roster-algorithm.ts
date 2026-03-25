@@ -5,7 +5,7 @@ interface RosterInput {
     id: string;
     roleName: string;
     roleType: "FIXED" | "SPECIALIST" | "ROTATING" | "FREQUENCY";
-    assignedUserId?: string | null;
+    assignedFamilyId?: string | null;
     frequencyWeeks: number;
     slots?: number;
     specialistFamilyIds: string[];
@@ -54,11 +54,11 @@ export function generateRoster(input: RosterInput): RosterOutput[] {
     for (const role of teamDutyRoles) {
       // FIXED: same person every round
       if (role.roleType === "FIXED") {
-        if (role.assignedUserId) {
+        if (role.assignedFamilyId) {
           assignments.push({
             roundId: round.id,
             teamDutyRoleId: role.id,
-            assignedFamilyId: role.assignedUserId,
+            assignedFamilyId: role.assignedFamilyId,
             slot: 0,
           });
         }

@@ -11,8 +11,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string;
     where: { id: params.roleId },
     include: {
       dutyRole: true,
-      assignedUser: { select: { id: true, name: true } },
-      specialists: { include: { user: { select: { id: true, name: true } } } },
+      specialists: true,
     },
   });
 
@@ -31,7 +30,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string; 
   }
 
   const body = await req.json();
-  const { roleName, roleType, assignedUserId, frequencyWeeks, slots, specialistUserIds } = body;
+  const { roleName, roleType, assignedPersonName, assignedFamilyId, frequencyWeeks, slots, specialists } = body;
   const slotsValue = slots != null ? Math.max(1, Math.min(10, parseInt(slots) || 1)) : undefined;
 
   const clubId = (session!.user as Record<string, unknown>)?.clubId as string;
@@ -44,7 +43,6 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string; 
         include: { dutyRole: true },
       });
       if (existing && existing.dutyRole.roleName !== roleName) {
-        // Find or create the new global role scoped to club
         let dutyRole = await prisma.dutyRole.findUnique({
           where: { clubId_roleName: { clubId, roleName } },
         });
@@ -61,21 +59,23 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string; 
     // Delete existing specialists before updating
     await prisma.teamDutyRoleSpecialist.deleteMany({ where: { teamDutyRoleId: params.roleId } });
 
+    const specialistData = roleType === "SPECIALIST" && Array.isArray(specialists) && specialists.length
+      ? { create: specialists.map((s: { personName: string; familyId?: string }) => ({ personName: s.personName, familyId: s.familyId || null })) }
+      : undefined;
+
     const teamDutyRole = await prisma.teamDutyRole.update({
       where: { id: params.roleId },
       data: {
         roleType: roleType || undefined,
-        assignedUserId: roleType === "FIXED" ? assignedUserId : null,
+        assignedPersonName: roleType === "FIXED" ? (assignedPersonName || null) : null,
+        assignedFamilyId: roleType === "FIXED" ? (assignedFamilyId || null) : null,
         frequencyWeeks: roleType === "FREQUENCY" ? (parseInt(frequencyWeeks) || 1) : 1,
         slots: slotsValue,
-        specialists: roleType === "SPECIALIST" && specialistUserIds?.length
-          ? { create: specialistUserIds.map((userId: string) => ({ userId })) }
-          : undefined,
+        specialists: specialistData,
       },
       include: {
         dutyRole: true,
-        assignedUser: { select: { id: true, name: true } },
-        specialists: { include: { user: { select: { id: true, name: true } } } },
+        specialists: true,
       },
     });
 
