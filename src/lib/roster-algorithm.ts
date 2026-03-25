@@ -153,7 +153,9 @@ export function resolveDisplayName(
       for (const s of tdr.specialists) {
         const fId = s.familyId || `external_${s.personName.toLowerCase().replace(/\s+/g, "_")}`;
         if (assignment.assignedFamilyId === fId) {
-          return s.personName;
+          // Full name: "Gav Prendergast" for family-linked, just name for external
+          const surname = s.familyId ? input.familyMap.get(s.familyId)?.name : null;
+          return surname ? `${s.personName} ${surname}` : s.personName;
         }
       }
     }

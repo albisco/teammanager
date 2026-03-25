@@ -455,10 +455,10 @@ test.describe("Full Onboarding Flow", () => {
     // Rotating roles should show family surnames
     await expect(page.getByText("Smith").first()).toBeVisible({ timeout: 15000 });
 
-    // Specialist role (Umpire) should show person names, not family surnames
-    // Kylie (from Jones family) and Grant (from Brown family) should appear in the roster grid
-    await expect(page.getByText("Kylie").first()).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText("Grant").first()).toBeVisible({ timeout: 10000 });
+    // Specialist role (Umpire) should show full names, not just family surnames
+    // Kylie Jones and Grant Brown should appear in the roster grid
+    await expect(page.getByText("Kylie Jones").first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("Grant Brown").first()).toBeVisible({ timeout: 10000 });
 
     // Fixed role (Coach) should show "Sarah" every round, not "Smith"
     await expect(page.getByText("Sarah").first()).toBeVisible({ timeout: 10000 });

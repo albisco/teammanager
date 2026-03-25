@@ -285,7 +285,16 @@ export default function ManagerRosterPage() {
     return s.personName;
   }
 
-  /** Resolve the display name for a roster cell: person name for specialist/fixed, surname for others */
+  /** Build full name for a specialist: "Gav Prendergast" for family-linked, just name for external */
+  function specialistFullName(s: { personName: string; familyId: string | null }): string {
+    if (s.familyId) {
+      const surname = rosterData?.families.find((f) => f.id === s.familyId)?.name;
+      if (surname) return `${s.personName} ${surname}`;
+    }
+    return s.personName;
+  }
+
+  /** Resolve the display name for a roster cell: full name for specialist/fixed, surname for others */
   function resolveAssignName(teamDutyRoleId: string, familyId: string): string {
     const role = teamRoles.find((r) => r.teamDutyRoleId === teamDutyRoleId);
     if (role?.roleType === "SPECIALIST") {
@@ -293,7 +302,7 @@ export default function ManagerRosterPage() {
         const sId = s.familyId || `external_${s.personName.toLowerCase().replace(/\s+/g, "_")}`;
         return sId === familyId;
       });
-      if (specialist) return specialist.personName;
+      if (specialist) return specialistFullName(specialist);
     }
     if (role?.roleType === "FIXED" && role.assignedPersonName && role.assignedFamilyId === familyId) {
       return role.assignedPersonName;
@@ -308,7 +317,7 @@ export default function ManagerRosterPage() {
       case "FIXED":
         return role.assignedPersonName || "Unassigned";
       case "SPECIALIST":
-        return (role.specialists.map((s) => s.personName).join(", ") || "No specialists") + slotSuffix;
+        return (role.specialists.map((s) => specialistFullName(s)).join(", ") || "No specialists") + slotSuffix;
       case "FREQUENCY":
         return `Every ${role.frequencyWeeks} week${role.frequencyWeeks !== 1 ? "s" : ""}${slotSuffix}`;
       case "ROTATING":
