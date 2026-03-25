@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { generateRoster, resolveDisplayName } from "../../src/lib/roster-algorithm";
+import { generateRoster, resolveDisplayName, deriveFamilyMembers } from "../../src/lib/roster-algorithm";
 
 describe("generateRoster", () => {
   const baseRounds = [
@@ -383,5 +383,76 @@ describe("resolveDisplayName", () => {
     };
 
     expect(resolveDisplayName(input, { teamDutyRoleId: "tdr1", assignedFamilyId: "family_unknown" })).toBe("family_unknown");
+  });
+});
+
+describe("deriveFamilyMembers", () => {
+  it("derives family members from parent1 and parent2", () => {
+    const players = [
+      { surname: "Lawson", parent1: "Kylie", parent2: "Ben" },
+      { surname: "Smith", parent1: "Grant", parent2: null },
+    ];
+
+    const result = deriveFamilyMembers(players);
+    expect(result).toHaveLength(3);
+    expect(result).toContainEqual({ familyId: "family_lawson", personName: "Kylie", label: "Kylie (Lawson)" });
+    expect(result).toContainEqual({ familyId: "family_lawson", personName: "Ben", label: "Ben (Lawson)" });
+    expect(result).toContainEqual({ familyId: "family_smith", personName: "Grant", label: "Grant (Smith)" });
+  });
+
+  it("deduplicates when siblings share the same parents", () => {
+    const players = [
+      { surname: "Lawson", parent1: "Kylie", parent2: "Ben" },
+      { surname: "Lawson", parent1: "Kylie", parent2: "Ben" }, // sibling
+    ];
+
+    const result = deriveFamilyMembers(players);
+    expect(result).toHaveLength(2); // Kylie and Ben, not duplicated
+  });
+
+  it("skips null and empty parent names", () => {
+    const players = [
+      { surname: "Lawson", parent1: "Kylie", parent2: null },
+      { surname: "Smith", parent1: "", parent2: "  " },
+    ];
+
+    const result = deriveFamilyMembers(players);
+    expect(result).toHaveLength(1);
+    expect(result[0].personName).toBe("Kylie");
+  });
+
+  it("trims whitespace from parent names", () => {
+    const players = [
+      { surname: "Lawson", parent1: "  Kylie  ", parent2: null },
+    ];
+
+    const result = deriveFamilyMembers(players);
+    expect(result[0].personName).toBe("Kylie");
+    expect(result[0].label).toBe("Kylie (Lawson)");
+  });
+
+  it("returns sorted by label", () => {
+    const players = [
+      { surname: "Zane", parent1: "Zara", parent2: null },
+      { surname: "Alexander", parent1: "Alex", parent2: null },
+    ];
+
+    const result = deriveFamilyMembers(players);
+    expect(result[0].label).toBe("Alex (Alexander)");
+    expect(result[1].label).toBe("Zara (Zane)");
+  });
+
+  it("returns empty array when no players", () => {
+    expect(deriveFamilyMembers([])).toEqual([]);
+  });
+
+  it("handles surnames with spaces", () => {
+    const players = [
+      { surname: "Van Der Berg", parent1: "Jan", parent2: null },
+    ];
+
+    const result = deriveFamilyMembers(players);
+    expect(result[0].familyId).toBe("family_van_der_berg");
+    expect(result[0].label).toBe("Jan (Van Der Berg)");
   });
 });

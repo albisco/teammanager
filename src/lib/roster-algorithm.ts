@@ -163,3 +163,29 @@ export function resolveDisplayName(
 
   return input.familyMap.get(assignment.assignedFamilyId)?.name || assignment.assignedFamilyId;
 }
+
+/**
+ * Derives unique family members (parents) from team players for specialist/fixed role configuration.
+ * Returns deduplicated, sorted list with labels like "Kylie (Lawson)".
+ */
+export function deriveFamilyMembers(
+  players: { surname: string; parent1: string | null; parent2: string | null }[]
+): { familyId: string; personName: string; label: string }[] {
+  const seen = new Set<string>();
+  const members: { familyId: string; personName: string; label: string }[] = [];
+
+  for (const player of players) {
+    const familyId = `family_${player.surname.toLowerCase().replace(/\s+/g, "_")}`;
+    for (const parentName of [player.parent1, player.parent2]) {
+      if (!parentName?.trim()) continue;
+      const name = parentName.trim();
+      const key = `${familyId}:${name}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        members.push({ familyId, personName: name, label: `${name} (${player.surname})` });
+      }
+    }
+  }
+
+  return members.sort((a, b) => a.label.localeCompare(b.label));
+}
