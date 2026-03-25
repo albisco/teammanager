@@ -285,22 +285,30 @@ export default function ManagerRosterPage() {
     return s.personName;
   }
 
+  /** Resolve the display name for a roster cell: person name for specialist/fixed, surname for others */
+  function resolveAssignName(teamDutyRoleId: string, familyId: string): string {
+    const role = teamRoles.find((r) => r.teamDutyRoleId === teamDutyRoleId);
+    if (role?.roleType === "SPECIALIST") {
+      const specialist = role.specialists.find((s) => {
+        const sId = s.familyId || `external_${s.personName.toLowerCase().replace(/\s+/g, "_")}`;
+        return sId === familyId;
+      });
+      if (specialist) return specialist.personName;
+    }
+    if (role?.roleType === "FIXED" && role.assignedPersonName && role.assignedFamilyId === familyId) {
+      return role.assignedPersonName;
+    }
+    return rosterData?.families.find((f) => f.id === familyId)?.name || familyId;
+  }
+
   function roleDetail(role: TeamRoleConfig): string {
     if (!role.configured) return "Not configured";
     const slotSuffix = (role.slots ?? 1) > 1 ? ` x ${role.slots}` : "";
     switch (role.roleType) {
       case "FIXED":
         return role.assignedPersonName || "Unassigned";
-      case "SPECIALIST": {
-        const names = role.specialists.map((s) => {
-          if (s.familyId) {
-            const fm = familyMembers.find((m) => m.familyId === s.familyId && m.personName === s.personName);
-            return fm?.label || s.personName;
-          }
-          return s.personName;
-        });
-        return (names.join(", ") || "No specialists") + slotSuffix;
-      }
+      case "SPECIALIST":
+        return (role.specialists.map((s) => s.personName).join(", ") || "No specialists") + slotSuffix;
       case "FREQUENCY":
         return `Every ${role.frequencyWeeks} week${role.frequencyWeeks !== 1 ? "s" : ""}${slotSuffix}`;
       case "ROTATING":
@@ -360,7 +368,6 @@ export default function ManagerRosterPage() {
     if (!overrideCell || !teamId) return;
     setLoading(true);
 
-    const selectedFamily = rosterData?.families.find((f) => f.id === overrideFamilyId);
     const res = await fetch(`/api/teams/${teamId}/roster/assign`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -368,7 +375,7 @@ export default function ManagerRosterPage() {
         roundId: overrideCell.roundId,
         teamDutyRoleId: overrideCell.roleId,
         assignedFamilyId: overrideFamilyId || null,
-        assignedFamilyName: selectedFamily?.name || null,
+        assignedFamilyName: overrideFamilyId ? resolveAssignName(overrideCell.roleId, overrideFamilyId) : null,
         slot: overrideCell.slot,
       }),
     });
@@ -392,11 +399,10 @@ export default function ManagerRosterPage() {
     setDragOverKey(null);
 
     const assign = (roundId: string, slot: number, familyId: string | null) => {
-      const family = rosterData?.families.find((f) => f.id === familyId);
       return fetch(`/api/teams/${teamId}/roster/assign`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ roundId, teamDutyRoleId: targetRoleId, assignedFamilyId: familyId, assignedFamilyName: family?.name || null, slot }),
+        body: JSON.stringify({ roundId, teamDutyRoleId: targetRoleId, assignedFamilyId: familyId, assignedFamilyName: familyId ? resolveAssignName(targetRoleId, familyId) : null, slot }),
       });
     };
 

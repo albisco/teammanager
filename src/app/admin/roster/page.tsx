@@ -279,6 +279,22 @@ export default function RosterPage() {
     }));
   }
 
+  /** Resolve the display name for a roster cell: person name for specialist/fixed, surname for others */
+  function resolveAssignName(teamDutyRoleId: string, familyId: string): string {
+    const role = teamRoles.find((r) => r.teamDutyRoleId === teamDutyRoleId);
+    if (role?.roleType === "SPECIALIST") {
+      const specialist = role.specialists.find((s) => {
+        const sId = s.familyId || `external_${s.personName.toLowerCase().replace(/\s+/g, "_")}`;
+        return sId === familyId;
+      });
+      if (specialist) return specialist.personName;
+    }
+    if (role?.roleType === "FIXED" && role.assignedPersonName && role.assignedFamilyId === familyId) {
+      return role.assignedPersonName;
+    }
+    return rosterData?.families.find((f) => f.id === familyId)?.name || familyId;
+  }
+
   function roleDetail(role: TeamRoleConfig): string {
     if (!role.configured) return "Not configured";
     const slotSuffix = (role.slots ?? 1) > 1 ? ` x ${role.slots}` : "";
@@ -346,7 +362,6 @@ export default function RosterPage() {
     if (!overrideCell || !selectedTeam) return;
     setLoading(true);
 
-    const selectedFamily = rosterData?.families.find((f) => f.id === overrideFamilyId);
     const res = await fetch(`/api/teams/${selectedTeam.id}/roster/assign`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -354,7 +369,7 @@ export default function RosterPage() {
         roundId: overrideCell.roundId,
         teamDutyRoleId: overrideCell.roleId,
         assignedFamilyId: overrideFamilyId || null,
-        assignedFamilyName: selectedFamily?.name || null,
+        assignedFamilyName: overrideFamilyId ? resolveAssignName(overrideCell.roleId, overrideFamilyId) : null,
       }),
     });
 
