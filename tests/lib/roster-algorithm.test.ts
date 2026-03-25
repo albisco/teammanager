@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { generateRoster } from "../../src/lib/roster-algorithm";
+import { generateRoster, resolveDisplayName } from "../../src/lib/roster-algorithm";
 
 describe("generateRoster", () => {
   const baseRounds = [
@@ -279,5 +279,109 @@ describe("generateRoster", () => {
       counts[a.assignedFamilyId] = (counts[a.assignedFamilyId] || 0) + 1;
     }
     expect(Object.values(counts).every((c) => c === 3)).toBe(true);
+  });
+});
+
+describe("resolveDisplayName", () => {
+  const familyMap = new Map([
+    ["family_lawson", { id: "family_lawson", name: "Lawson" }],
+    ["family_smith", { id: "family_smith", name: "Smith" }],
+    ["external_uncle_dave", { id: "external_uncle_dave", name: "Uncle Dave" }],
+  ]);
+
+  it("returns person name for SPECIALIST roles (family-linked)", () => {
+    const input = {
+      teamDutyRoles: [{
+        id: "tdr1",
+        roleType: "SPECIALIST" as const,
+        assignedFamilyId: null,
+        assignedPersonName: null,
+        specialists: [
+          { personName: "Kylie", familyId: "family_lawson" },
+          { personName: "Grant", familyId: "family_smith" },
+        ],
+      }],
+      familyMap,
+    };
+
+    expect(resolveDisplayName(input, { teamDutyRoleId: "tdr1", assignedFamilyId: "family_lawson" })).toBe("Kylie");
+    expect(resolveDisplayName(input, { teamDutyRoleId: "tdr1", assignedFamilyId: "family_smith" })).toBe("Grant");
+  });
+
+  it("returns person name for SPECIALIST roles (external person)", () => {
+    const input = {
+      teamDutyRoles: [{
+        id: "tdr1",
+        roleType: "SPECIALIST" as const,
+        assignedFamilyId: null,
+        assignedPersonName: null,
+        specialists: [
+          { personName: "Uncle Dave", familyId: null },
+        ],
+      }],
+      familyMap,
+    };
+
+    expect(resolveDisplayName(input, { teamDutyRoleId: "tdr1", assignedFamilyId: "external_uncle_dave" })).toBe("Uncle Dave");
+  });
+
+  it("returns person name for FIXED roles", () => {
+    const input = {
+      teamDutyRoles: [{
+        id: "tdr1",
+        roleType: "FIXED" as const,
+        assignedFamilyId: "family_lawson",
+        assignedPersonName: "Kylie",
+        specialists: [],
+      }],
+      familyMap,
+    };
+
+    expect(resolveDisplayName(input, { teamDutyRoleId: "tdr1", assignedFamilyId: "family_lawson" })).toBe("Kylie");
+  });
+
+  it("returns family surname for ROTATING roles", () => {
+    const input = {
+      teamDutyRoles: [{
+        id: "tdr1",
+        roleType: "ROTATING" as const,
+        assignedFamilyId: null,
+        assignedPersonName: null,
+        specialists: [],
+      }],
+      familyMap,
+    };
+
+    expect(resolveDisplayName(input, { teamDutyRoleId: "tdr1", assignedFamilyId: "family_lawson" })).toBe("Lawson");
+  });
+
+  it("returns family surname for FREQUENCY roles", () => {
+    const input = {
+      teamDutyRoles: [{
+        id: "tdr1",
+        roleType: "FREQUENCY" as const,
+        assignedFamilyId: null,
+        assignedPersonName: null,
+        specialists: [],
+      }],
+      familyMap,
+    };
+
+    expect(resolveDisplayName(input, { teamDutyRoleId: "tdr1", assignedFamilyId: "family_smith" })).toBe("Smith");
+  });
+
+  it("falls back to familyId when family not in map", () => {
+    const input = {
+      teamDutyRoles: [{
+        id: "tdr1",
+        roleType: "ROTATING" as const,
+        assignedFamilyId: null,
+        assignedPersonName: null,
+        specialists: [],
+      }],
+      familyMap: new Map(),
+    };
+
+    expect(resolveDisplayName(input, { teamDutyRoleId: "tdr1", assignedFamilyId: "family_unknown" })).toBe("family_unknown");
   });
 });

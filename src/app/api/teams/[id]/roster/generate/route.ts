@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { generateRoster } from "@/lib/roster-algorithm";
+import { generateRoster, resolveDisplayName } from "@/lib/roster-algorithm";
 
 export async function POST(_req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
@@ -126,24 +126,17 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
 
   const assignments = generateRoster(input);
 
-  // Build a lookup: for specialist/fixed roles, map familyId → personName
-  // so the grid shows "Kylie" instead of "Lawson"
-  const specialistNameByRole = new Map<string, Map<string, string>>();
-  for (const tdr of teamDutyRoles) {
-    if (tdr.roleType === "FIXED" && tdr.assignedFamilyId && tdr.assignedPersonName) {
-      const roleMap = new Map<string, string>();
-      roleMap.set(tdr.assignedFamilyId, tdr.assignedPersonName);
-      specialistNameByRole.set(tdr.id, roleMap);
-    }
-    if (tdr.roleType === "SPECIALIST") {
-      const roleMap = new Map<string, string>();
-      for (const s of tdr.specialists) {
-        const fId = s.familyId || `external_${s.personName.toLowerCase().replace(/\s+/g, "_")}`;
-        roleMap.set(fId, s.personName);
-      }
-      specialistNameByRole.set(tdr.id, roleMap);
-    }
-  }
+  // Prepare display name resolver input
+  const displayNameInput = {
+    teamDutyRoles: teamDutyRoles.map((tdr) => ({
+      id: tdr.id,
+      roleType: tdr.roleType as "FIXED" | "SPECIALIST" | "ROTATING" | "FREQUENCY",
+      assignedFamilyId: tdr.assignedFamilyId,
+      assignedPersonName: tdr.assignedPersonName,
+      specialists: tdr.specialists.map((s) => ({ personName: s.personName, familyId: s.familyId })),
+    })),
+    familyMap,
+  };
 
   // Delete existing assignments and create new ones in a transaction
   const roundIds = rounds.map((r) => r.id);
@@ -152,20 +145,13 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
       where: { roundId: { in: roundIds }, teamDutyRoleId: { in: teamDutyRoles.map((r) => r.id) } },
     }),
     prisma.rosterAssignment.createMany({
-      data: assignments.map((a) => {
-        // For specialist/fixed roles, show person name; for others, show family surname
-        const roleNameMap = specialistNameByRole.get(a.teamDutyRoleId);
-        const displayName = roleNameMap?.get(a.assignedFamilyId)
-          || familyMap.get(a.assignedFamilyId)?.name
-          || a.assignedFamilyId;
-        return {
-          roundId: a.roundId,
-          teamDutyRoleId: a.teamDutyRoleId,
-          assignedFamilyId: a.assignedFamilyId,
-          assignedFamilyName: displayName,
-          slot: a.slot,
-        };
-      }),
+      data: assignments.map((a) => ({
+        roundId: a.roundId,
+        teamDutyRoleId: a.teamDutyRoleId,
+        assignedFamilyId: a.assignedFamilyId,
+        assignedFamilyName: resolveDisplayName(displayNameInput, a),
+        slot: a.slot,
+      })),
     }),
   ]);
 

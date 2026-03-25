@@ -119,3 +119,47 @@ export function generateRoster(input: RosterInput): RosterOutput[] {
 
   return assignments;
 }
+
+interface DisplayNameInput {
+  teamDutyRoles: {
+    id: string;
+    roleType: "FIXED" | "SPECIALIST" | "ROTATING" | "FREQUENCY";
+    assignedFamilyId?: string | null;
+    assignedPersonName?: string | null;
+    specialists: { personName: string; familyId: string | null }[];
+  }[];
+  familyMap: Map<string, { id: string; name: string }>;
+}
+
+/**
+ * Resolves the display name for a roster assignment.
+ * For SPECIALIST/FIXED roles, returns the person's name (e.g. "Kylie").
+ * For ROTATING/FREQUENCY roles, returns the family surname (e.g. "Lawson").
+ */
+export function resolveDisplayName(
+  input: DisplayNameInput,
+  assignment: { teamDutyRoleId: string; assignedFamilyId: string }
+): string {
+  for (const tdr of input.teamDutyRoles) {
+    if (tdr.id !== assignment.teamDutyRoleId) continue;
+
+    if (tdr.roleType === "FIXED" && tdr.assignedFamilyId && tdr.assignedPersonName) {
+      if (assignment.assignedFamilyId === tdr.assignedFamilyId) {
+        return tdr.assignedPersonName;
+      }
+    }
+
+    if (tdr.roleType === "SPECIALIST") {
+      for (const s of tdr.specialists) {
+        const fId = s.familyId || `external_${s.personName.toLowerCase().replace(/\s+/g, "_")}`;
+        if (assignment.assignedFamilyId === fId) {
+          return s.personName;
+        }
+      }
+    }
+
+    break;
+  }
+
+  return input.familyMap.get(assignment.assignedFamilyId)?.name || assignment.assignedFamilyId;
+}
