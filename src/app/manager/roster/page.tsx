@@ -331,6 +331,19 @@ export default function ManagerRosterPage() {
   }
 
   // === Roster Generation ===
+  async function handleDeleteRole(role: TeamRoleConfig) {
+    if (!teamId || !role.teamDutyRoleId) return;
+    if (!confirm(`Remove "${role.roleName}" from this team? Any roster assignments for this role will be deleted.`)) return;
+
+    const res = await fetch(`/api/teams/${teamId}/duty-roles/${role.teamDutyRoleId}`, { method: "DELETE" });
+    if (res.ok) {
+      toast.success(`${role.roleName} removed`);
+      fetchAll();
+    } else {
+      toast.error("Failed to remove role");
+    }
+  }
+
   async function handleGenerate() {
     if (!teamId) return;
     if (!confirm("This will overwrite any existing roster assignments for this team. Continue?")) return;
@@ -516,9 +529,16 @@ export default function ManagerRosterPage() {
                       )}
                     </TableCell>
                     <TableCell>
-                      <Button variant="outline" size="sm" onClick={() => openConfigDialog(role)}>
-                        Configure
-                      </Button>
+                      <div className="flex gap-1">
+                        <Button variant="outline" size="sm" onClick={() => openConfigDialog(role)}>
+                          Configure
+                        </Button>
+                        {role.configured && (
+                          <Button variant="outline" size="sm" className="text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => handleDeleteRole(role)}>
+                            Remove
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

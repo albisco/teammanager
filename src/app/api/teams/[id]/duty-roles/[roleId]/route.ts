@@ -90,10 +90,15 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string; 
 
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string; roleId: string } }) {
   const session = await getServerSession(authOptions);
-  if (session?.user?.role !== "ADMIN" && session?.user?.role !== "SUPER_ADMIN") {
+  const role = session?.user?.role;
+  if (role !== "ADMIN" && role !== "SUPER_ADMIN" && role !== "TEAM_MANAGER") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  // Clean up related data before deleting
+  await prisma.teamDutyRoleSpecialist.deleteMany({ where: { teamDutyRoleId: params.roleId } });
+  await prisma.rosterAssignment.deleteMany({ where: { teamDutyRoleId: params.roleId } });
+  await prisma.familyExclusion.deleteMany({ where: { teamDutyRoleId: params.roleId } });
   await prisma.teamDutyRole.delete({ where: { id: params.roleId } });
   return NextResponse.json({ success: true });
 }
