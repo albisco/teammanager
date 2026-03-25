@@ -86,6 +86,7 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
       roleType: tdr.roleType,
       assignedUserId: tdr.assignedUserId,
       frequencyWeeks: tdr.frequencyWeeks,
+      slots: tdr.slots,
       specialistFamilyIds: tdr.specialists.map((s) => s.userId),
     })),
     exclusions: exclusions.map((e) => ({
@@ -112,6 +113,7 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
         teamDutyRoleId: a.teamDutyRoleId,
         assignedFamilyId: a.assignedFamilyId,
         assignedFamilyName: familyMap.get(a.assignedFamilyId)?.name || a.assignedFamilyId,
+        slot: a.slot,
       })),
     }),
   ]);
