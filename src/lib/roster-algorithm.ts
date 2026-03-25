@@ -145,7 +145,8 @@ export function resolveDisplayName(
 
     if (tdr.roleType === "FIXED" && tdr.assignedFamilyId && tdr.assignedPersonName) {
       if (assignment.assignedFamilyId === tdr.assignedFamilyId) {
-        return tdr.assignedPersonName;
+        const surname = input.familyMap.get(tdr.assignedFamilyId)?.name;
+        return surname ? `${tdr.assignedPersonName} ${surname}` : tdr.assignedPersonName;
       }
     }
 

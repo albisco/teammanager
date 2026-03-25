@@ -460,8 +460,8 @@ test.describe("Full Onboarding Flow", () => {
     await expect(page.getByText("Kylie Jones").first()).toBeVisible({ timeout: 10000 });
     await expect(page.getByText("Grant Brown").first()).toBeVisible({ timeout: 10000 });
 
-    // Fixed role (Coach) should show "Sarah" every round, not "Smith"
-    await expect(page.getByText("Sarah").first()).toBeVisible({ timeout: 10000 });
+    // Fixed role (Coach) should show full name "Sarah Smith", not just "Smith"
+    await expect(page.getByText("Sarah Smith").first()).toBeVisible({ timeout: 10000 });
   });
 
   test("3.3 — TM creates award types", async ({ page }) => {

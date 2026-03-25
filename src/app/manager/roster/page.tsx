@@ -305,7 +305,8 @@ export default function ManagerRosterPage() {
       if (specialist) return specialistFullName(specialist);
     }
     if (role?.roleType === "FIXED" && role.assignedPersonName && role.assignedFamilyId === familyId) {
-      return role.assignedPersonName;
+      const surname = rosterData?.families.find((f) => f.id === role.assignedFamilyId)?.name;
+      return surname ? `${role.assignedPersonName} ${surname}` : role.assignedPersonName;
     }
     return rosterData?.families.find((f) => f.id === familyId)?.name || familyId;
   }
@@ -314,8 +315,11 @@ export default function ManagerRosterPage() {
     if (!role.configured) return "Not configured";
     const slotSuffix = (role.slots ?? 1) > 1 ? ` x ${role.slots}` : "";
     switch (role.roleType) {
-      case "FIXED":
-        return role.assignedPersonName || "Unassigned";
+      case "FIXED": {
+        if (!role.assignedPersonName) return "Unassigned";
+        const surname = role.assignedFamilyId ? rosterData?.families.find((f) => f.id === role.assignedFamilyId)?.name : null;
+        return surname ? `${role.assignedPersonName} ${surname}` : role.assignedPersonName;
+      }
       case "SPECIALIST":
         return (role.specialists.map((s) => specialistFullName(s)).join(", ") || "No specialists") + slotSuffix;
       case "FREQUENCY":
