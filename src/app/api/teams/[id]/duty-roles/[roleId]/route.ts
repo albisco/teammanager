@@ -31,7 +31,8 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string; 
   }
 
   const body = await req.json();
-  const { roleName, roleType, assignedUserId, frequencyWeeks, specialistUserIds } = body;
+  const { roleName, roleType, assignedUserId, frequencyWeeks, slots, specialistUserIds } = body;
+  const slotsValue = slots != null ? Math.max(1, Math.min(10, parseInt(slots) || 1)) : undefined;
 
   const clubId = (session!.user as Record<string, unknown>)?.clubId as string;
 
@@ -66,6 +67,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string; 
         roleType: roleType || undefined,
         assignedUserId: roleType === "FIXED" ? assignedUserId : null,
         frequencyWeeks: roleType === "FREQUENCY" ? (parseInt(frequencyWeeks) || 1) : 1,
+        slots: slotsValue,
         specialists: roleType === "SPECIALIST" && specialistUserIds?.length
           ? { create: specialistUserIds.map((userId: string) => ({ userId })) }
           : undefined,
