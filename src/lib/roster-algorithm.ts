@@ -82,11 +82,14 @@ export function generateRoster(input: RosterInput): RosterOutput[] {
         const eligible = eligiblePool.filter((f) => {
           if (exclusionSet.has(`${f.id}:${role.id}`)) return false;
           if (unavailabilitySet.has(`${f.id}:${round.id}`)) return false;
-          // Don't assign same family to multiple roles in one round
-          const alreadyAssigned = assignments.some(
-            (a) => a.roundId === round.id && a.assignedFamilyId === f.id
+          // Don't assign same family to multiple rotating/frequency roles in one round
+          // (fixed/specialist assignments don't block a family from other duties)
+          const alreadyAssignedRotating = assignments.some(
+            (a) => a.roundId === round.id && a.assignedFamilyId === f.id &&
+              teamDutyRoles.find((r) => r.id === a.teamDutyRoleId)?.roleType !== "FIXED" &&
+              teamDutyRoles.find((r) => r.id === a.teamDutyRoleId)?.roleType !== "SPECIALIST"
           );
-          if (alreadyAssigned) return false;
+          if (alreadyAssignedRotating) return false;
           // Don't assign same family to multiple slots of the same role
           if (chosenThisRole.includes(f.id)) return false;
           return true;
@@ -110,7 +113,10 @@ export function generateRoster(input: RosterInput): RosterOutput[] {
           assignedFamilyId: chosen.id,
           slot,
         });
-        totalAssignments[chosen.id]++;
+        // Only count rotating/frequency assignments for fairness distribution
+        if (role.roleType === "ROTATING" || role.roleType === "FREQUENCY") {
+          totalAssignments[chosen.id]++;
+        }
         roleAssignments[chosen.id][role.id]++;
         chosenThisRole.push(chosen.id);
       }

@@ -280,6 +280,51 @@ describe("generateRoster", () => {
     }
     expect(Object.values(counts).every((c) => c === 3)).toBe(true);
   });
+
+  it("fixed-role families still get assigned to rotating roles", () => {
+    const rounds = Array.from({ length: 3 }, (_, i) => ({
+      id: `r${i + 1}`,
+      roundNumber: i + 1,
+      isBye: false,
+    }));
+
+    const input = {
+      rounds,
+      families: baseFamilies,
+      teamDutyRoles: [
+        { id: "tdr_coach", roleName: "Coach", roleType: "FIXED" as const, assignedFamilyId: "family_smith", frequencyWeeks: 1, specialistFamilyIds: [] },
+        { id: "tdr_canteen", roleName: "Canteen", roleType: "ROTATING" as const, assignedFamilyId: null, frequencyWeeks: 1, specialistFamilyIds: [] },
+      ],
+      exclusions: [],
+      unavailabilities: [],
+    };
+
+    const result = generateRoster(input);
+    const canteenAssignments = result.filter((a) => a.teamDutyRoleId === "tdr_canteen");
+    // Smith is coach (fixed) but should still get canteen duty
+    expect(canteenAssignments.some((a) => a.assignedFamilyId === "family_smith")).toBe(true);
+    // All 3 families should get canteen duties (3 rounds, 3 families)
+    const canteenFamilies = new Set(canteenAssignments.map((a) => a.assignedFamilyId));
+    expect(canteenFamilies.size).toBe(3);
+  });
+
+  it("specialist-role families still get assigned to rotating roles", () => {
+    const input = {
+      rounds: baseRounds,
+      families: baseFamilies,
+      teamDutyRoles: [
+        { id: "tdr_umpire", roleName: "Umpire", roleType: "SPECIALIST" as const, assignedFamilyId: null, frequencyWeeks: 1, specialistFamilyIds: ["family_jones"] },
+        { id: "tdr_canteen", roleName: "Canteen", roleType: "ROTATING" as const, assignedFamilyId: null, frequencyWeeks: 1, specialistFamilyIds: [] },
+      ],
+      exclusions: [],
+      unavailabilities: [],
+    };
+
+    const result = generateRoster(input);
+    const canteenAssignments = result.filter((a) => a.teamDutyRoleId === "tdr_canteen");
+    // Jones is umpire (specialist) but should still get canteen duty
+    expect(canteenAssignments.some((a) => a.assignedFamilyId === "family_jones")).toBe(true);
+  });
 });
 
 describe("resolveDisplayName", () => {
