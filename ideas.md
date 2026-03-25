@@ -57,4 +57,5 @@
 - Did 4 lots of voting and closed them, used the QR code for three and the link for one, all good so far.  Closed the voting, might be good to remove the QRCode when closed.  I did try to add more votes after closing and it wouldn't let me, so it is not a major issue
 - As messaged, roster not loading for me
 - Add scores for each round.  As the team manager we have to load scores into 
-- 
+- Need to be able to delete the roles
+- Voting rule, every family should be included in this and spread through all families.  The coach and assistant coach should also be included, separate to their coaching role.  I tried to use the specialist type, add all people (not families) to see if that would work.  It said the role was already confiugured when I added more than 14 people and wouldn't save.  Idea would be select all families to be included,  have 3 families (it has people) to be included each week, then generate.
