@@ -469,7 +469,7 @@ export default function ManagerRosterPage() {
 
   async function showAvailQR() {
     if (!availabilityToken) return;
-    const link = `${window.location.origin}/family/${availabilityToken}`;
+    const link = `${window.location.origin}/availability/${availabilityToken}`;
     setAvailQrLink(link);
     const dataUrl = await QRCode.toDataURL(link, { width: 300, margin: 2 });
     setAvailQrDataUrl(dataUrl);
