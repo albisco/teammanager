@@ -18,10 +18,10 @@ export function deriveFamilies(
   const families: { id: string; name: string }[] = [];
   const seen = new Set<string>();
 
-  for (const [surnameKey, group] of bySurname) {
-    const distinctParents = [
-      ...new Set(group.map((p) => p.parent1?.trim()).filter(Boolean) as string[]),
-    ];
+  for (const [surnameKey, group] of Array.from(bySurname.entries())) {
+    const distinctParents = Array.from(
+      new Set(group.map((p) => p.parent1?.trim()).filter(Boolean) as string[])
+    );
 
     if (distinctParents.length <= 1) {
       // One family for this surname
