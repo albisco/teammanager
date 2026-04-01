@@ -13,11 +13,14 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import QRCode from "qrcode";
+import Image from "next/image";
 
 interface TeamSummary {
   id: string;
   name: string;
   ageGroup: string;
+  availabilityToken: string | null;
 }
 
 interface Season {
@@ -126,6 +129,11 @@ export default function RosterPage() {
   const [overrideDialogOpen, setOverrideDialogOpen] = useState(false);
   const [overrideCell, setOverrideCell] = useState<{ roundId: string; roleId: string; roleName: string; roundNumber: number } | null>(null);
   const [overrideFamilyId, setOverrideFamilyId] = useState("");
+
+  // Availability QR dialog
+  const [availQrDialogOpen, setAvailQrDialogOpen] = useState(false);
+  const [availQrDataUrl, setAvailQrDataUrl] = useState("");
+  const [availQrLink, setAvailQrLink] = useState("");
 
   const fetchSeasons = useCallback(async () => {
     const res = await fetch("/api/season");
@@ -396,6 +404,15 @@ export default function RosterPage() {
     setLoading(false);
   }
 
+  async function showAvailQR() {
+    if (!selectedTeam?.availabilityToken) return;
+    const link = `${window.location.origin}/family/${selectedTeam.availabilityToken}`;
+    setAvailQrLink(link);
+    const dataUrl = await QRCode.toDataURL(link, { width: 300, margin: 2 });
+    setAvailQrDataUrl(dataUrl);
+    setAvailQrDialogOpen(true);
+  }
+
   const activeRounds = rosterData?.rounds.filter((r) => !r.isBye) || [];
   const hasAssignments = rosterData && Object.keys(rosterData.assignments).length > 0;
 
@@ -512,7 +529,7 @@ export default function RosterPage() {
           {/* Unavailability Section */}
           {rosterData && rosterData.families.length > 0 && activeRounds.length > 0 && (
             <div className="mb-6">
-              <div className="flex items-center gap-3 mb-3">
+              <div className="flex items-center gap-3 mb-3 flex-wrap">
                 <h2 className="text-xl font-semibold">Family Unavailability</h2>
                 <Button
                   variant="outline"
@@ -521,6 +538,11 @@ export default function RosterPage() {
                 >
                   {showUnavailability ? "Hide" : "Show"}
                 </Button>
+                {selectedTeam?.availabilityToken && (
+                  <Button variant="outline" size="sm" onClick={showAvailQR}>
+                    Share availability form
+                  </Button>
+                )}
               </div>
 
               {showUnavailability && (
@@ -796,6 +818,38 @@ export default function RosterPage() {
               {loading ? "Saving..." : "Save"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Availability QR Dialog */}
+      <Dialog open={availQrDialogOpen} onOpenChange={setAvailQrDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Family Availability Form</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2 text-center">
+            <p className="text-sm text-gray-600">
+              Share this link with families. They can mark which rounds they can&apos;t attend.
+            </p>
+            {availQrDataUrl && (
+              <Image src={availQrDataUrl} alt="QR code" width={300} height={300} className="mx-auto rounded-lg" />
+            )}
+            <div className="flex gap-2">
+              <input
+                readOnly
+                value={availQrLink}
+                className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm bg-gray-50"
+                onClick={(e) => (e.target as HTMLInputElement).select()}
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => { navigator.clipboard.writeText(availQrLink); toast.success("Link copied"); }}
+              >
+                Copy
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
