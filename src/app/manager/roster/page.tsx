@@ -580,7 +580,10 @@ export default function ManagerRosterPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setShowUnavailability(!showUnavailability)}
+              onClick={() => {
+                if (!showUnavailability) fetchAll();
+                setShowUnavailability(!showUnavailability);
+              }}
             >
               {showUnavailability ? "Hide" : "Show"}
             </Button>
