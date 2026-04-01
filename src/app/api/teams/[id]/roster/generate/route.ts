@@ -39,6 +39,12 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
     }),
   ]);
 
+  // Only regenerate future rounds (past rounds keep their assignments)
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const futureRounds = rounds.filter((r) => !r.date || r.date >= today);
+  const pastRoundIds = rounds.filter((r) => r.date && r.date < today).map((r) => r.id);
+
   // Validate prerequisites
   const activeRounds = rounds.filter((r) => !r.isBye);
   if (activeRounds.length === 0) {
@@ -89,7 +95,7 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
   }
 
   const input = {
-    rounds: rounds.map((r) => ({
+    rounds: futureRounds.map((r) => ({
       id: r.id,
       roundNumber: r.roundNumber,
       isBye: r.isBye,
@@ -130,11 +136,11 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
     familyMap,
   };
 
-  // Delete existing assignments and create new ones in a transaction
-  const roundIds = rounds.map((r) => r.id);
+  // Delete existing future assignments and create new ones (past rounds are preserved)
+  const futureRoundIds = futureRounds.map((r) => r.id);
   await prisma.$transaction([
     prisma.rosterAssignment.deleteMany({
-      where: { roundId: { in: roundIds }, teamDutyRoleId: { in: teamDutyRoles.map((r) => r.id) } },
+      where: { roundId: { in: futureRoundIds }, teamDutyRoleId: { in: teamDutyRoles.map((r) => r.id) } },
     }),
     prisma.rosterAssignment.createMany({
       data: assignments.map((a) => ({
@@ -147,5 +153,8 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
     }),
   ]);
 
-  return NextResponse.json({ count: assignments.length });
+  return NextResponse.json({
+    count: assignments.length,
+    skippedPastRounds: pastRoundIds.length,
+  });
 }
