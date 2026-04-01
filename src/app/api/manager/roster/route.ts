@@ -19,6 +19,7 @@ export async function GET() {
   const clubId = (session.user as Record<string, unknown>)?.clubId as string;
 
   const [
+    team,
     users,
     globalRoles,
     teamDutyRoles,
@@ -27,6 +28,7 @@ export async function GET() {
     teamPlayers,
     unavailabilities,
   ] = await Promise.all([
+    prisma.team.findUnique({ where: { id: teamId }, select: { availabilityToken: true } }),
     prisma.user.findMany({
       where: { clubId },
       select: { id: true, name: true, email: true, role: true },
@@ -110,6 +112,7 @@ export async function GET() {
   });
 
   return NextResponse.json({
+    availabilityToken: team?.availabilityToken ?? null,
     users,
     globalRoles,
     teamRoles,

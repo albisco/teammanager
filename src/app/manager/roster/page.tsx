@@ -13,6 +13,8 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import QRCode from "qrcode";
+import Image from "next/image";
 
 interface GlobalDutyRole {
   id: string;
@@ -134,6 +136,12 @@ export default function ManagerRosterPage() {
   const [dragSource, setDragSource] = useState<{ roundId: string; roleId: string; slot: number; familyId: string } | null>(null);
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
 
+  // Availability QR dialog
+  const [availabilityToken, setAvailabilityToken] = useState<string | null>(null);
+  const [availQrDialogOpen, setAvailQrDialogOpen] = useState(false);
+  const [availQrDataUrl, setAvailQrDataUrl] = useState("");
+  const [availQrLink, setAvailQrLink] = useState("");
+
   // Single fetch for all page data
   const fetchAll = useCallback(async () => {
     const res = await fetch("/api/manager/roster");
@@ -143,6 +151,7 @@ export default function ManagerRosterPage() {
     setTeamRoles(data.teamRoles);
     setFamilyMembers(data.familyMembers || []);
     setRosterData(data.roster);
+    setAvailabilityToken(data.availabilityToken ?? null);
     setUnavailabilities(new Set(data.unavailabilities.map((u: { familyId: string; roundId: string }) => `${u.familyId}:${u.roundId}`)));
     setPageLoading(false);
   }, []);
@@ -458,6 +467,15 @@ export default function ManagerRosterPage() {
     }
   }
 
+  async function showAvailQR() {
+    if (!availabilityToken) return;
+    const link = `${window.location.origin}/family/${availabilityToken}`;
+    setAvailQrLink(link);
+    const dataUrl = await QRCode.toDataURL(link, { width: 300, margin: 2 });
+    setAvailQrDataUrl(dataUrl);
+    setAvailQrDialogOpen(true);
+  }
+
   const activeRounds = rosterData?.rounds.filter((r) => !r.isBye) || [];
   const hasAssignments = rosterData && Object.keys(rosterData.assignments).length > 0;
 
@@ -551,7 +569,7 @@ export default function ManagerRosterPage() {
       {/* Unavailability Section */}
       {rosterData && rosterData.families.length > 0 && activeRounds.length > 0 && (
         <div className="mb-6">
-          <div className="flex items-center gap-3 mb-3">
+          <div className="flex items-center gap-3 mb-3 flex-wrap">
             <h2 className="text-xl font-semibold">Family Unavailability</h2>
             <Button
               variant="outline"
@@ -560,6 +578,11 @@ export default function ManagerRosterPage() {
             >
               {showUnavailability ? "Hide" : "Show"}
             </Button>
+            {availabilityToken && (
+              <Button variant="outline" size="sm" onClick={showAvailQR}>
+                Share availability form
+              </Button>
+            )}
           </div>
 
           {showUnavailability && (
@@ -972,6 +995,38 @@ export default function ManagerRosterPage() {
               {loading ? "Saving..." : "Save"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Availability QR Dialog */}
+      <Dialog open={availQrDialogOpen} onOpenChange={setAvailQrDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Family Availability Form</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2 text-center">
+            <p className="text-sm text-gray-600">
+              Share this link with families. They can mark which rounds they can&apos;t attend.
+            </p>
+            {availQrDataUrl && (
+              <Image src={availQrDataUrl} alt="QR code" width={300} height={300} className="mx-auto rounded-lg" />
+            )}
+            <div className="flex gap-2">
+              <input
+                readOnly
+                value={availQrLink}
+                className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm bg-gray-50"
+                onClick={(e) => (e.target as HTMLInputElement).select()}
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => { navigator.clipboard.writeText(availQrLink); toast.success("Link copied"); }}
+              >
+                Copy
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
