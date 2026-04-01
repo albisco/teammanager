@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { deriveFamilyMembers } from "@/lib/roster-algorithm";
+import { deriveFamilyMembers, deriveFamilies } from "@/lib/roster-algorithm";
 
 // Returns all data needed to render the manager roster page in a single request
 export async function GET() {
@@ -55,7 +55,7 @@ export async function GET() {
     }),
     prisma.teamPlayer.findMany({
       where: { teamId },
-      include: { player: { select: { surname: true, parent1: true, parent2: true } } },
+      include: { player: { select: { surname: true, firstName: true, parent1: true, parent2: true } } },
     }),
     prisma.familyUnavailability.findMany({
       where: { round: { teamId } },
@@ -63,16 +63,9 @@ export async function GET() {
     }),
   ]);
 
-  // Derive families from player surnames
-  const familyMap = new Map<string, { id: string; name: string }>();
-  for (const tp of teamPlayers) {
-    const surname = tp.player.surname;
-    const familyId = `family_${surname.toLowerCase().replace(/\s+/g, "_")}`;
-    if (!familyMap.has(familyId)) {
-      familyMap.set(familyId, { id: familyId, name: surname });
-    }
-  }
-  const families = Array.from(familyMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+  const families = deriveFamilies(teamPlayers.map((tp) => tp.player)).sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
 
   // Derive family members (parents) for specialist/fixed role config
   const familyMembers = deriveFamilyMembers(

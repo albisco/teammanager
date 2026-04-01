@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { deriveFamilies } from "@/lib/roster-algorithm";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
@@ -23,24 +24,17 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     prisma.rosterAssignment.findMany({
       where: { round: { teamId } },
     }),
-    // Get families: derive from player surnames
+    // Get families: derive from player data
     prisma.teamPlayer.findMany({
       where: { teamId },
       include: {
-        player: { select: { surname: true } },
+        player: { select: { surname: true, firstName: true, parent1: true } },
       },
     }),
   ]);
 
-  // Derive families from player surnames
-  const familyMap = new Map<string, { id: string; name: string }>();
-  for (const tp of families) {
-    const surname = tp.player.surname;
-    const familyId = `family_${surname.toLowerCase().replace(/\s+/g, "_")}`;
-    if (!familyMap.has(familyId)) {
-      familyMap.set(familyId, { id: familyId, name: surname });
-    }
-  }
+  const familyList = deriveFamilies(families.map((tp) => tp.player));
+  const familyMap = new Map(familyList.map((f) => [f.id, f]));
 
   // Build assignment map: key = "roundId:teamDutyRoleId" -> array of slots
   const assignmentMap: Record<string, Array<{ familyId: string; familyName: string; slot: number }>> = {};

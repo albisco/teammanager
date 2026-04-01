@@ -1,3 +1,55 @@
+/**
+ * Derives unique family entries from a list of players, grouped by surname.
+ * When two players share a surname but have different parent1 values, they are
+ * treated as different families and disambiguated with the parent1 name.
+ * Siblings and twins with the same parent share one family entry.
+ */
+export function deriveFamilies(
+  players: { surname: string; firstName: string; parent1?: string | null }[]
+): { id: string; name: string }[] {
+  // Group players by normalised surname key
+  const bySurname = new Map<string, Array<{ surname: string; firstName: string; parent1?: string | null }>>();
+  for (const p of players) {
+    const key = p.surname.toLowerCase().replace(/\s+/g, "_");
+    if (!bySurname.has(key)) bySurname.set(key, []);
+    bySurname.get(key)!.push(p);
+  }
+
+  const families: { id: string; name: string }[] = [];
+  const seen = new Set<string>();
+
+  for (const [surnameKey, group] of bySurname) {
+    const distinctParents = [
+      ...new Set(group.map((p) => p.parent1?.trim()).filter(Boolean) as string[]),
+    ];
+
+    if (distinctParents.length <= 1) {
+      // One family for this surname
+      const familyId = `family_${surnameKey}`;
+      if (!seen.has(familyId)) {
+        seen.add(familyId);
+        families.push({ id: familyId, name: group[0].surname });
+      }
+    } else {
+      // Multiple distinct parents → separate families, disambiguate by parent1
+      const handled = new Set<string>();
+      for (const p of group) {
+        const parent = p.parent1?.trim() || p.firstName;
+        if (handled.has(parent)) continue;
+        handled.add(parent);
+        const parentKey = parent.toLowerCase().replace(/\s+/g, "_");
+        const familyId = `family_${surnameKey}_${parentKey}`;
+        if (!seen.has(familyId)) {
+          seen.add(familyId);
+          families.push({ id: familyId, name: `${group[0].surname} (${parent})` });
+        }
+      }
+    }
+  }
+
+  return families;
+}
+
 interface RosterInput {
   rounds: { id: string; roundNumber: number; isBye: boolean }[];
   families: { id: string; name: string }[];
