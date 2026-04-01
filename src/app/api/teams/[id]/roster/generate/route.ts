@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { generateRoster, resolveDisplayName } from "@/lib/roster-algorithm";
+import { generateRoster, resolveDisplayName, deriveFamilies } from "@/lib/roster-algorithm";
 
 export async function POST(_req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
@@ -28,7 +28,7 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
     prisma.teamPlayer.findMany({
       where: { teamId },
       include: {
-        player: { select: { surname: true } },
+        player: { select: { surname: true, firstName: true, parent1: true } },
       },
     }),
     prisma.familyExclusion.findMany({
@@ -55,16 +55,8 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
     );
   }
 
-  // Derive families from player surnames (grouped by surname)
-  const familyMap = new Map<string, { id: string; name: string }>();
-  for (const tp of teamPlayers) {
-    const surname = tp.player.surname;
-    const familyId = `family_${surname.toLowerCase().replace(/\s+/g, "_")}`;
-    if (!familyMap.has(familyId)) {
-      familyMap.set(familyId, { id: familyId, name: surname });
-    }
-  }
-  const families = Array.from(familyMap.values());
+  const families = deriveFamilies(teamPlayers.map((tp) => tp.player));
+  const familyMap = new Map(families.map((f) => [f.id, f]));
 
   if (families.length === 0) {
     return NextResponse.json(

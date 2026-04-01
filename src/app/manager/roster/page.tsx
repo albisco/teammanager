@@ -13,6 +13,8 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import QRCode from "qrcode";
+import Image from "next/image";
 
 interface GlobalDutyRole {
   id: string;
@@ -134,6 +136,12 @@ export default function ManagerRosterPage() {
   const [dragSource, setDragSource] = useState<{ roundId: string; roleId: string; slot: number; familyId: string } | null>(null);
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
 
+  // Availability QR dialog
+  const [availabilityToken, setAvailabilityToken] = useState<string | null>(null);
+  const [availQrDialogOpen, setAvailQrDialogOpen] = useState(false);
+  const [availQrDataUrl, setAvailQrDataUrl] = useState("");
+  const [availQrLink, setAvailQrLink] = useState("");
+
   // Single fetch for all page data
   const fetchAll = useCallback(async () => {
     const res = await fetch("/api/manager/roster");
@@ -143,6 +151,7 @@ export default function ManagerRosterPage() {
     setTeamRoles(data.teamRoles);
     setFamilyMembers(data.familyMembers || []);
     setRosterData(data.roster);
+    setAvailabilityToken(data.availabilityToken ?? null);
     setUnavailabilities(new Set(data.unavailabilities.map((u: { familyId: string; roundId: string }) => `${u.familyId}:${u.roundId}`)));
     setPageLoading(false);
   }, []);
@@ -458,8 +467,23 @@ export default function ManagerRosterPage() {
     }
   }
 
+  async function showAvailQR() {
+    if (!availabilityToken) return;
+    const link = `${window.location.origin}/availability/${availabilityToken}`;
+    setAvailQrLink(link);
+    const dataUrl = await QRCode.toDataURL(link, { width: 300, margin: 2 });
+    setAvailQrDataUrl(dataUrl);
+    setAvailQrDialogOpen(true);
+  }
+
   const activeRounds = rosterData?.rounds.filter((r) => !r.isBye) || [];
   const hasAssignments = rosterData && Object.keys(rosterData.assignments).length > 0;
+
+  // Count conflicts: assignments where the family is marked unavailable
+  const conflictCount = rosterData ? Object.entries(rosterData.assignments).reduce((count, [key, slots]) => {
+    const roundId = key.split(":")[0];
+    return count + slots.filter((a) => unavailabilities.has(`${a.familyId}:${roundId}`)).length;
+  }, 0) : 0;
 
   // For the fixed role dropdown, determine current selection key
   const fixedDropdownValue = configForm.assignedFamilyId && configForm.assignedPersonName
@@ -551,15 +575,23 @@ export default function ManagerRosterPage() {
       {/* Unavailability Section */}
       {rosterData && rosterData.families.length > 0 && activeRounds.length > 0 && (
         <div className="mb-6">
-          <div className="flex items-center gap-3 mb-3">
+          <div className="flex items-center gap-3 mb-3 flex-wrap">
             <h2 className="text-xl font-semibold">Family Unavailability</h2>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setShowUnavailability(!showUnavailability)}
+              onClick={() => {
+                if (!showUnavailability) fetchAll();
+                setShowUnavailability(!showUnavailability);
+              }}
             >
               {showUnavailability ? "Hide" : "Show"}
             </Button>
+            {availabilityToken && (
+              <Button variant="outline" size="sm" onClick={showAvailQR}>
+                Share availability form
+              </Button>
+            )}
           </div>
 
           {showUnavailability && (
@@ -613,6 +645,11 @@ export default function ManagerRosterPage() {
           {hasAssignments && (
             <p className="text-sm text-gray-500">
               {Object.keys(rosterData!.assignments).length} assignments across {activeRounds.length} rounds
+              {conflictCount > 0 && (
+                <span className="ml-2 text-red-600 font-medium">
+                  ⚠ {conflictCount} conflict{conflictCount !== 1 ? "s" : ""} — family unavailable
+                </span>
+              )}
             </p>
           )}
           {rosterData && rosterData.families.length === 0 && (
@@ -664,14 +701,17 @@ export default function ManagerRosterPage() {
                               const dropKey = `${round.id}:${role.id}:${slot}`;
                               const isDropTarget = dragOverKey === dropKey && dragSource?.roleId === role.id;
                               const isDragging = dragSource?.roundId === round.id && dragSource?.roleId === role.id && dragSource?.slot === slot;
+                              const hasConflict = a && unavailabilities.has(`${a.familyId}:${round.id}`);
                               return (
                                 <div
                                   key={slot}
                                   draggable={!!a}
+                                  title={hasConflict ? `${a.familyName} is unavailable for this round` : undefined}
                                   className={[
                                     "rounded px-1 select-none cursor-pointer hover:bg-blue-50",
                                     isDropTarget ? "ring-2 ring-blue-400 bg-blue-100" : "",
                                     isDragging ? "opacity-40" : "",
+                                    hasConflict ? "bg-red-100 text-red-700 ring-1 ring-red-300" : "",
                                   ].join(" ")}
                                   onDragStart={() => a && setDragSource({ roundId: round.id, roleId: role.id, slot, familyId: a.familyId })}
                                   onDragEnd={() => { setDragSource(null); setDragOverKey(null); }}
@@ -680,7 +720,12 @@ export default function ManagerRosterPage() {
                                   onDrop={() => handleDrop(round.id, role.id, slot, a?.familyId ?? null)}
                                   onClick={() => { if (!dragSource) openOverrideDialog(round.id, role.id, role.roleName, round.roundNumber, slot); }}
                                 >
-                                  {a ? a.familyName : <span className="text-gray-300">—</span>}
+                                  {a ? (
+                                    <>
+                                      {hasConflict && <span className="mr-0.5">⚠</span>}
+                                      {a.familyName}
+                                    </>
+                                  ) : <span className="text-gray-300">—</span>}
                                 </div>
                               );
                             })}
@@ -972,6 +1017,38 @@ export default function ManagerRosterPage() {
               {loading ? "Saving..." : "Save"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Availability QR Dialog */}
+      <Dialog open={availQrDialogOpen} onOpenChange={setAvailQrDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Family Availability Form</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2 text-center">
+            <p className="text-sm text-gray-600">
+              Share this link with families. They can mark which rounds they can&apos;t attend.
+            </p>
+            {availQrDataUrl && (
+              <Image src={availQrDataUrl} alt="QR code" width={300} height={300} className="mx-auto rounded-lg" />
+            )}
+            <div className="flex gap-2">
+              <input
+                readOnly
+                value={availQrLink}
+                className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm bg-gray-50"
+                onClick={(e) => (e.target as HTMLInputElement).select()}
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => { navigator.clipboard.writeText(availQrLink); toast.success("Link copied"); }}
+              >
+                Copy
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

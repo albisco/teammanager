@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { generateRoster, resolveDisplayName, deriveFamilyMembers } from "../../src/lib/roster-algorithm";
+import { generateRoster, resolveDisplayName, deriveFamilyMembers, deriveFamilies } from "../../src/lib/roster-algorithm";
 
 describe("generateRoster", () => {
   const baseRounds = [
@@ -499,5 +499,87 @@ describe("deriveFamilyMembers", () => {
     const result = deriveFamilyMembers(players);
     expect(result[0].familyId).toBe("family_van_der_berg");
     expect(result[0].label).toBe("Jan (Van Der Berg)");
+  });
+});
+
+describe("deriveFamilies", () => {
+  it("returns one family per unique surname", () => {
+    const players = [
+      { surname: "Smith", firstName: "Tom", parent1: "Grant" },
+      { surname: "Jones", firstName: "Amy", parent1: "Sarah" },
+    ];
+    const result = deriveFamilies(players);
+    expect(result).toHaveLength(2);
+    expect(result.find((f) => f.id === "family_smith")).toBeDefined();
+    expect(result.find((f) => f.id === "family_jones")).toBeDefined();
+  });
+
+  it("returns one family for siblings with the same surname and parent1", () => {
+    const players = [
+      { surname: "Smith", firstName: "Tom", parent1: "Grant" },
+      { surname: "Smith", firstName: "Lucy", parent1: "Grant" }, // sibling
+    ];
+    const result = deriveFamilies(players);
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe("family_smith");
+    expect(result[0].name).toBe("Smith");
+  });
+
+  it("disambiguates families with same surname but different parent1", () => {
+    const players = [
+      { surname: "Smith", firstName: "Tom", parent1: "Grant" },
+      { surname: "Smith", firstName: "Ella", parent1: "John" },
+    ];
+    const result = deriveFamilies(players);
+    expect(result).toHaveLength(2);
+    expect(result.find((f) => f.id === "family_smith_grant")).toBeDefined();
+    expect(result.find((f) => f.id === "family_smith_john")).toBeDefined();
+    expect(result.find((f) => f.name === "Smith (Grant)")).toBeDefined();
+    expect(result.find((f) => f.name === "Smith (John)")).toBeDefined();
+  });
+
+  it("treats twins (same surname, same parent1) as one family", () => {
+    const players = [
+      { surname: "Smith", firstName: "Tom", parent1: "Grant" },
+      { surname: "Smith", firstName: "Tim", parent1: "Grant" }, // twin
+    ];
+    const result = deriveFamilies(players);
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe("family_smith");
+  });
+
+  it("handles surnames with spaces", () => {
+    const players = [
+      { surname: "Van Der Berg", firstName: "Jan", parent1: "Pieter" },
+    ];
+    const result = deriveFamilies(players);
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe("family_van_der_berg");
+    expect(result[0].name).toBe("Van Der Berg");
+  });
+
+  it("returns empty array for empty input", () => {
+    expect(deriveFamilies([])).toEqual([]);
+  });
+
+  it("merges into one family when all players share a surname and have no parent1", () => {
+    const players = [
+      { surname: "Smith", firstName: "Tom", parent1: null },
+      { surname: "Smith", firstName: "Ella", parent1: null },
+    ];
+    const result = deriveFamilies(players);
+    // No parent1 to disambiguate — treat as one family
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe("family_smith");
+  });
+
+  it("trims whitespace from parent1 before disambiguation", () => {
+    const players = [
+      { surname: "Smith", firstName: "Tom", parent1: "  Grant  " },
+      { surname: "Smith", firstName: "Ella", parent1: "Grant" }, // same after trim
+    ];
+    const result = deriveFamilies(players);
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe("family_smith");
   });
 });

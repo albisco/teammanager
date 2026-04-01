@@ -57,8 +57,6 @@ model User {
   players              Player[]
   votes                Vote[]
   managedTeams         Team[]               @relation("TeamManager")
-  familyExclusions     FamilyExclusion[]
-  familyUnavailabilities FamilyUnavailability[]
 }
 
 model Player {
@@ -101,9 +99,10 @@ model Team {
   season           Season @relation(fields: [seasonId], references: [id], onDelete: Cascade)
   managerId        String?
   manager          User?  @relation("TeamManager", fields: [managerId], references: [id])
-  votingScheme     Json   @default("[5,4,3,2,1]")
-  parentVoterCount Int    @default(3)
-  coachVoterCount  Int    @default(1)
+  votingScheme      Json   @default("[5,4,3,2,1]")
+  parentVoterCount  Int    @default(3)
+  coachVoterCount   Int    @default(1)
+  availabilityToken String? @unique @default(cuid())
 
   players         TeamPlayer[]
   rounds          Round[]
@@ -219,7 +218,6 @@ model RosterAssignment {
 model FamilyExclusion {
   id             String       @id @default(cuid())
   familyId       String
-  family         User         @relation(fields: [familyId], references: [id])
   teamDutyRoleId String
   teamDutyRole   TeamDutyRole @relation(fields: [teamDutyRoleId], references: [id], onDelete: Cascade)
 
@@ -229,7 +227,6 @@ model FamilyExclusion {
 model FamilyUnavailability {
   id       String @id @default(cuid())
   familyId String
-  family   User   @relation(fields: [familyId], references: [id])
   roundId  String
   round    Round  @relation(fields: [roundId], references: [id], onDelete: Cascade)
 
