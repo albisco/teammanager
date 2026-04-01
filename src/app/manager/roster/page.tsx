@@ -479,6 +479,12 @@ export default function ManagerRosterPage() {
   const activeRounds = rosterData?.rounds.filter((r) => !r.isBye) || [];
   const hasAssignments = rosterData && Object.keys(rosterData.assignments).length > 0;
 
+  // Count conflicts: assignments where the family is marked unavailable
+  const conflictCount = rosterData ? Object.entries(rosterData.assignments).reduce((count, [key, slots]) => {
+    const roundId = key.split(":")[0];
+    return count + slots.filter((a) => unavailabilities.has(`${a.familyId}:${roundId}`)).length;
+  }, 0) : 0;
+
   // For the fixed role dropdown, determine current selection key
   const fixedDropdownValue = configForm.assignedFamilyId && configForm.assignedPersonName
     ? `${configForm.assignedFamilyId}:${configForm.assignedPersonName}`
@@ -636,6 +642,11 @@ export default function ManagerRosterPage() {
           {hasAssignments && (
             <p className="text-sm text-gray-500">
               {Object.keys(rosterData!.assignments).length} assignments across {activeRounds.length} rounds
+              {conflictCount > 0 && (
+                <span className="ml-2 text-red-600 font-medium">
+                  ⚠ {conflictCount} conflict{conflictCount !== 1 ? "s" : ""} — family unavailable
+                </span>
+              )}
             </p>
           )}
           {rosterData && rosterData.families.length === 0 && (
@@ -687,14 +698,17 @@ export default function ManagerRosterPage() {
                               const dropKey = `${round.id}:${role.id}:${slot}`;
                               const isDropTarget = dragOverKey === dropKey && dragSource?.roleId === role.id;
                               const isDragging = dragSource?.roundId === round.id && dragSource?.roleId === role.id && dragSource?.slot === slot;
+                              const hasConflict = a && unavailabilities.has(`${a.familyId}:${round.id}`);
                               return (
                                 <div
                                   key={slot}
                                   draggable={!!a}
+                                  title={hasConflict ? `${a.familyName} is unavailable for this round` : undefined}
                                   className={[
                                     "rounded px-1 select-none cursor-pointer hover:bg-blue-50",
                                     isDropTarget ? "ring-2 ring-blue-400 bg-blue-100" : "",
                                     isDragging ? "opacity-40" : "",
+                                    hasConflict ? "bg-red-100 text-red-700 ring-1 ring-red-300" : "",
                                   ].join(" ")}
                                   onDragStart={() => a && setDragSource({ roundId: round.id, roleId: role.id, slot, familyId: a.familyId })}
                                   onDragEnd={() => { setDragSource(null); setDragOverKey(null); }}
@@ -703,7 +717,12 @@ export default function ManagerRosterPage() {
                                   onDrop={() => handleDrop(round.id, role.id, slot, a?.familyId ?? null)}
                                   onClick={() => { if (!dragSource) openOverrideDialog(round.id, role.id, role.roleName, round.roundNumber, slot); }}
                                 >
-                                  {a ? a.familyName : <span className="text-gray-300">—</span>}
+                                  {a ? (
+                                    <>
+                                      {hasConflict && <span className="mr-0.5">⚠</span>}
+                                      {a.familyName}
+                                    </>
+                                  ) : <span className="text-gray-300">—</span>}
                                 </div>
                               );
                             })}
