@@ -25,7 +25,8 @@ export default function FamilyLayout({
 
   useEffect(() => {
     if (asideRef.current) {
-      if (sidebarOpen) {
+      const isMobile = window.innerWidth < 768;
+      if (!isMobile || sidebarOpen) {
         asideRef.current.removeAttribute("inert");
       } else {
         asideRef.current.setAttribute("inert", "");
@@ -68,7 +69,7 @@ export default function FamilyLayout({
       {/* Sidebar */}
       <aside
         ref={asideRef}
-        aria-hidden={!sidebarOpen}
+        aria-hidden={typeof window !== "undefined" && window.innerWidth < 768 ? !sidebarOpen : undefined}
         className={cn(
           "fixed md:static inset-y-0 left-0 z-50 w-64 bg-blue-900 text-white flex flex-col transition-transform duration-200",
           sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
