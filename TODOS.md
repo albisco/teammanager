@@ -2,8 +2,8 @@
 
 ## Roster
 
-**Priority:** P1
-**Round duties WhatsApp broadcast** — TM wants to send current round duties to families via WhatsApp
+**Priority:** P2
+**WhatsApp message truncation** — wa.me has an ~2000 char limit; a roster with many roles and long names may silently truncate. Consider adding a character count warning.
 
 ## Admin
 
@@ -28,3 +28,4 @@
 ## Completed
 
 - **Mobile-responsive sidebars** — hamburger menu across admin/manager/family portals **Completed:** v0.1.0.0 (2026-04-02)
+- **Round duties WhatsApp broadcast** — Share Round Duties panel on roster + dashboard with copy and WhatsApp buttons **Completed:** v0.2.0.0 (2026-04-02)
