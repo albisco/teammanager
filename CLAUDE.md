@@ -136,6 +136,7 @@ Decision depends on how family accounts work — tackle after rostering is built
 - All API routes check auth via `getServerSession(authOptions)`, extract `clubId` from session
 - Admin routes require `role === "ADMIN"` or `"SUPER_ADMIN"`, family routes just require auth
 - Clubs nav link only visible to SUPER_ADMIN in admin layout
+- All portal layouts (admin/manager/family) have mobile-responsive sidebar: hamburger on `<md`, slide-in with overlay, `inert`+`aria-hidden` when closed, auto-close on resize to desktop
 - Club scoping: `(session.user as Record<string, unknown>)?.clubId as string`
 - Anonymous voters get deterministic user IDs: `anon_{sessionId}_{name}`, assigned to club via voting session chain
 - Dates stored as DateTime in Prisma, formatted with `en-AU` locale in UI

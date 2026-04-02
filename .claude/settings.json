@@ -3,7 +3,9 @@
     "allow": [
       "Bash(git rm:*)",
       "Bash(grep -v output.*generated/prisma)",
-      "Bash(git show:*)"
+      "Bash(git show:*)",
+      "Skill(ship)",
+      "Skill(ship:*)"
     ]
   }
 }
