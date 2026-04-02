@@ -28,7 +28,7 @@ export async function GET() {
     teamPlayers,
     unavailabilities,
   ] = await Promise.all([
-    prisma.team.findUnique({ where: { id: teamId }, select: { availabilityToken: true } }),
+    prisma.team.findUnique({ where: { id: teamId }, select: { availabilityToken: true, name: true, ageGroup: true } }),
     prisma.user.findMany({
       where: { clubId },
       select: { id: true, name: true, email: true, role: true },
@@ -113,6 +113,7 @@ export async function GET() {
 
   return NextResponse.json({
     availabilityToken: team?.availabilityToken ?? null,
+    teamName: team ? `${team.ageGroup} ${team.name}`.trim() : "",
     users,
     globalRoles,
     teamRoles,

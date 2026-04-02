@@ -15,6 +15,7 @@ import {
 import { toast } from "sonner";
 import QRCode from "qrcode";
 import Image from "next/image";
+import ShareDutiesPanel from "./ShareDutiesPanel";
 
 interface GlobalDutyRole {
   id: string;
@@ -52,6 +53,7 @@ interface RosterRound {
   isBye: boolean;
   date: string | null;
   opponent: string | null;
+  venue: string | null;
 }
 
 interface RosterRole {
@@ -136,6 +138,10 @@ export default function ManagerRosterPage() {
   const [dragSource, setDragSource] = useState<{ roundId: string; roleId: string; slot: number; familyId: string } | null>(null);
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
 
+  // Share duties
+  const [teamName, setTeamName] = useState("");
+  const [selectedRoundId, setSelectedRoundId] = useState<string | null>(null);
+
   // Availability QR dialog
   const [availabilityToken, setAvailabilityToken] = useState<string | null>(null);
   const [availQrDialogOpen, setAvailQrDialogOpen] = useState(false);
@@ -151,8 +157,16 @@ export default function ManagerRosterPage() {
     setTeamRoles(data.teamRoles);
     setFamilyMembers(data.familyMembers || []);
     setRosterData(data.roster);
+    setTeamName(data.teamName ?? "");
     setAvailabilityToken(data.availabilityToken ?? null);
     setUnavailabilities(new Set(data.unavailabilities.map((u: { familyId: string; roundId: string }) => `${u.familyId}:${u.roundId}`)));
+    // Auto-select next upcoming round for duties panel
+    const now = new Date();
+    const upcoming = (data.roster.rounds as RosterRound[])
+      .filter((r) => !r.isBye && r.date && new Date(r.date) >= now)
+      .sort((a, b) => new Date(a.date!).getTime() - new Date(b.date!).getTime());
+    const autoRound = upcoming[0] ?? data.roster.rounds.filter((r: RosterRound) => !r.isBye).slice(-1)[0] ?? null;
+    setSelectedRoundId(autoRound?.id ?? null);
     setPageLoading(false);
   }, []);
 
@@ -476,6 +490,17 @@ export default function ManagerRosterPage() {
     setAvailQrDialogOpen(true);
   }
 
+  function getDutiesForRound(roundId: string) {
+    if (!rosterData) return [];
+    return rosterData.roles
+      .map((role) => {
+        const key = `${roundId}:${role.id}`;
+        const assignments = rosterData.assignments[key] ?? [];
+        return { roleName: role.roleName, names: assignments.map((a) => a.familyName) };
+      })
+      .filter((d) => d.names.length > 0);
+  }
+
   const activeRounds = rosterData?.rounds.filter((r) => !r.isBye) || [];
   const hasAssignments = rosterData && Object.keys(rosterData.assignments).length > 0;
 
@@ -497,6 +522,21 @@ export default function ManagerRosterPage() {
   return (
     <div>
       <h1 className="text-3xl font-bold mb-6">Duty Roster</h1>
+
+      {/* Share duties panel */}
+      {rosterData && selectedRoundId && (() => {
+        const round = rosterData.rounds.find((r) => r.id === selectedRoundId);
+        if (!round) return null;
+        return (
+          <ShareDutiesPanel
+            round={round}
+            duties={getDutiesForRound(selectedRoundId)}
+            teamName={teamName}
+            rounds={rosterData.rounds}
+            onRoundChange={setSelectedRoundId}
+          />
+        );
+      })()}
 
       {/* Club Roles Section */}
       <div className="mb-8">

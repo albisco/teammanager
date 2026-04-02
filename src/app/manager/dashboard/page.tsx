@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import ShareDutiesPanel from "@/app/manager/roster/ShareDutiesPanel";
 
 interface Round {
   id: string;
@@ -21,14 +22,30 @@ interface Team {
   rounds: Round[];
 }
 
+interface NextRoundDuties {
+  round: {
+    id: string;
+    roundNumber: number;
+    date: string | null;
+    opponent: string | null;
+    venue: string | null;
+  } | null;
+  duties: Array<{ roleName: string; names: string[] }>;
+}
+
 export default function ManagerDashboard() {
   const [team, setTeam] = useState<Team | null>(null);
   const [loading, setLoading] = useState(true);
+  const [nextRoundDuties, setNextRoundDuties] = useState<NextRoundDuties | null>(null);
 
   useEffect(() => {
     fetch("/api/manager/team")
       .then((r) => r.json())
       .then((data) => { setTeam(data); setLoading(false); });
+    fetch("/api/manager/next-round-duties")
+      .then((r) => r.json())
+      .then((data) => setNextRoundDuties(data))
+      .catch(() => {});
   }, []);
 
   if (loading) return <p className="text-gray-500">Loading...</p>;
@@ -98,6 +115,16 @@ export default function ManagerDashboard() {
 
       {!nextRound && (
         <p className="text-gray-500">No upcoming rounds scheduled.</p>
+      )}
+
+      {nextRoundDuties?.round && (
+        <div className="mt-6 max-w-md">
+          <ShareDutiesPanel
+            round={nextRoundDuties.round}
+            duties={nextRoundDuties.duties}
+            teamName={`${team.ageGroup} ${team.name}`.trim()}
+          />
+        </div>
       )}
 
       {process.env.NEXT_PUBLIC_VERCEL_ENV && process.env.NEXT_PUBLIC_VERCEL_ENV !== "production" && (

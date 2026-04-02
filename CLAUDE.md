@@ -86,6 +86,9 @@ Club, User, Player, Season, Team, TeamPlayer, Round, VotingSession, Vote, DutyRo
 /api/voting/[token]                      — public: get voting session info
 /api/voting/[token]/submit               — public: submit vote
 /api/voting/results                      — admin: vote tallies/leaderboard + audit
+/api/manager/roster                      — GET all roster page data in one call (TEAM_MANAGER only)
+/api/manager/next-round-duties           — GET next upcoming round + grouped duty assignments (TEAM_MANAGER only)
+/api/manager/team                        — GET team info for dashboard (TEAM_MANAGER only)
 ```
 
 ### Key Lib Files
@@ -104,6 +107,7 @@ Club, User, Player, Season, Team, TeamPlayer, Round, VotingSession, Vote, DutyRo
 - Rounds: CRUD scoped to teams, bye support
 - Voting: admin open/close, QR generation, public vote page, results/leaderboard, vote audit trail
 - Duty Roster: club-level role definitions, per-team configuration, roster generation, grid view, manual overrides, family unavailability
+- Share Round Duties: manager roster page and dashboard have a ShareDutiesPanel — copy formatted duty message or open WhatsApp with one tap; auto-selects next upcoming round
 - UI components: Button, Input, Label, Card, Badge, Table, Select, Textarea, Dialog, Sonner
 
 ## What's NOT Built Yet

@@ -13,6 +13,7 @@ import { GET as getUsers, POST as postUsers } from "@/app/api/users/route";
 import { POST as postPlayers } from "@/app/api/players/route";
 import { GET as getManagerTeam } from "@/app/api/manager/team/route";
 import { GET as getManagerRoster } from "@/app/api/manager/roster/route";
+import { GET as getNextRoundDuties } from "@/app/api/manager/next-round-duties/route";
 import { POST as postAutoLink } from "@/app/api/manager/auto-link-families/route";
 
 // Helper to get status from NextResponse
@@ -228,6 +229,30 @@ describe("Manager-only APIs", () => {
     setTestSession(sessions.admin);
     const res = await postAutoLink();
     expect(res.status).toBe(403);
+  });
+
+  test("TM can access /api/manager/next-round-duties", async () => {
+    setTestSession(sessions.teamManager);
+    const res = await getNextRoundDuties();
+    expect(res.status).not.toBe(403);
+  });
+
+  test("ADMIN cannot access /api/manager/next-round-duties", async () => {
+    setTestSession(sessions.admin);
+    const res = await getNextRoundDuties();
+    expect(res.status).toBe(403);
+  });
+
+  test("FAMILY cannot access /api/manager/next-round-duties", async () => {
+    setTestSession(sessions.family);
+    const res = await getNextRoundDuties();
+    expect(res.status).toBe(403);
+  });
+
+  test("unauthenticated cannot access /api/manager/next-round-duties", async () => {
+    setTestSession(sessions.none);
+    const res = await getNextRoundDuties();
+    expect([401, 403]).toContain(res.status);
   });
 });
 
