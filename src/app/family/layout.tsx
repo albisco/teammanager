@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
@@ -21,6 +21,25 @@ export default function FamilyLayout({
   const pathname = usePathname();
   const { data: session } = useSession();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const asideRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (asideRef.current) {
+      if (sidebarOpen) {
+        asideRef.current.removeAttribute("inert");
+      } else {
+        asideRef.current.setAttribute("inert", "");
+      }
+    }
+  }, [sidebarOpen]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 768) setSidebarOpen(false);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   return (
     <div className="min-h-screen flex">
@@ -48,6 +67,8 @@ export default function FamilyLayout({
 
       {/* Sidebar */}
       <aside
+        ref={asideRef}
+        aria-hidden={!sidebarOpen}
         className={cn(
           "fixed md:static inset-y-0 left-0 z-50 w-64 bg-blue-900 text-white flex flex-col transition-transform duration-200",
           sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
