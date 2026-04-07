@@ -1,14 +1,15 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
-  Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
+  Table, TableHeader, TableBody, TableRow, TableHead, TableCell, SortableTableHead,
 } from "@/components/ui/table";
+import { useSortable, applySortable } from "@/hooks/use-sortable";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
@@ -165,11 +166,28 @@ export default function PlayersPage() {
     }
   }
 
+  const { sortKey, sortDir, handleSort } = useSortable();
+
   const filtered = players.filter(
     (p) =>
       p.firstName.toLowerCase().includes(search.toLowerCase()) ||
       p.surname.toLowerCase().includes(search.toLowerCase()) ||
       String(p.jumperNumber).includes(search)
+  );
+
+  const sorted = useMemo(
+    () =>
+      applySortable(filtered, sortKey, sortDir, (key, p) => {
+        switch (key) {
+          case "number": return p.jumperNumber;
+          case "name": return `${p.firstName} ${p.surname}`;
+          case "email": return p.contactEmail;
+          case "phone": return p.phone;
+          case "parent1": return p.parent1;
+          default: return null;
+        }
+      }),
+    [filtered, sortKey, sortDir]
   );
 
   return (
@@ -190,25 +208,25 @@ export default function PlayersPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-16">#</TableHead>
-              <TableHead>Name</TableHead>
+              <SortableTableHead sortKey="number" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="w-16">#</SortableTableHead>
+              <SortableTableHead sortKey="name" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort}>Name</SortableTableHead>
               {isSuperAdmin && <TableHead>Club</TableHead>}
               <TableHead>Teams</TableHead>
-              <TableHead>Contact Email</TableHead>
-              <TableHead>Phone</TableHead>
-              <TableHead>Parent 1</TableHead>
+              <SortableTableHead sortKey="email" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort}>Contact Email</SortableTableHead>
+              <SortableTableHead sortKey="phone" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort}>Phone</SortableTableHead>
+              <SortableTableHead sortKey="parent1" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort}>Parent 1</SortableTableHead>
               {!isSuperAdmin && <TableHead className="w-40">Actions</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.length === 0 ? (
+            {sorted.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={isSuperAdmin ? 8 : 7} className="text-center text-gray-500 py-8">
                   {players.length === 0 ? "No players yet. Add your first player!" : "No matches found."}
                 </TableCell>
               </TableRow>
             ) : (
-              filtered.map((player) => (
+              sorted.map((player) => (
                 <TableRow key={player.id}>
                   <TableCell className="font-mono">{player.jumperNumber}</TableCell>
                   <TableCell className="font-medium">{player.firstName} {player.surname}</TableCell>

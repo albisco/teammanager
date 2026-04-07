@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
-  Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
+  Table, TableHeader, TableBody, TableRow, TableHead, TableCell, SortableTableHead,
 } from "@/components/ui/table";
+import { useSortable, applySortable } from "@/hooks/use-sortable";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
@@ -42,6 +43,23 @@ export default function ClubsPage() {
   }, []);
 
   useEffect(() => { fetchClubs(); }, [fetchClubs]);
+
+  const { sortKey, sortDir, handleSort } = useSortable();
+
+  const sorted = useMemo(
+    () =>
+      applySortable(clubs, sortKey, sortDir, (key, c) => {
+        switch (key) {
+          case "name": return c.name;
+          case "users": return c._count.users;
+          case "seasons": return c._count.seasons;
+          case "players": return c._count.players;
+          case "created": return c.createdAt;
+          default: return null;
+        }
+      }),
+    [clubs, sortKey, sortDir]
+  );
 
   function openAdd() {
     setEditingClub(null);
@@ -119,24 +137,24 @@ export default function ClubsPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Club Name</TableHead>
+              <SortableTableHead sortKey="name" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort}>Club Name</SortableTableHead>
               <TableHead className="w-36">Slug</TableHead>
-              <TableHead className="w-24">Users</TableHead>
-              <TableHead className="w-24">Seasons</TableHead>
-              <TableHead className="w-24">Players</TableHead>
-              <TableHead className="w-36">Created</TableHead>
+              <SortableTableHead sortKey="users" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="w-24">Users</SortableTableHead>
+              <SortableTableHead sortKey="seasons" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="w-24">Seasons</SortableTableHead>
+              <SortableTableHead sortKey="players" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="w-24">Players</SortableTableHead>
+              <SortableTableHead sortKey="created" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort} className="w-36">Created</SortableTableHead>
               <TableHead className="w-32">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {clubs.length === 0 ? (
+            {sorted.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center text-gray-500 py-8">
                   No clubs yet. Create your first club!
                 </TableCell>
               </TableRow>
             ) : (
-              clubs.map((club) => (
+              sorted.map((club) => (
                 <TableRow key={club.id}>
                   <TableCell className="font-medium">{club.name}</TableCell>
                   <TableCell>
