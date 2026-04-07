@@ -115,7 +115,7 @@ export default function ClubsPage() {
         <Button onClick={openAdd}>Add Club</Button>
       </div>
 
-      <div className="bg-white rounded-lg border">
+      <div className="bg-card rounded-lg border">
         <Table>
           <TableHeader>
             <TableRow>

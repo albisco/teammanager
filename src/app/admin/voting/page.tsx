@@ -189,7 +189,7 @@ export default function VotingPage() {
             </Button>
           </div>
 
-          <div className="bg-white rounded-lg border">
+          <div className="bg-card rounded-lg border">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -297,13 +297,13 @@ export default function VotingPage() {
             {/* Tabs */}
             <div className="flex gap-1 mb-4 border-b">
               <button
-                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${resultsTab === "leaderboard" ? "border-primary text-primary" : "border-transparent text-gray-500 hover:text-gray-700"}`}
+                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${resultsTab === "leaderboard" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
                 onClick={() => setResultsTab("leaderboard")}
               >
                 Leaderboard
               </button>
               <button
-                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${resultsTab === "audit" ? "border-primary text-primary" : "border-transparent text-gray-500 hover:text-gray-700"}`}
+                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${resultsTab === "audit" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
                 onClick={() => setResultsTab("audit")}
               >
                 Vote Audit ({audit.length})
@@ -311,7 +311,7 @@ export default function VotingPage() {
             </div>
 
             {resultsTab === "leaderboard" && (
-              <div className="bg-white rounded-lg border max-h-96 overflow-y-auto">
+              <div className="bg-card rounded-lg border max-h-96 overflow-y-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -346,7 +346,7 @@ export default function VotingPage() {
             )}
 
             {resultsTab === "audit" && (
-              <div className="bg-white rounded-lg border max-h-96 overflow-y-auto">
+              <div className="bg-card rounded-lg border max-h-96 overflow-y-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>

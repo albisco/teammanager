@@ -186,7 +186,7 @@ export default function PlayersPage() {
         className="mb-4 max-w-sm"
       />
 
-      <div className="bg-white rounded-lg border">
+      <div className="bg-card rounded-lg border">
         <Table>
           <TableHeader>
             <TableRow>

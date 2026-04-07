@@ -470,7 +470,7 @@ export default function RosterPage() {
           {teamRoles.length === 0 ? (
             <p className="text-gray-500 mb-6">No club roles defined. Add roles above first.</p>
           ) : (
-            <div className="bg-white rounded-lg border mb-6">
+            <div className="bg-card rounded-lg border mb-6">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -525,11 +525,11 @@ export default function RosterPage() {
               </div>
 
               {showUnavailability && (
-                <div className="bg-white rounded-lg border overflow-x-auto mb-4">
+                <div className="bg-card rounded-lg border overflow-x-auto mb-4">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="sticky left-0 bg-white z-10 min-w-[150px]">Family</TableHead>
+                        <TableHead className="sticky left-0 bg-card z-10 min-w-[150px]">Family</TableHead>
                         {activeRounds.map((r) => (
                           <TableHead key={r.id} className="text-center min-w-[60px]">
                             R{r.roundNumber}
@@ -540,7 +540,7 @@ export default function RosterPage() {
                     <TableBody>
                       {rosterData.families.map((family) => (
                         <TableRow key={family.id}>
-                          <TableCell className="sticky left-0 bg-white z-10 font-medium">
+                          <TableCell className="sticky left-0 bg-card z-10 font-medium">
                             {family.name}
                           </TableCell>
                           {activeRounds.map((round) => {
@@ -589,11 +589,11 @@ export default function RosterPage() {
           {hasAssignments && rosterData && rosterData.roles.length > 0 && (
             <div className="mb-6">
               <h2 className="text-xl font-semibold mb-4">Roster</h2>
-              <div className="bg-white rounded-lg border overflow-x-auto">
+              <div className="bg-card rounded-lg border overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="sticky left-0 bg-white z-10 min-w-[150px]">Role</TableHead>
+                      <TableHead className="sticky left-0 bg-card z-10 min-w-[150px]">Role</TableHead>
                       {activeRounds.map((r) => (
                         <TableHead key={r.id} className="text-center min-w-[100px]">
                           <div>R{r.roundNumber}</div>
@@ -607,7 +607,7 @@ export default function RosterPage() {
                   <TableBody>
                     {rosterData.roles.map((role) => (
                       <TableRow key={role.id}>
-                        <TableCell className="sticky left-0 bg-white z-10 font-medium">
+                        <TableCell className="sticky left-0 bg-card z-10 font-medium">
                           <div className="flex items-center gap-2">
                             {role.roleName}
                             <Badge variant={ROLE_TYPE_VARIANTS[role.roleType] || "outline"} className="text-xs">
