@@ -564,7 +564,7 @@ export default function ManagerRosterPage() {
       {teamRoles.length > 0 && (
         <>
           <h2 className="text-xl font-semibold mb-4">Role Configuration</h2>
-          <div className="bg-white rounded-lg border mb-6">
+          <div className="bg-card rounded-lg border mb-6">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -635,11 +635,11 @@ export default function ManagerRosterPage() {
           </div>
 
           {showUnavailability && (
-            <div className="bg-white rounded-lg border overflow-x-auto mb-4">
+            <div className="bg-card rounded-lg border overflow-x-auto mb-4">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="sticky left-0 bg-white z-10 min-w-[150px]">Family</TableHead>
+                    <TableHead className="sticky left-0 bg-card z-10 min-w-[150px]">Family</TableHead>
                     {activeRounds.map((r) => (
                       <TableHead key={r.id} className="text-center min-w-[60px]">
                         R{r.roundNumber}
@@ -650,7 +650,7 @@ export default function ManagerRosterPage() {
                 <TableBody>
                   {rosterData.families.map((family) => (
                     <TableRow key={family.id}>
-                      <TableCell className="sticky left-0 bg-white z-10 font-medium">
+                      <TableCell className="sticky left-0 bg-card z-10 font-medium">
                         {family.name}
                       </TableCell>
                       {activeRounds.map((round) => {
@@ -704,11 +704,11 @@ export default function ManagerRosterPage() {
       {hasAssignments && rosterData && rosterData.roles.length > 0 && (
         <div className="mb-6">
           <h2 className="text-xl font-semibold mb-4">Roster</h2>
-          <div className="bg-white rounded-lg border overflow-x-auto">
+          <div className="bg-card rounded-lg border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="sticky left-0 bg-white z-10 min-w-[150px]">Role</TableHead>
+                  <TableHead className="sticky left-0 bg-card z-10 min-w-[150px]">Role</TableHead>
                   {activeRounds.map((r) => (
                     <TableHead key={r.id} className="text-center min-w-[100px]">
                       <div>R{r.roundNumber}</div>
@@ -722,7 +722,7 @@ export default function ManagerRosterPage() {
               <TableBody>
                 {rosterData.roles.map((role) => (
                   <TableRow key={role.id}>
-                    <TableCell className="sticky left-0 bg-white z-10 font-medium">
+                    <TableCell className="sticky left-0 bg-card z-10 font-medium">
                       <div className="flex items-center gap-2">
                         {role.roleName}
                         <Badge variant={ROLE_TYPE_VARIANTS[role.roleType] || "outline"} className="text-xs">
@@ -786,11 +786,11 @@ export default function ManagerRosterPage() {
       {hasAssignments && rosterData && rosterData.families.length > 0 && (
         <div className="mb-6">
           <h2 className="text-xl font-semibold mb-4">Duty Tally</h2>
-          <div className="bg-white rounded-lg border overflow-x-auto">
+          <div className="bg-card rounded-lg border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="sticky left-0 bg-white z-10 min-w-[150px]">Family</TableHead>
+                  <TableHead className="sticky left-0 bg-card z-10 min-w-[150px]">Family</TableHead>
                   {rosterData.roles.filter((r) => r.roleType !== "FIXED").map((role) => (
                     <TableHead key={role.id} className="text-center min-w-[100px] text-xs">
                       {role.roleName}
@@ -806,7 +806,7 @@ export default function ManagerRosterPage() {
                   const total = rotatingRoles.reduce((sum, role) => sum + (counts[role.id] || 0), 0);
                   return (
                     <TableRow key={family.id}>
-                      <TableCell className="sticky left-0 bg-white z-10 font-medium">{family.name}</TableCell>
+                      <TableCell className="sticky left-0 bg-card z-10 font-medium">{family.name}</TableCell>
                       {rotatingRoles.map((role) => (
                         <TableCell key={role.id} className="text-center text-sm">
                           {counts[role.id] ? (
@@ -947,7 +947,7 @@ export default function ManagerRosterPage() {
                     familyMembers.map((fm) => {
                       const isSelected = configForm.specialists.some((s) => s.personName === fm.personName && s.familyId === fm.familyId);
                       return (
-                        <label key={`${fm.familyId}:${fm.personName}`} className="flex items-center gap-2 px-2 py-1 hover:bg-gray-50 rounded cursor-pointer">
+                        <label key={`${fm.familyId}:${fm.personName}`} className="flex items-center gap-2 px-2 py-1 hover:bg-muted rounded cursor-pointer">
                           <input
                             type="checkbox"
                             className="rounded border-gray-300"
@@ -1077,7 +1077,7 @@ export default function ManagerRosterPage() {
               <input
                 readOnly
                 value={availQrLink}
-                className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm bg-gray-50"
+                className="flex-1 rounded-md border px-3 py-2 text-sm bg-muted"
                 onClick={(e) => (e.target as HTMLInputElement).select()}
               />
               <Button
