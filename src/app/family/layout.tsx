@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 const navItems = [
   { href: "/family/dashboard", label: "Dashboard" },
@@ -55,7 +56,8 @@ export default function FamilyLayout({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
-        <h1 className="text-lg font-bold">Family Portal</h1>
+        <h1 className="flex-1 text-lg font-bold">Family Portal</h1>
+        <ThemeToggle />
       </div>
 
       {/* Overlay */}
@@ -80,15 +82,18 @@ export default function FamilyLayout({
             <h1 className="text-lg font-bold">Team Manager</h1>
             <p className="text-sm text-blue-300">Family Portal</p>
           </div>
-          <button
-            onClick={() => setSidebarOpen(false)}
-            className="md:hidden p-1 text-blue-300 hover:text-white"
-            aria-label="Close menu"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          <div className="flex items-center gap-1">
+            <ThemeToggle />
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="md:hidden p-1 text-blue-300 hover:text-white"
+              aria-label="Close menu"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
         <nav className="flex-1 p-4 space-y-1">
           {navItems.map((item) => (
@@ -119,7 +124,7 @@ export default function FamilyLayout({
           </Button>
         </div>
       </aside>
-      <main className="flex-1 min-w-0 bg-gray-50 p-4 md:p-8 pt-18 md:pt-8 overflow-x-auto">{children}</main>
+      <main className="flex-1 min-w-0 bg-background p-4 md:p-8 pt-18 md:pt-8 overflow-x-auto">{children}</main>
     </div>
   );
 }
