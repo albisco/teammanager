@@ -60,7 +60,7 @@ export default function ManagerPlayersPage() {
         className="mb-4 max-w-sm"
       />
 
-      <div className="bg-white rounded-lg border overflow-x-auto">
+      <div className="bg-card rounded-lg border overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>

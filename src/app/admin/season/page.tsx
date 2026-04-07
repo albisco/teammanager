@@ -451,7 +451,7 @@ export default function SeasonPage() {
 
               {/* Rounds tab */}
               {teamTab === "rounds" && (
-                <div className="bg-white rounded-lg border">
+                <div className="bg-card rounded-lg border">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -500,7 +500,7 @@ export default function SeasonPage() {
 
               {/* Players tab */}
               {teamTab === "players" && (
-                <div className="bg-white rounded-lg border overflow-x-auto">
+                <div className="bg-card rounded-lg border overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
