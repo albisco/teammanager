@@ -42,17 +42,6 @@ export async function POST(req: NextRequest) {
 
   const clubId = (session.user as Record<string, unknown>)?.clubId as string;
 
-  // Check for duplicate player in this club
-  const duplicate = await prisma.player.findUnique({
-    where: { clubId_firstName_surname: { clubId, firstName, surname } },
-  });
-  if (duplicate) {
-    return NextResponse.json(
-      { error: `${firstName} ${surname} is already registered in this club` },
-      { status: 409 }
-    );
-  }
-
   // Auto-link family from parent1 if no explicit familyId provided
   let resolvedFamilyId = familyId || null;
   if (!resolvedFamilyId && parent1) {

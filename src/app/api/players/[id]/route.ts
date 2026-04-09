@@ -34,21 +34,6 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   const body = await req.json();
   const { jumperNumber, firstName, surname, dateOfBirth, phone, contactEmail, parent1, parent2, spare1, spare2, familyId } = body;
 
-  // Check for duplicate if name is changing
-  const newFirstName = firstName || existing.firstName;
-  const newSurname = surname || existing.surname;
-  if (newFirstName !== existing.firstName || newSurname !== existing.surname) {
-    const duplicate = await prisma.player.findUnique({
-      where: { clubId_firstName_surname: { clubId, firstName: newFirstName, surname: newSurname } },
-    });
-    if (duplicate) {
-      return NextResponse.json(
-        { error: `${newFirstName} ${newSurname} is already registered in this club` },
-        { status: 409 }
-      );
-    }
-  }
-
   // Auto-link family if parent1 changed and no explicit familyId
   let resolvedFamilyId = familyId ?? undefined;
   if (parent1 !== undefined && !familyId && !existing.familyId) {
