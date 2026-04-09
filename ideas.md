@@ -53,9 +53,7 @@
 - ~~Team awards~~ — built
 
 ## LM Notes
-- I addded players using the admin login, logged out then went to the team manager login and the players I added weren't showing
+- I addded players using the admin login, logged out then went to the team manager login and the players I added weren't showing, I also added players with the same name again, accidently and it allowed me to have two players with the same name.  Players that are added and assigned to a team, U10 Lions, are still not showing up when I log in as the TM for U10 Lions.
 - Did 4 lots of voting and closed them, used the QR code for three and the link for one, all good so far.  Closed the voting, might be good to remove the QRCode when closed.  I did try to add more votes after closing and it wouldn't let me, so it is not a major issue
-- As messaged, roster not loading for me
 - Add scores for each round.  As the team manager we have to load scores into 
-- Need to be able to delete the roles
-- Voting rule, every family should be included in this and spread through all families.  The coach and assistant coach should also be included, separate to their coaching role.  I tried to use the specialist type, add all people (not families) to see if that would work.  It said the role was already confiugured when I added more than 14 people and wouldn't save.  Idea would be select all families to be included,  have 3 families (it has people) to be included each week, then generate.
+- Voting rule, every family should be included in this and spread through all families.  The coach and assistant coach should also be included, separate to their coaching role.  I tried to use the specialist type, add all people (not families) to see if that would work.  It said the role was already confiugured when I added more than 14 people and wouldn't save.  Idea would be select all families to be included,  have 2 families (it has people) to be included each week, then generate. Voting has changed this year to be both coaches put votes in each and 2 familes
