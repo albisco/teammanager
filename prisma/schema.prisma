@@ -51,7 +51,7 @@ model User {
   role         Role     @default(FAMILY)
   name         String
   clubId       String?
-  club         Club?    @relation(fields: [clubId], references: [id])
+  club         Club?    @relation(fields: [clubId], references: [id], onDelete: Cascade)
   createdAt    DateTime @default(now())
 
   players              Player[]
@@ -74,7 +74,7 @@ model Player {
   familyId     String?
   family       User?    @relation(fields: [familyId], references: [id])
   clubId       String
-  club         Club     @relation(fields: [clubId], references: [id])
+  club         Club     @relation(fields: [clubId], references: [id], onDelete: Cascade)
 
   teamPlayers      TeamPlayer[]
   unavailabilities PlayerUnavailability[]
@@ -86,7 +86,7 @@ model Season {
   name   String
   year   Int
   clubId String
-  club   Club   @relation(fields: [clubId], references: [id])
+  club   Club   @relation(fields: [clubId], references: [id], onDelete: Cascade)
 
   teams Team[]
 }
@@ -165,7 +165,7 @@ model Vote {
   votingSessionId String
   votingSession   VotingSession @relation(fields: [votingSessionId], references: [id], onDelete: Cascade)
   voterId         String
-  voter           User          @relation(fields: [voterId], references: [id])
+  voter           User          @relation(fields: [voterId], references: [id], onDelete: Cascade)
   voterType       VoterType
   rankings        Json
   submittedAt     DateTime      @default(now())
@@ -177,7 +177,7 @@ model DutyRole {
   id       String @id @default(cuid())
   roleName String
   clubId   String
-  club     Club   @relation(fields: [clubId], references: [id])
+  club     Club   @relation(fields: [clubId], references: [id], onDelete: Cascade)
 
   teamDutyRoles TeamDutyRole[]
 
