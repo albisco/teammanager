@@ -4,7 +4,6 @@ import { config } from 'dotenv'
 config({ path: '.env' })
 
 export default defineConfig({
-  earlyAccess: true,
   schema: 'prisma/schema.prisma',
   migrations: {
     seed: 'tsx prisma/seed.ts',
