@@ -15,6 +15,7 @@ const navItems = [
   { href: "/admin/season", label: "Season", clubAdminOnly: true },
   { href: "/admin/voting", label: "Voting", clubAdminOnly: true },
   { href: "/admin/roster", label: "Roster", clubAdminOnly: true },
+  { href: "/admin/users", label: "Users" },
   { href: "/admin/playhq", label: "PlayHQ", clubAdminOnly: true },
 ];
 

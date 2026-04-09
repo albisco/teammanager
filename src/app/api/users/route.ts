@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
   }
 
   const clubId = (session.user as Record<string, unknown>)?.clubId as string;
-  const { name, email, password, role } = await req.json();
+  const { name, email, password, role, teamId } = await req.json();
 
   if (!name?.trim() || !email?.trim() || !password?.trim()) {
     return NextResponse.json({ error: "Name, email and password are required" }, { status: 400 });
@@ -50,6 +50,11 @@ export async function POST(req: NextRequest) {
       data: { name: name.trim(), email: email.trim().toLowerCase(), passwordHash: hashed, role, clubId },
       select: { id: true, name: true, email: true, role: true },
     });
+
+    if (role === "TEAM_MANAGER" && teamId) {
+      await prisma.team.update({ where: { id: teamId }, data: { managerId: user.id } });
+    }
+
     return NextResponse.json(user, { status: 201 });
   } catch (err: unknown) {
     if (err && typeof err === "object" && "code" in err && err.code === "P2002") {
