@@ -110,6 +110,17 @@ model Team {
   rounds          Round[]
   teamDutyRoles   TeamDutyRole[]
   awardTypes      AwardType[]
+  staff           TeamStaff[]
+}
+
+model TeamStaff {
+  id     String @id @default(cuid())
+  teamId String
+  team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  role   String
+  name   String
+
+  @@unique([teamId, role])
 }
 
 model TeamPlayer {

@@ -22,6 +22,11 @@ interface Team {
   rounds: Round[];
 }
 
+interface StaffEntry {
+  role: string;
+  name: string;
+}
+
 interface NextRoundDuties {
   round: {
     id: string;
@@ -37,6 +42,7 @@ export default function ManagerDashboard() {
   const [team, setTeam] = useState<Team | null>(null);
   const [loading, setLoading] = useState(true);
   const [nextRoundDuties, setNextRoundDuties] = useState<NextRoundDuties | null>(null);
+  const [staff, setStaff] = useState<StaffEntry[]>([]);
 
   useEffect(() => {
     fetch("/api/manager/team")
@@ -45,6 +51,10 @@ export default function ManagerDashboard() {
     fetch("/api/manager/next-round-duties")
       .then((r) => r.json())
       .then((data) => setNextRoundDuties(data))
+      .catch(() => {});
+    fetch("/api/manager/volunteers")
+      .then((r) => r.json())
+      .then((data) => setStaff(data.staff ?? []))
       .catch(() => {});
   }, []);
 
@@ -90,6 +100,21 @@ export default function ManagerDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {staff.length > 0 && (
+        <Card className="max-w-md mb-6">
+          <CardHeader className="p-4 pb-2">
+            <CardTitle className="text-base">Team Staff</CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 pt-0 space-y-1">
+            {staff.map((s) => (
+              <p key={s.role} className="text-sm">
+                <span className="text-gray-500">{s.role}: </span>{s.name}
+              </p>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       {nextRound && (
         <Card className="max-w-md">
