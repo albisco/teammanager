@@ -93,6 +93,13 @@ export async function DELETE(req: NextRequest) {
   const { id } = await req.json();
   if (!id) return NextResponse.json({ error: "ID is required" }, { status: 400 });
 
-  await prisma.club.delete({ where: { id } });
-  return NextResponse.json({ success: true });
+  try {
+    await prisma.club.delete({ where: { id } });
+    return NextResponse.json({ success: true });
+  } catch (err: unknown) {
+    if (err && typeof err === "object" && "code" in err && err.code === "P2003") {
+      return NextResponse.json({ error: "Cannot delete club — related data still exists" }, { status: 409 });
+    }
+    throw err;
+  }
 }
