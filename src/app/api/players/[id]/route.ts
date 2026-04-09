@@ -21,7 +21,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
   const role = session?.user?.role;
-  if (role !== "ADMIN" && role !== "SUPER_ADMIN" && role !== "TEAM_MANAGER") {
+  if (!session || (role !== "ADMIN" && role !== "SUPER_ADMIN" && role !== "TEAM_MANAGER")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   const clubId = (session.user as Record<string, unknown>)?.clubId as string;
@@ -64,7 +64,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
   const role = session?.user?.role;
-  if (role !== "ADMIN" && role !== "SUPER_ADMIN" && role !== "TEAM_MANAGER") {
+  if (!session || (role !== "ADMIN" && role !== "SUPER_ADMIN" && role !== "TEAM_MANAGER")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   const clubId = (session.user as Record<string, unknown>)?.clubId as string;

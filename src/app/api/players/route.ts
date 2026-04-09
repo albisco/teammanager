@@ -29,7 +29,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   const role = session?.user?.role;
-  if (role !== "ADMIN" && role !== "SUPER_ADMIN" && role !== "TEAM_MANAGER") {
+  if (!session || (role !== "ADMIN" && role !== "SUPER_ADMIN" && role !== "TEAM_MANAGER")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
