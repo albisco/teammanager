@@ -166,7 +166,7 @@ export default function UsersPage() {
   function toggleTeam(teamId: string) {
     setExpandedTeams((prev) => {
       const next = new Set(prev);
-      next.has(teamId) ? next.delete(teamId) : next.add(teamId);
+      if (next.has(teamId)) { next.delete(teamId); } else { next.add(teamId); }
       return next;
     });
   }
