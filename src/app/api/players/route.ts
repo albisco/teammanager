@@ -28,7 +28,8 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (session?.user?.role !== "ADMIN" && session?.user?.role !== "SUPER_ADMIN") {
+  const role = session?.user?.role;
+  if (role !== "ADMIN" && role !== "SUPER_ADMIN" && role !== "TEAM_MANAGER") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -40,6 +41,17 @@ export async function POST(req: NextRequest) {
   }
 
   const clubId = (session.user as Record<string, unknown>)?.clubId as string;
+
+  // Check for duplicate player in this club
+  const duplicate = await prisma.player.findUnique({
+    where: { clubId_firstName_surname: { clubId, firstName, surname } },
+  });
+  if (duplicate) {
+    return NextResponse.json(
+      { error: `${firstName} ${surname} is already registered in this club` },
+      { status: 409 }
+    );
+  }
 
   // Auto-link family from parent1 if no explicit familyId provided
   let resolvedFamilyId = familyId || null;

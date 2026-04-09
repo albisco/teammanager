@@ -27,7 +27,7 @@ export default function ManagerFixturePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editingRound, setEditingRound] = useState<Round | null>(null);
-  const [form, setForm] = useState({ date: "", opponent: "", venue: "" });
+  const [form, setForm] = useState({ date: "", time: "", opponent: "", venue: "" });
 
   useEffect(() => {
     fetch("/api/manager/team")
@@ -40,8 +40,10 @@ export default function ManagerFixturePage() {
 
   function openEdit(round: Round) {
     setEditingRound(round);
+    const d = round.date ? new Date(round.date) : null;
     setForm({
-      date: round.date ? round.date.split("T")[0] : "",
+      date: d ? d.toISOString().split("T")[0] : "",
+      time: d ? d.toTimeString().slice(0, 5) : "",
       opponent: round.opponent || "",
       venue: round.venue || "",
     });
@@ -54,7 +56,7 @@ export default function ManagerFixturePage() {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        date: form.date || null,
+        date: form.date ? `${form.date}T${form.time || "00:00"}:00` : null,
         opponent: form.opponent || null,
         venue: form.venue || null,
       }),
@@ -82,6 +84,7 @@ export default function ManagerFixturePage() {
             <TableRow>
               <TableHead className="w-20">Round</TableHead>
               <TableHead>Date</TableHead>
+              <TableHead>Time</TableHead>
               <TableHead>Opponent</TableHead>
               <TableHead>Venue</TableHead>
               <TableHead className="w-20">Status</TableHead>
@@ -91,7 +94,7 @@ export default function ManagerFixturePage() {
           <TableBody>
             {rounds.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-gray-500 py-8">
+                <TableCell colSpan={7} className="text-center text-gray-500 py-8">
                   No rounds scheduled yet.
                 </TableCell>
               </TableRow>
@@ -103,6 +106,13 @@ export default function ManagerFixturePage() {
                     {round.date
                       ? new Date(round.date).toLocaleDateString("en-AU", {
                           weekday: "short", day: "numeric", month: "short",
+                        })
+                      : "—"}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap text-sm">
+                    {round.date
+                      ? new Date(round.date).toLocaleTimeString("en-AU", {
+                          hour: "numeric", minute: "2-digit", hour12: true,
                         })
                       : "—"}
                   </TableCell>
@@ -140,6 +150,14 @@ export default function ManagerFixturePage() {
                 type="date"
                 value={form.date}
                 onChange={(e) => setForm({ ...form, date: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Time</Label>
+              <Input
+                type="time"
+                value={form.time}
+                onChange={(e) => setForm({ ...form, time: e.target.value })}
               />
             </div>
             <div className="space-y-2">

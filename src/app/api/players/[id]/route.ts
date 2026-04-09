@@ -20,7 +20,8 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
-  if (session?.user?.role !== "ADMIN" && session?.user?.role !== "SUPER_ADMIN") {
+  const role = session?.user?.role;
+  if (role !== "ADMIN" && role !== "SUPER_ADMIN" && role !== "TEAM_MANAGER") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   const clubId = (session.user as Record<string, unknown>)?.clubId as string;
@@ -32,6 +33,21 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
   const body = await req.json();
   const { jumperNumber, firstName, surname, dateOfBirth, phone, contactEmail, parent1, parent2, spare1, spare2, familyId } = body;
+
+  // Check for duplicate if name is changing
+  const newFirstName = firstName || existing.firstName;
+  const newSurname = surname || existing.surname;
+  if (newFirstName !== existing.firstName || newSurname !== existing.surname) {
+    const duplicate = await prisma.player.findUnique({
+      where: { clubId_firstName_surname: { clubId, firstName: newFirstName, surname: newSurname } },
+    });
+    if (duplicate) {
+      return NextResponse.json(
+        { error: `${newFirstName} ${newSurname} is already registered in this club` },
+        { status: 409 }
+      );
+    }
+  }
 
   // Auto-link family if parent1 changed and no explicit familyId
   let resolvedFamilyId = familyId ?? undefined;
@@ -62,7 +78,8 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
-  if (session?.user?.role !== "ADMIN" && session?.user?.role !== "SUPER_ADMIN") {
+  const role = session?.user?.role;
+  if (role !== "ADMIN" && role !== "SUPER_ADMIN" && role !== "TEAM_MANAGER") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   const clubId = (session.user as Record<string, unknown>)?.clubId as string;

@@ -54,7 +54,9 @@ const emptyForm = {
 
 export default function PlayersPage() {
   const { data: session } = useSession();
-  const isSuperAdmin = (session?.user as Record<string, unknown>)?.role === "SUPER_ADMIN";
+  const role = (session?.user as Record<string, unknown>)?.role as string;
+  const isSuperAdmin = role === "SUPER_ADMIN";
+  const canEdit = role === "ADMIN" || role === "TEAM_MANAGER";
   const [players, setPlayers] = useState<Player[]>([]);
   const [allTeams, setAllTeams] = useState<(TeamInfo & { seasonName: string })[]>([]);
   const [search, setSearch] = useState("");
@@ -194,7 +196,7 @@ export default function PlayersPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-bold">Players</h1>
-{!isSuperAdmin && <Button onClick={openAdd}>Add Player</Button>}
+{canEdit && <Button onClick={openAdd}>Add Player</Button>}
       </div>
 
       <Input
@@ -215,7 +217,7 @@ export default function PlayersPage() {
               <SortableTableHead sortKey="email" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort}>Contact Email</SortableTableHead>
               <SortableTableHead sortKey="phone" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort}>Phone</SortableTableHead>
               <SortableTableHead sortKey="parent1" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort}>Parent 1</SortableTableHead>
-              {!isSuperAdmin && <TableHead className="w-40">Actions</TableHead>}
+              {canEdit && <TableHead className="w-40">Actions</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -249,7 +251,7 @@ export default function PlayersPage() {
                   <TableCell>{player.contactEmail || "—"}</TableCell>
                   <TableCell>{player.phone || "—"}</TableCell>
                   <TableCell>{player.parent1 || "—"}</TableCell>
-                  {!isSuperAdmin && (
+                  {canEdit && (
                     <TableCell>
                       <div className="flex gap-2">
                         <Button variant="outline" size="sm" onClick={() => openTeamDialog(player)}>Teams</Button>

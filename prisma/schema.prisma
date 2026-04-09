@@ -79,6 +79,8 @@ model Player {
   teamPlayers      TeamPlayer[]
   unavailabilities PlayerUnavailability[]
   awards           Award[]
+
+  @@unique([clubId, firstName, surname])
 }
 
 model Season {
