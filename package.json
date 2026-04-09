@@ -33,9 +33,6 @@
     "tailwindcss-animate": "^1.0.7",
     "uuid": "^13.0.0"
   },
-  "prisma": {
-    "seed": "npx tsx prisma/seed.ts"
-  },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
     "@types/bcryptjs": "^2.4.6",
