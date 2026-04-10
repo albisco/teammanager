@@ -10,7 +10,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const { name, email, password, role, teamId } = await req.json();
+  const { name, email, password, role, teamId, clubId } = await req.json();
 
   if (!name?.trim() || !email?.trim()) {
     return NextResponse.json({ error: "Name and email are required" }, { status: 400 });
@@ -26,6 +26,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       name: name.trim(),
       email: email.trim().toLowerCase(),
       ...(role ? { role } : {}),
+      ...(clubId !== undefined ? { clubId: clubId || null } : {}),
     };
 
     if (password?.trim()) {
