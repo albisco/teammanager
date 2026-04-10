@@ -16,7 +16,10 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     return NextResponse.json({ error: "Name and email are required" }, { status: 400 });
   }
 
-  const allowedRoles = ["TEAM_MANAGER", "FAMILY", "ADMIN"];
+  const isSuperAdmin = session?.user?.role === "SUPER_ADMIN";
+  const allowedRoles = isSuperAdmin
+    ? ["TEAM_MANAGER", "FAMILY", "ADMIN", "SUPER_ADMIN"]
+    : ["TEAM_MANAGER", "FAMILY", "ADMIN"];
   if (role && !allowedRoles.includes(role)) {
     return NextResponse.json({ error: "Invalid role" }, { status: 400 });
   }

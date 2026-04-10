@@ -327,6 +327,7 @@ export default function UsersPage() {
                 <option value="FAMILY">Family</option>
                 <option value="TEAM_MANAGER">Team Manager</option>
                 <option value="ADMIN">Admin</option>
+                {isSuperAdmin && <option value="SUPER_ADMIN">Super Admin</option>}
               </Select>
             </div>
             {form.role === "TEAM_MANAGER" && availableTeams.length > 0 && (
