@@ -57,6 +57,20 @@ model User {
   players              Player[]
   votes                Vote[]
   managedTeams         Team[]               @relation("TeamManager")
+  mcpTokens            McpToken[]
+}
+
+model McpToken {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name       String
+  tokenHash  String    @unique
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
 }
 
 model Player {
