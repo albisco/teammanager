@@ -32,12 +32,28 @@ export async function buildScope(user: AuthedUser): Promise<Scope> {
       if (!user.clubId) {
         throw new McpError(ErrorCodes.Forbidden, "ADMIN user has no clubId");
       }
+      // Populate concrete team and player ID lists for the ADMIN's club so
+      // assertTeamAccess / assertPlayerAccess actually enforce the club
+      // boundary. If we left these as "all", an ADMIN could pass a teamId or
+      // playerId from a DIFFERENT club and the asserts would let it through —
+      // because the per-tool Prisma loaders use findUnique by id and don't
+      // re-check clubId.
+      const [clubTeams, clubPlayers] = await Promise.all([
+        prisma.team.findMany({
+          where: { season: { clubId: user.clubId } },
+          select: { id: true },
+        }),
+        prisma.player.findMany({
+          where: { clubId: user.clubId },
+          select: { id: true },
+        }),
+      ]);
       return {
         userId: user.id,
         role: user.role,
         clubId: user.clubId,
-        allowedTeamIds: "all",
-        allowedPlayerIds: "all",
+        allowedTeamIds: clubTeams.map((t) => t.id),
+        allowedPlayerIds: clubPlayers.map((p) => p.id),
         allowedFamilyIds: "all",
       };
     }
