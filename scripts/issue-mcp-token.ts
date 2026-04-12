@@ -29,8 +29,7 @@
 
 import { randomBytes, createHash } from "crypto";
 import { config } from "dotenv";
-import { PrismaClient } from "@prisma/client";
-import { PrismaNeon } from "@prisma/adapter-neon";
+import { neon } from "@neondatabase/serverless";
 
 // Load .env then .env.local (so .env.local overrides)
 config({ path: ".env" });
@@ -82,40 +81,42 @@ async function main() {
     process.exit(1);
   }
 
-  const adapter = new PrismaNeon({ connectionString: process.env.DATABASE_URL });
-  const prisma = new PrismaClient({ adapter });
+  const sql = neon(process.env.DATABASE_URL!);
 
-  try {
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) {
-      // eslint-disable-next-line no-console
-      console.error(`No user found with email: ${email}`);
-      process.exit(1);
-    }
-
-    if (rotate) {
-      const revoked = await prisma.mcpToken.updateMany({
-        where: { userId: user.id, name, revokedAt: null },
-        data: { revokedAt: new Date() },
-      });
-      // eslint-disable-next-line no-console
-      console.log(`Revoked ${revoked.count} existing token(s) for ${email} / ${name}`);
-    }
-
-    const token = randomBytes(32).toString("base64url");
-    const tokenHash = createHash("sha256").update(token).digest("hex");
-
-    const row = await prisma.mcpToken.create({
-      data: { userId: user.id, name, tokenHash },
-    });
-
+  const users = await sql`SELECT id, name, email, role FROM "User" WHERE email = ${email}`;
+  const user = users[0] as { id: string; name: string; email: string; role: string } | undefined;
+  if (!user) {
     // eslint-disable-next-line no-console
-    console.log(`
+    console.error(`No user found with email: ${email}`);
+    process.exit(1);
+  }
+
+  if (rotate) {
+    const result = await sql`
+      UPDATE "McpToken" SET "revokedAt" = NOW()
+      WHERE "userId" = ${user.id} AND name = ${name} AND "revokedAt" IS NULL
+    `;
+    // eslint-disable-next-line no-console
+    console.log(`Revoked ${result.length} existing token(s) for ${email} / ${name}`);
+  }
+
+  const token = randomBytes(32).toString("base64url");
+  const tokenHash = createHash("sha256").update(token).digest("hex");
+
+  const rows = await sql`
+    INSERT INTO "McpToken" ("userId", name, "tokenHash", "createdAt")
+    VALUES (${user.id}, ${name}, ${tokenHash}, NOW())
+    RETURNING id, name, "createdAt"
+  `;
+  const row = rows[0] as { id: string; name: string; createdAt: string };
+
+  // eslint-disable-next-line no-console
+  console.log(`
 ✓ Token issued for ${user.name} (${user.email}, role: ${user.role})
 
   Label:    ${row.name}
   ID:       ${row.id}
-  Created:  ${row.createdAt.toISOString()}
+  Created:  ${new Date(row.createdAt).toISOString()}
 
 Plaintext token (save it now — it won't be shown again):
 
@@ -132,9 +133,6 @@ Add to your MCP client config:
     }
   }
 `);
-  } finally {
-    await prisma.$disconnect();
-  }
 }
 
 main().catch((err) => {
