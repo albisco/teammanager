@@ -24,6 +24,7 @@ Team Manager — Multi-tenant sport team management web app for managing multipl
 
 - `.env` has `DATABASE_URL` (Neon pooler endpoint) — **never commit this file**
 - `.env.local` has `NEXTAUTH_SECRET` and `NEXTAUTH_URL` — also gitignored
+- `ANTHROPIC_API_KEY` — required for the in-app AI chat (`/admin/ask`, `/manager/ask`). Set in Vercel env vars or `.env.local`. Without it the chat returns 503. Optional override: `CHAT_MODEL` (defaults to `claude-haiku-4-5-20251001`)
 - Use `npx prisma db push --accept-data-loss` for schema changes (migrate dev doesn't work in non-interactive terminals)
 - Neon DB in `aws-ap-southeast-2` (Sydney), Vercel functions in `syd1` — co-located for low latency
 

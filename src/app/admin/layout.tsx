@@ -16,6 +16,7 @@ const navItems = [
   { href: "/admin/voting", label: "Voting", clubAdminOnly: true },
   { href: "/admin/roster", label: "Roster", clubAdminOnly: true },
   { href: "/admin/playhq", label: "PlayHQ", clubAdminOnly: true },
+  { href: "/admin/ask", label: "Ask AI", clubAdminOnly: true },
 ];
 
 export default function AdminLayout({
