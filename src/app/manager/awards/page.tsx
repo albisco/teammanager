@@ -178,8 +178,6 @@ export default function ManagerAwardsPage() {
     });
   }
 
-  if (loading) return <p className="text-gray-500">Loading...</p>;
-
   const activeRounds = data?.rounds.filter((r) => !r.isBye) || [];
   const awardTypes = data?.awardTypes || [];
   const players = data?.players || [];
@@ -188,7 +186,6 @@ export default function ManagerAwardsPage() {
   const eligibilityColumns = useMemo(() => {
     const columns: { label: string; players: Player[] }[] = [];
 
-    // One column per award type: players who haven't received it
     for (const t of awardTypes) {
       const missing = players.filter((player) => {
         const playerTally = data?.tally[player.id] || {};
@@ -197,7 +194,6 @@ export default function ManagerAwardsPage() {
       columns.push({ label: `No ${t.name}`, players: missing });
     }
 
-    // Final column: players with zero awards total
     const noAwards = players.filter((player) => {
       const playerTally = data?.tally[player.id] || {};
       const total = Object.values(playerTally).reduce((sum, n) => sum + n, 0);
@@ -211,6 +207,8 @@ export default function ManagerAwardsPage() {
   const eligibilityMaxRows = useMemo(() => {
     return Math.max(0, ...eligibilityColumns.map((c) => c.players.length));
   }, [eligibilityColumns]);
+
+  if (loading) return <p className="text-gray-500">Loading...</p>;
 
   return (
     <div>
