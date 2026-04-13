@@ -39,3 +39,9 @@ next-env.d.ts
 /src/generated/
 test-results/
 .gstack/
+
+# MCP client config (contains bearer tokens)
+.mcp.json
+
+# Local Claude Code settings (machine-specific overrides)
+.claude/settings.local.json
