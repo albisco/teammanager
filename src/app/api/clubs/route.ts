@@ -26,14 +26,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const { name, slug, adminName, adminEmail, adminPassword } = await req.json();
+  const { name, slug, adminName, adminEmail, adminPassword, isAdultClub } = await req.json();
 
   if (!name || !slug) {
     return NextResponse.json({ error: "Club name and slug are required" }, { status: 400 });
   }
 
   try {
-    const club = await prisma.club.create({ data: { name, slug: slug.toLowerCase().replace(/\s+/g, "-") } });
+    const club = await prisma.club.create({ data: { name, slug: slug.toLowerCase().replace(/\s+/g, "-"), isAdultClub: !!isAdultClub } });
 
     // Optionally create a club admin
     if (adminEmail && adminPassword && adminName) {
@@ -64,7 +64,7 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const { id, name, slug } = await req.json();
+  const { id, name, slug, isAdultClub } = await req.json();
   if (!id) return NextResponse.json({ error: "ID is required" }, { status: 400 });
 
   try {
@@ -73,6 +73,7 @@ export async function PUT(req: NextRequest) {
       data: {
         name: name || undefined,
         slug: slug ? slug.toLowerCase().replace(/\s+/g, "-") : undefined,
+        isAdultClub: isAdultClub !== undefined ? !!isAdultClub : undefined,
       },
     });
     return NextResponse.json(club);

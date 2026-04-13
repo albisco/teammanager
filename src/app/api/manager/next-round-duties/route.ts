@@ -19,7 +19,7 @@ export async function GET() {
   const rounds = await prisma.round.findMany({
     where: { teamId, isBye: false, date: { not: null } },
     orderBy: { date: "asc" },
-    select: { id: true, roundNumber: true, date: true, opponent: true, venue: true },
+    select: { id: true, roundNumber: true, date: true, gameTime: true, opponent: true, venue: true },
   });
 
   const nextRound = rounds.find((r) => r.date! >= now) ?? null;
@@ -56,6 +56,7 @@ export async function GET() {
       id: nextRound.id,
       roundNumber: nextRound.roundNumber,
       date: nextRound.date,
+      gameTime: nextRound.gameTime,
       opponent: nextRound.opponent,
       venue: nextRound.venue,
     },

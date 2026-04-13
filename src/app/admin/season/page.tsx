@@ -18,6 +18,7 @@ interface Round {
   id: string;
   roundNumber: number;
   date: string | null;
+  gameTime: string | null;
   isBye: boolean;
   opponent: string | null;
   venue: string | null;
@@ -93,7 +94,7 @@ export default function SeasonPage() {
   const [roundDialogOpen, setRoundDialogOpen] = useState(false);
   const [editingRoundId, setEditingRoundId] = useState<string | null>(null);
   const [roundForm, setRoundForm] = useState({
-    roundNumber: "", date: "", isBye: false, opponent: "", venue: "",
+    roundNumber: "", date: "", gameTime: "", isBye: false, opponent: "", venue: "",
   });
 
   const [loading, setLoading] = useState(false);
@@ -270,7 +271,7 @@ export default function SeasonPage() {
       ? Math.max(...selectedTeamDetail.rounds.map((r) => r.roundNumber)) + 1
       : 1;
     setEditingRoundId(null);
-    setRoundForm({ roundNumber: String(nextNum), date: "", isBye: false, opponent: "", venue: "" });
+    setRoundForm({ roundNumber: String(nextNum), date: "", gameTime: "", isBye: false, opponent: "", venue: "" });
     setRoundDialogOpen(true);
   }
   function openEditRound(round: Round) {
@@ -278,6 +279,7 @@ export default function SeasonPage() {
     setRoundForm({
       roundNumber: String(round.roundNumber),
       date: round.date ? round.date.split("T")[0] : "",
+      gameTime: round.gameTime || "",
       isBye: round.isBye,
       opponent: round.opponent || "",
       venue: round.venue || "",
@@ -476,7 +478,7 @@ export default function SeasonPage() {
                             <TableCell className="font-mono">{round.roundNumber}</TableCell>
                             <TableCell>
                               {round.date
-                                ? new Date(round.date).toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" })
+                                ? new Date(round.date).toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" }) + (round.gameTime ? ` ${round.gameTime}` : "")
                                 : "—"}
                             </TableCell>
                             <TableCell>{round.opponent || "—"}</TableCell>
@@ -638,6 +640,10 @@ export default function SeasonPage() {
                 <Label>Date</Label>
                 <Input type="date" value={roundForm.date} onChange={(e) => setRoundForm({ ...roundForm, date: e.target.value })} />
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Game Time</Label>
+              <Input type="time" value={roundForm.gameTime} onChange={(e) => setRoundForm({ ...roundForm, gameTime: e.target.value })} placeholder="e.g. 09:30" />
             </div>
             <div className="space-y-2">
               <Label>Opponent</Label>

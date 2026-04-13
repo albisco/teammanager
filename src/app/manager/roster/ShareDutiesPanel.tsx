@@ -13,6 +13,7 @@ interface Round {
   id: string;
   roundNumber: number;
   date: string | null;
+  gameTime: string | null;
   opponent: string | null;
   venue: string | null;
   isBye?: boolean;
@@ -33,7 +34,7 @@ function formatMessage(round: Round, duties: Duty[], teamName: string): string {
         weekday: "short",
         day: "numeric",
         month: "short",
-      })
+      }) + (round.gameTime ? ` ${round.gameTime}` : "")
     : null;
 
   const header = [

@@ -36,6 +36,15 @@ export const authOptions: NextAuthOptions = {
           teamId = team?.id ?? null;
         }
 
+        let isAdultClub = false;
+        if (user.clubId) {
+          const club = await prisma.club.findUnique({
+            where: { id: user.clubId },
+            select: { isAdultClub: true },
+          });
+          isAdultClub = club?.isAdultClub ?? false;
+        }
+
         return {
           id: user.id,
           email: user.email,
@@ -43,6 +52,7 @@ export const authOptions: NextAuthOptions = {
           role: user.role,
           clubId: user.clubId,
           teamId,
+          isAdultClub,
         };
       },
     }),
@@ -55,6 +65,7 @@ export const authOptions: NextAuthOptions = {
         token.id = user.id;
         token.clubId = u.clubId as string;
         token.teamId = u.teamId as string | null;
+        token.isAdultClub = u.isAdultClub as boolean;
       }
       return token;
     },
@@ -65,6 +76,7 @@ export const authOptions: NextAuthOptions = {
         s.id = token.id;
         s.clubId = token.clubId;
         s.teamId = token.teamId;
+        s.isAdultClub = token.isAdultClub;
       }
       return session;
     },

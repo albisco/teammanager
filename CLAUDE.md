@@ -24,6 +24,7 @@ Team Manager — Multi-tenant sport team management web app for managing multipl
 
 - `.env` has `DATABASE_URL` (Neon pooler endpoint) — **never commit this file**
 - `.env.local` has `NEXTAUTH_SECRET` and `NEXTAUTH_URL` — also gitignored
+- `ANTHROPIC_API_KEY` — required for the in-app AI chat (`/admin/ask`, `/manager/ask`). Set in Vercel env vars or `.env.local`. Without it the chat returns 503. Optional override: `CHAT_MODEL` (defaults to `claude-haiku-4-5-20251001`)
 - Use `npx prisma db push --accept-data-loss` for schema changes (migrate dev doesn't work in non-interactive terminals)
 - Neon DB in `aws-ap-southeast-2` (Sydney), Vercel functions in `syd1` — co-located for low latency
 
@@ -40,8 +41,13 @@ Session-based club scoping. Every user belongs to a Club (except SUPER_ADMIN). J
 ### Data Model Hierarchy
 Club → Season(s) → Team(s) → Round(s). Players are club-level, linked to teams via TeamPlayer (many-to-many). DutyRoles are club-level, configured per-team via TeamDutyRole. Voting scheme is per-team.
 
-### Key Models (19 total)
-Club, User, Player, Season, Team, TeamPlayer, Round, VotingSession, Vote, DutyRole, TeamDutyRole, TeamDutyRoleSpecialist, RosterAssignment, FamilyExclusion, FamilyUnavailability, PlayerUnavailability
+### Key Models (21 total)
+Club, User, Player, Season, Team, TeamPlayer, Round, VotingSession, Vote, DutyRole, TeamDutyRole, TeamDutyRoleSpecialist, RosterAssignment, FamilyExclusion, FamilyUnavailability, PlayerUnavailability, PlayerAvailability
+
+- **Club.isAdultClub** (Boolean, default false) — gates adult-team features: player availability polling and PLAYER voter type. Set by SUPER_ADMIN in club management.
+- **AvailabilityStatus enum** — AVAILABLE | MAYBE | UNAVAILABLE (used by PlayerAvailability)
+- **VoterType enum** — PARENT | COACH | PLAYER (PLAYER only shown on vote page when club.isAdultClub)
+- **JWT/session** includes `isAdultClub` alongside `clubId` and `role` for client-side feature gating
 
 ### Duty Role Types (DutyRoleType enum)
 - **FIXED** — same person every round (e.g. coach, team manager)
@@ -57,12 +63,14 @@ Club, User, Player, Season, Team, TeamPlayer, Round, VotingSession, Vote, DutyRo
 /admin/players                  — player CRUD + team assignment
 /admin/season                   — season > team > rounds management (lazy-loaded team details)
 /admin/voting                   — open/close voting, QR codes, results + audit trail
+/admin/availability             — player availability summary + link sharing (adult clubs only)
 /admin/roster                   — club duty roles + per-team role configuration
 /admin/playhq                   — (not yet built)
 /family/dashboard               — family overview (placeholder)
 /family/availability            — (not yet built)
 /family/roster                  — (not yet built)
 /vote/[token]                   — public voting page (no auth, QR access)
+/player-availability/[token]    — public player availability page (no auth, adult clubs only)
 ```
 
 ### API Routes
@@ -86,6 +94,10 @@ Club, User, Player, Season, Team, TeamPlayer, Round, VotingSession, Vote, DutyRo
 /api/voting/[token]                      — public: get voting session info
 /api/voting/[token]/submit               — public: submit vote
 /api/voting/results                      — admin: vote tallies/leaderboard + audit
+/api/player-availability/[token]         — public: get team players, rounds, existing availabilities
+/api/player-availability/[token]/respond — public: upsert player availability status
+/api/player-availability/token           — admin: lazy-generate playerAvailabilityToken for a team
+/api/admin/availability                  — admin: availability summary per round for a team
 /api/manager/roster                      — GET all roster page data in one call (TEAM_MANAGER only)
 /api/manager/next-round-duties           — GET next upcoming round + grouped duty assignments (TEAM_MANAGER only)
 /api/manager/team                        — GET team info for dashboard (TEAM_MANAGER only)

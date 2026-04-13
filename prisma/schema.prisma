@@ -9,10 +9,11 @@ datasource db {
 }
 
 model Club {
-  id        String   @id @default(cuid())
-  name      String
-  slug      String   @unique
-  createdAt DateTime @default(now())
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  isAdultClub Boolean  @default(false)
+  createdAt   DateTime @default(now())
 
   users     User[]
   seasons   Season[]
@@ -35,6 +36,13 @@ enum VotingStatus {
 enum VoterType {
   PARENT
   COACH
+  PLAYER
+}
+
+enum AvailabilityStatus {
+  AVAILABLE
+  MAYBE
+  UNAVAILABLE
 }
 
 enum DutyRoleType {
@@ -57,6 +65,20 @@ model User {
   players              Player[]
   votes                Vote[]
   managedTeams         Team[]               @relation("TeamManager")
+  mcpTokens            McpToken[]
+}
+
+model McpToken {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name       String
+  tokenHash  String    @unique
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
 }
 
 model Player {
@@ -76,9 +98,10 @@ model Player {
   clubId       String
   club         Club     @relation(fields: [clubId], references: [id], onDelete: Cascade)
 
-  teamPlayers      TeamPlayer[]
-  unavailabilities PlayerUnavailability[]
-  awards           Award[]
+  teamPlayers           TeamPlayer[]
+  unavailabilities      PlayerUnavailability[]
+  playerAvailabilities  PlayerAvailability[]
+  awards                Award[]
 }
 
 model Season {
@@ -102,7 +125,8 @@ model Team {
   votingScheme      Json   @default("[5,4,3,2,1]")
   parentVoterCount  Int    @default(3)
   coachVoterCount   Int    @default(1)
-  availabilityToken String? @unique @default(cuid())
+  availabilityToken       String? @unique @default(cuid())
+  playerAvailabilityToken String? @unique @default(cuid())
 
   players         TeamPlayer[]
   rounds          Round[]
@@ -137,6 +161,7 @@ model Round {
   team        Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
   roundNumber Int
   date        DateTime?
+  gameTime    String?
   isBye       Boolean  @default(false)
   opponent    String?
   venue       String?
@@ -145,6 +170,7 @@ model Round {
   rosterAssignments      RosterAssignment[]
   familyUnavailabilities FamilyUnavailability[]
   playerUnavailabilities PlayerUnavailability[]
+  playerAvailabilities   PlayerAvailability[]
   awards                 Award[]
 
   @@unique([teamId, roundNumber])
@@ -250,6 +276,17 @@ model PlayerUnavailability {
   player   Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
   roundId  String
   round    Round  @relation(fields: [roundId], references: [id], onDelete: Cascade)
+
+  @@unique([playerId, roundId])
+}
+
+model PlayerAvailability {
+  id       String             @id @default(cuid())
+  playerId String
+  player   Player             @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  roundId  String
+  round    Round              @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  status   AvailabilityStatus
 
   @@unique([playerId, roundId])
 }
