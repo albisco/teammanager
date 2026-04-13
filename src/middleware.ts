@@ -6,7 +6,14 @@ export default withAuth(
     const token = req.nextauth.token;
     const path = req.nextUrl.pathname;
 
-    if (path.startsWith("/admin") && token?.role !== "ADMIN" && token?.role !== "SUPER_ADMIN") {
+    const isTeamManager = token?.role === "TEAM_MANAGER";
+    const isAdminOrSuper = token?.role === "ADMIN" || token?.role === "SUPER_ADMIN";
+
+    if (path.startsWith("/admin/players") && !isAdminOrSuper && !isTeamManager) {
+      return NextResponse.redirect(new URL("/login", req.url));
+    }
+
+    if (path.startsWith("/admin") && !path.startsWith("/admin/players") && !isAdminOrSuper) {
       return NextResponse.redirect(new URL("/login", req.url));
     }
 

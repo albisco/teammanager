@@ -166,10 +166,10 @@ describe("Teams API roles", () => {
 });
 
 describe("Players API roles", () => {
-  test("TM cannot create players", async () => {
+  test("TM can create players", async () => {
     setTestSession(sessions.teamManager);
     const res = await postPlayers(createRequest("/api/players", { method: "POST", body: { firstName: "A", surname: "B", jumperNumber: 1 } }));
-    expect(res.status).toBe(403);
+    expect(res.status).not.toBe(403);
   });
 
   test("ADMIN can create players", async () => {
