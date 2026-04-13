@@ -17,6 +17,7 @@ interface Round {
   id: string;
   roundNumber: number;
   date: string | null;
+  gameTime: string | null;
   isBye: boolean;
   opponent: string | null;
   venue: string | null;
@@ -27,7 +28,7 @@ export default function ManagerFixturePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editingRound, setEditingRound] = useState<Round | null>(null);
-  const [form, setForm] = useState({ date: "", opponent: "", venue: "" });
+  const [form, setForm] = useState({ date: "", gameTime: "", opponent: "", venue: "" });
 
   useEffect(() => {
     fetch("/api/manager/team")
@@ -42,6 +43,7 @@ export default function ManagerFixturePage() {
     setEditingRound(round);
     setForm({
       date: round.date ? round.date.split("T")[0] : "",
+      gameTime: round.gameTime || "",
       opponent: round.opponent || "",
       venue: round.venue || "",
     });
@@ -55,6 +57,7 @@ export default function ManagerFixturePage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         date: form.date || null,
+        gameTime: form.gameTime || null,
         opponent: form.opponent || null,
         venue: form.venue || null,
       }),
@@ -101,9 +104,7 @@ export default function ManagerFixturePage() {
                   <TableCell className="font-mono">{round.roundNumber}</TableCell>
                   <TableCell>
                     {round.date
-                      ? new Date(round.date).toLocaleDateString("en-AU", {
-                          weekday: "short", day: "numeric", month: "short",
-                        })
+                      ? new Date(round.date).toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" }) + (round.gameTime ? ` ${round.gameTime}` : "")
                       : "—"}
                   </TableCell>
                   <TableCell>{round.opponent || "—"}</TableCell>
@@ -134,13 +135,23 @@ export default function ManagerFixturePage() {
             <DialogTitle>Edit Round {editingRound?.roundNumber}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Date</Label>
-              <Input
-                type="date"
-                value={form.date}
-                onChange={(e) => setForm({ ...form, date: e.target.value })}
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Date</Label>
+                <Input
+                  type="date"
+                  value={form.date}
+                  onChange={(e) => setForm({ ...form, date: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Game Time</Label>
+                <Input
+                  type="time"
+                  value={form.gameTime}
+                  onChange={(e) => setForm({ ...form, gameTime: e.target.value })}
+                />
+              </div>
             </div>
             <div className="space-y-2">
               <Label>Opponent</Label>

@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { teamId, roundNumber, date, isBye, opponent, venue } = body;
+  const { teamId, roundNumber, date, gameTime, isBye, opponent, venue } = body;
 
   if (!teamId || roundNumber == null) {
     return NextResponse.json({ error: "teamId and roundNumber are required" }, { status: 400 });
@@ -38,6 +38,7 @@ export async function POST(req: NextRequest) {
       teamId,
       roundNumber: parseInt(roundNumber),
       date: date ? new Date(date) : null,
+      gameTime: gameTime || null,
       isBye: isBye || false,
       opponent: opponent || null,
       venue: venue || null,
