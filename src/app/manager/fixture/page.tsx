@@ -165,8 +165,8 @@ export default function ManagerFixturePage() {
               <Label>Time</Label>
               <Input
                 type="time"
-                value={form.time}
-                onChange={(e) => setForm({ ...form, time: e.target.value })}
+                value={form.gameTime}
+                onChange={(e) => setForm({ ...form, gameTime: e.target.value })}
               />
             </div>
             <div className="space-y-2">
