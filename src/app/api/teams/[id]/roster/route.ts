@@ -19,7 +19,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     prisma.teamDutyRole.findMany({
       where: { teamId },
       include: { dutyRole: true },
-      orderBy: { dutyRole: { roleName: "asc" } },
+      orderBy: [{ dutyRole: { sortOrder: "asc" } }, { dutyRole: { roleName: "asc" } }],
     }),
     prisma.rosterAssignment.findMany({
       where: { round: { teamId } },

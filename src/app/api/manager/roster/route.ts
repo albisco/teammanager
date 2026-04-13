@@ -36,7 +36,7 @@ export async function GET() {
     }),
     prisma.dutyRole.findMany({
       where: { clubId },
-      orderBy: { roleName: "asc" },
+      orderBy: [{ sortOrder: "asc" }, { roleName: "asc" }],
     }),
     prisma.teamDutyRole.findMany({
       where: { teamId },
@@ -44,7 +44,7 @@ export async function GET() {
         dutyRole: true,
         specialists: true,
       },
-      orderBy: { dutyRole: { roleName: "asc" } },
+      orderBy: [{ dutyRole: { sortOrder: "asc" } }, { dutyRole: { roleName: "asc" } }],
     }),
     prisma.round.findMany({
       where: { teamId },

@@ -68,7 +68,7 @@ const getTeamRoster: ToolDefinition = {
       prisma.teamDutyRole.findMany({
         where: { teamId },
         include: { dutyRole: true },
-        orderBy: { dutyRole: { roleName: "asc" } },
+        orderBy: [{ dutyRole: { sortOrder: "asc" } }, { dutyRole: { roleName: "asc" } }],
       }),
       prisma.rosterAssignment.findMany({
         where: { round: { teamId } },
@@ -212,7 +212,7 @@ const getRoundDuties: ToolDefinition = {
     const assignments = await prisma.rosterAssignment.findMany({
       where: { roundId: round.id },
       include: { teamDutyRole: { include: { dutyRole: true } } },
-      orderBy: [{ teamDutyRole: { dutyRole: { roleName: "asc" } } }, { slot: "asc" }],
+      orderBy: [{ teamDutyRole: { dutyRole: { sortOrder: "asc" } } }, { slot: "asc" }],
     });
 
     return {
@@ -368,7 +368,7 @@ const listDutyRoles: ToolDefinition = {
     const teamDutyRoles = await prisma.teamDutyRole.findMany({
       where: { teamId },
       include: { dutyRole: true, specialists: true },
-      orderBy: { dutyRole: { roleName: "asc" } },
+      orderBy: [{ dutyRole: { sortOrder: "asc" } }, { dutyRole: { roleName: "asc" } }],
     });
 
     return teamDutyRoles.map((tdr) => ({

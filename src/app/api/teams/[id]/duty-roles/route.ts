@@ -9,7 +9,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   const clubId = (session.user as Record<string, unknown>)?.clubId as string;
 
   // Get all club-level roles
-  const allRoles = await prisma.dutyRole.findMany({ where: { clubId }, orderBy: { roleName: "asc" } });
+  const allRoles = await prisma.dutyRole.findMany({ where: { clubId }, orderBy: [{ sortOrder: "asc" }, { roleName: "asc" }] });
 
   // Get team-specific configurations
   const teamConfigs = await prisma.teamDutyRole.findMany({

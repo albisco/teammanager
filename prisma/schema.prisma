@@ -200,10 +200,11 @@ model Vote {
 }
 
 model DutyRole {
-  id       String @id @default(cuid())
-  roleName String
-  clubId   String
-  club     Club   @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  id        String @id @default(cuid())
+  roleName  String
+  sortOrder Int    @default(0)
+  clubId    String
+  club      Club   @relation(fields: [clubId], references: [id], onDelete: Cascade)
 
   teamDutyRoles TeamDutyRole[]
 
