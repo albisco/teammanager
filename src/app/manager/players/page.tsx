@@ -214,10 +214,7 @@ export default function ManagerPlayersPage() {
                     )}
                   </TableCell>
                   <TableCell>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" onClick={() => openEdit(p)}>Edit</Button>
-                      <Button variant="destructive" size="sm" onClick={() => handleDelete(p)}>Delete</Button>
-                    </div>
+                    <Button variant="outline" size="sm" onClick={() => openEdit(p)}>Edit</Button>
                   </TableCell>
                 </TableRow>
               ))
