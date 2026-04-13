@@ -11,13 +11,14 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   }
 
   const body = await req.json();
-  const { roundNumber, date, isBye, opponent, venue } = body;
+  const { roundNumber, date, gameTime, isBye, opponent, venue } = body;
 
   const round = await prisma.round.update({
     where: { id: params.id },
     data: {
       roundNumber: roundNumber != null ? parseInt(roundNumber) : undefined,
       date: date !== undefined ? (date ? new Date(date) : null) : undefined,
+      gameTime: gameTime !== undefined ? (gameTime || null) : undefined,
       isBye: isBye !== undefined ? isBye : undefined,
       opponent: opponent !== undefined ? (opponent || null) : undefined,
       venue: venue !== undefined ? (venue || null) : undefined,

@@ -8,6 +8,7 @@ interface Round {
   id: string;
   roundNumber: number;
   date: string | null;
+  gameTime: string | null;
   isBye: boolean;
   opponent: string | null;
   venue: string | null;
@@ -27,6 +28,7 @@ interface NextRoundDuties {
     id: string;
     roundNumber: number;
     date: string | null;
+    gameTime: string | null;
     opponent: string | null;
     venue: string | null;
   } | null;
@@ -99,9 +101,8 @@ export default function ManagerDashboard() {
           <CardContent className="p-4 pt-0 space-y-1">
             <p className="text-sm">
               <span className="text-gray-500">Date: </span>
-              {new Date(nextRound.date!).toLocaleDateString("en-AU", {
-                weekday: "long", day: "numeric", month: "long",
-              })}
+              {new Date(nextRound.date!).toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long" })}
+              {nextRound.gameTime && <span className="ml-1">{nextRound.gameTime}</span>}
             </p>
             {nextRound.opponent && (
               <p className="text-sm"><span className="text-gray-500">vs </span>{nextRound.opponent}</p>

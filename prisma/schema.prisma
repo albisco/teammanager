@@ -140,6 +140,7 @@ model Round {
   team        Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
   roundNumber Int
   date        DateTime?
+  gameTime    String?
   isBye       Boolean  @default(false)
   opponent    String?
   venue       String?

@@ -52,6 +52,7 @@ interface RosterRound {
   roundNumber: number;
   isBye: boolean;
   date: string | null;
+  gameTime: string | null;
   opponent: string | null;
   venue: string | null;
 }
