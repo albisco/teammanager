@@ -41,7 +41,6 @@ export default function ManagerFixturePage() {
 
   function openEdit(round: Round) {
     setEditingRound(round);
-    const d = round.date ? new Date(round.date) : null;
     setForm({
       date: round.date ? round.date.split("T")[0] : "",
       gameTime: round.gameTime || "",
