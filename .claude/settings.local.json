@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(DATABASE_URL=\"postgresql://neondb_owner:npg_lMGqVdKk2fg9@ep-dry-fog-a70x28e8-pooler.ap-southeast-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require\" npx tsx scripts/make-superadmin.ts)",
-      "Bash(DATABASE_URL=\"postgresql://neondb_owner:npg_lMGqVdKk2fg9@ep-dry-fog-a70x28e8-pooler.ap-southeast-2.aws.neon.tech/neondb?sslmode=require\" npx tsx scripts/make-superadmin.ts)"
-    ]
-  }
-}
