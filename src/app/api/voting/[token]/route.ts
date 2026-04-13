@@ -10,7 +10,11 @@ export async function GET(_req: NextRequest, { params }: { params: { token: stri
         include: {
           team: {
             include: {
-              season: { select: { name: true } },
+              season: {
+                include: {
+                  club: { select: { isAdultClub: true } },
+                },
+              },
               players: {
                 include: {
                   player: { select: { id: true, firstName: true, surname: true, jumperNumber: true } },
@@ -30,6 +34,7 @@ export async function GET(_req: NextRequest, { params }: { params: { token: stri
   return NextResponse.json({
     id: votingSession.id,
     status: votingSession.status,
+    isAdultClub: votingSession.round.team.season.club.isAdultClub,
     round: {
       roundNumber: votingSession.round.roundNumber,
       opponent: votingSession.round.opponent,

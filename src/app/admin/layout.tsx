@@ -14,6 +14,7 @@ const navItems = [
   { href: "/admin/players", label: "Players" },
   { href: "/admin/season", label: "Season", clubAdminOnly: true },
   { href: "/admin/voting", label: "Voting", clubAdminOnly: true },
+  { href: "/admin/availability", label: "Availability", clubAdminOnly: true, adultOnly: true },
   { href: "/admin/roster", label: "Roster", clubAdminOnly: true },
   { href: "/admin/playhq", label: "PlayHQ", clubAdminOnly: true },
   { href: "/admin/ask", label: "Ask AI", clubAdminOnly: true },
@@ -49,9 +50,11 @@ export default function AdminLayout({
   }, []);
 
   const filteredNavItems = navItems.filter((item) => {
-    const role = (session?.user as Record<string, unknown>)?.role;
+    const user = session?.user as Record<string, unknown> | undefined;
+    const role = user?.role;
     if (item.superAdminOnly && role !== "SUPER_ADMIN") return false;
     if (item.clubAdminOnly && role === "SUPER_ADMIN") return false;
+    if ((item as { adultOnly?: boolean }).adultOnly && !user?.isAdultClub) return false;
     return true;
   });
 
