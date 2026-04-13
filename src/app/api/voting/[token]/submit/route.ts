@@ -8,6 +8,10 @@ export async function POST(req: NextRequest, { params }: { params: { token: stri
     return NextResponse.json({ error: "voterName, voterType, and rankings are required" }, { status: 400 });
   }
 
+  if (!["PARENT", "COACH", "PLAYER"].includes(voterType)) {
+    return NextResponse.json({ error: "Invalid voterType" }, { status: 400 });
+  }
+
   const votingSession = await prisma.votingSession.findUnique({
     where: { qrToken: params.token },
     include: { round: { include: { team: { include: { season: true } } } } },

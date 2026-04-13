@@ -18,6 +18,7 @@ interface Player {
 interface VotingData {
   id: string;
   status: "OPEN" | "CLOSED";
+  isAdultClub: boolean;
   round: { roundNumber: number; opponent: string | null; date: string | null };
   team: { name: string; ageGroup: string; seasonName: string; votingScheme: number[] };
   players: Player[];
@@ -30,7 +31,8 @@ export default function VotePage() {
   const [data, setData] = useState<VotingData | null>(null);
   const [error, setError] = useState("");
   const [voterName, setVoterName] = useState("");
-  const [voterType, setVoterType] = useState<"PARENT" | "COACH">("PARENT");
+  const [voterType, setVoterType] = useState<"PARENT" | "COACH" | "PLAYER">("PARENT");
+  const [selfPlayerId, setSelfPlayerId] = useState("");
   const [rankings, setRankings] = useState<(string | null)[]>([]);
   const [step, setStep] = useState<"name" | "vote" | "done">("name");
   const [submitting, setSubmitting] = useState(false);
@@ -94,7 +96,9 @@ export default function VotePage() {
 
   function getAvailablePlayers(position: number) {
     return data!.players.filter(
-      (p) => !rankings.includes(p.id) || rankings[position] === p.id
+      (p) =>
+        p.id !== selfPlayerId &&
+        (!rankings.includes(p.id) || rankings[position] === p.id)
     );
   }
 
@@ -144,36 +148,69 @@ export default function VotePage() {
           {step === "name" && (
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label>Your Name</Label>
-                <Input
-                  value={voterName}
-                  onChange={(e) => setVoterName(e.target.value)}
-                  placeholder="Enter your name"
-                />
-              </div>
-              <div className="space-y-2">
                 <Label>I am a...</Label>
                 <div className="flex gap-2">
                   <Button
                     variant={voterType === "PARENT" ? "default" : "outline"}
-                    onClick={() => setVoterType("PARENT")}
+                    onClick={() => { setVoterType("PARENT"); setSelfPlayerId(""); setVoterName(""); }}
                     className="flex-1"
                   >
                     Parent
                   </Button>
                   <Button
                     variant={voterType === "COACH" ? "default" : "outline"}
-                    onClick={() => setVoterType("COACH")}
+                    onClick={() => { setVoterType("COACH"); setSelfPlayerId(""); setVoterName(""); }}
                     className="flex-1"
                   >
                     Coach
                   </Button>
+                  {data.isAdultClub && (
+                    <Button
+                      variant={voterType === "PLAYER" ? "default" : "outline"}
+                      onClick={() => { setVoterType("PLAYER"); setVoterName(""); }}
+                      className="flex-1"
+                    >
+                      Player
+                    </Button>
+                  )}
                 </div>
               </div>
+
+              {voterType === "PLAYER" ? (
+                <div className="space-y-2">
+                  <Label>Who are you?</Label>
+                  <select
+                    value={selfPlayerId}
+                    onChange={(e) => {
+                      const player = data.players.find((p) => p.id === e.target.value);
+                      setSelfPlayerId(e.target.value);
+                      setVoterName(player ? `${player.firstName} ${player.surname}` : "");
+                    }}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-ring"
+                  >
+                    <option value="">Select your name...</option>
+                    {data.players.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        #{p.jumperNumber} {p.firstName} {p.surname}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Label>Your Name</Label>
+                  <Input
+                    value={voterName}
+                    onChange={(e) => setVoterName(e.target.value)}
+                    placeholder="Enter your name"
+                  />
+                </div>
+              )}
+
               <Button
                 className="w-full"
                 onClick={() => setStep("vote")}
-                disabled={!voterName.trim()}
+                disabled={!voterName.trim() || (voterType === "PLAYER" && !selfPlayerId)}
               >
                 Start Voting
               </Button>

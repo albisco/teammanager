@@ -51,7 +51,7 @@ interface LeaderboardEntry {
 
 interface AuditEntry {
   voterName: string;
-  voterType: "PARENT" | "COACH";
+  voterType: "PARENT" | "COACH" | "PLAYER";
   roundNumber: number;
   rankings: { playerId: string; points: number }[];
   submittedAt: string;
