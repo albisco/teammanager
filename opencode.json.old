@@ -1,0 +1,18 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "lmstudio": {
+      "name": "LM Studio",
+      "models": {
+        "qwen2.5-coder-3b-instruct": {
+          "name": "Qwen 2.5 Coder 3B"
+        }
+      },
+      "options": {
+        "baseURL": "http://192.168.4.37:1234/v1",
+        "apiKey": "not-needed"
+      }
+    }
+  },
+  "model": "lmstudio/qwen2.5-coder-3b-instruct"
+}
