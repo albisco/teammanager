@@ -5,8 +5,16 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
+function isLocalDatabase(url: string) {
+  return url.includes("localhost") || url.includes("127.0.0.1");
+}
+
 function createPrismaClient() {
-  const adapter = new PrismaNeon({ connectionString: process.env.DATABASE_URL! });
+  const url = process.env.DATABASE_URL!;
+  if (isLocalDatabase(url)) {
+    return new PrismaClient();
+  }
+  const adapter = new PrismaNeon({ connectionString: url });
   return new PrismaClient({ adapter });
 }
 
