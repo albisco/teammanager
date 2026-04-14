@@ -219,6 +219,8 @@ export default function ManagerRosterPage() {
     if (!res.ok) {
       fetchGlobalRoles();
       toast.error("Failed to update order");
+    } else {
+      fetchAll(); // Refresh all data to get updated role order in teamRoles
     }
   }
 
