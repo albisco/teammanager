@@ -135,18 +135,6 @@ export default function ManagerPlayersPage() {
     setSaving(false);
   }
 
-  async function handleDelete(player: Player) {
-    if (!confirm(`Delete ${player.firstName} ${player.surname}? This cannot be undone.`)) return;
-    const res = await fetch(`/api/players/${player.id}`, { method: "DELETE" });
-    if (res.ok) {
-      toast.success("Player deleted");
-      fetchPlayers();
-    } else {
-      const data = await res.json();
-      toast.error(data.error || "Failed to delete");
-    }
-  }
-
   const filtered = players.filter(
     (p) =>
       p.firstName.toLowerCase().includes(search.toLowerCase()) ||
