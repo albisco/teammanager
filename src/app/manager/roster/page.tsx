@@ -135,9 +135,12 @@ export default function ManagerRosterPage() {
   const [overrideFamilyId, setOverrideFamilyId] = useState("");
   const [overridePersonName, setOverridePersonName] = useState("");
 
-  // Drag-and-drop state
+  // Drag-and-drop for roster cells
   const [dragSource, setDragSource] = useState<{ roundId: string; roleId: string; slot: number; familyId: string } | null>(null);
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
+  // Drag-and-drop for role reordering
+  const [roleDragIndex, setRoleDragIndex] = useState<number | null>(null);
+  const [roleDragOverIndex, setRoleDragOverIndex] = useState<number | null>(null);
 
   // Share duties
   const [teamName, setTeamName] = useState("");
@@ -190,6 +193,36 @@ export default function ManagerRosterPage() {
   }, [teamId]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
+
+  // === Role Reordering ===
+  async function handleRoleDrop(targetIndex: number) {
+    if (roleDragIndex === null || roleDragIndex === targetIndex) {
+      setRoleDragIndex(null);
+      setRoleDragOverIndex(null);
+      return;
+    }
+
+    const newRoles = [...globalRoles];
+    const [moved] = newRoles.splice(roleDragIndex, 1);
+    newRoles.splice(targetIndex, 0, moved);
+
+    setGlobalRoles(newRoles);
+    setRoleDragIndex(null);
+    setRoleDragOverIndex(null);
+
+    const res = await fetch("/api/duty-roles", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orderedIds: newRoles.map((r) => r.id) }),
+    });
+
+    if (!res.ok) {
+      fetchGlobalRoles();
+      toast.error("Failed to update order");
+    } else {
+      fetchAll(); // Refresh all data to get updated role order in teamRoles
+    }
+  }
 
   // === Club Role CRUD ===
   function openAddClubRole() {
@@ -552,10 +585,25 @@ export default function ManagerRosterPage() {
           {globalRoles.length === 0 ? (
             <p className="text-gray-500">No roles defined yet. Add your first role above.</p>
           ) : (
-            globalRoles.map((role) => (
-              <Badge key={role.id} variant="outline" className="px-3 py-1.5 text-sm">
-                {role.roleName}
-              </Badge>
+            globalRoles.map((role, index) => (
+              <div
+                key={role.id}
+                draggable
+                onDragStart={() => setRoleDragIndex(index)}
+                onDragEnd={() => { setRoleDragIndex(null); setRoleDragOverIndex(null); }}
+                onDragOver={(e) => { e.preventDefault(); setRoleDragOverIndex(index); }}
+                onDrop={() => handleRoleDrop(index)}
+                className={[
+                  "flex items-center transition-all",
+                  roleDragOverIndex === index && roleDragIndex !== index ? "ring-2 ring-primary rounded-md" : "",
+                  roleDragIndex === index ? "opacity-50" : "",
+                ].join(" ")}
+              >
+                <span className="cursor-grab text-gray-400 hover:text-gray-600 mr-1 select-none" title="Drag to reorder">⠿</span>
+                <Badge variant="outline" className="px-3 py-1.5 text-sm cursor-default">
+                  {role.roleName}
+                </Badge>
+              </div>
             ))
           )}
         </div>

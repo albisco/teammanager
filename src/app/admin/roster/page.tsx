@@ -30,6 +30,7 @@ interface Season {
 interface GlobalDutyRole {
   id: string;
   roleName: string;
+  sortOrder: number;
 }
 
 interface SpecialistEntry {
@@ -165,6 +166,38 @@ export default function RosterPage() {
       fetchUnavailabilities(selectedTeam.id);
     }
   }, [selectedTeam, fetchTeamRoles, fetchRosterData, fetchUnavailabilities]);
+
+  // Drag-and-drop reordering for club roles
+  const [roleDragIndex, setRoleDragIndex] = useState<number | null>(null);
+  const [roleDragOverIndex, setRoleDragOverIndex] = useState<number | null>(null);
+
+  async function handleRoleDrop(targetIndex: number) {
+    if (roleDragIndex === null || roleDragIndex === targetIndex) {
+      setRoleDragIndex(null);
+      setRoleDragOverIndex(null);
+      return;
+    }
+
+    const newRoles = [...globalRoles];
+    const [moved] = newRoles.splice(roleDragIndex, 1);
+    newRoles.splice(targetIndex, 0, moved);
+
+    // Optimistic update
+    setGlobalRoles(newRoles);
+    setRoleDragIndex(null);
+    setRoleDragOverIndex(null);
+
+    const res = await fetch("/api/duty-roles", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orderedIds: newRoles.map((r) => r.id) }),
+    });
+
+    if (!res.ok) {
+      fetchGlobalRoles();
+      toast.error("Failed to update order");
+    }
+  }
 
   // === Club Role CRUD ===
   function openAddClubRole() {
@@ -417,21 +450,35 @@ export default function RosterPage() {
           {globalRoles.length === 0 ? (
             <p className="text-gray-500">No roles defined yet.</p>
           ) : (
-            globalRoles.map((role) => (
-              <Badge
+            globalRoles.map((role, index) => (
+              <div
                 key={role.id}
-                variant="outline"
-                className="px-3 py-1.5 text-sm cursor-pointer hover:bg-gray-100 gap-2"
-                onClick={() => openEditClubRole(role)}
+                draggable
+                onDragStart={() => setRoleDragIndex(index)}
+                onDragEnd={() => { setRoleDragIndex(null); setRoleDragOverIndex(null); }}
+                onDragOver={(e) => { e.preventDefault(); setRoleDragOverIndex(index); }}
+                onDrop={() => handleRoleDrop(index)}
+                className={[
+                  "flex items-center transition-all",
+                  roleDragOverIndex === index && roleDragIndex !== index ? "ring-2 ring-primary rounded-md" : "",
+                  roleDragIndex === index ? "opacity-50" : "",
+                ].join(" ")}
               >
-                {role.roleName}
-                <button
-                  className="ml-1 text-gray-400 hover:text-red-500"
-                  onClick={(e) => { e.stopPropagation(); handleDeleteClubRole(role.id); }}
+                <span className="cursor-grab text-gray-400 hover:text-gray-600 mr-1 select-none" title="Drag to reorder">⠿</span>
+                <Badge
+                  variant="outline"
+                  className="px-3 py-1.5 text-sm cursor-pointer hover:bg-gray-100 gap-2"
+                  onClick={() => openEditClubRole(role)}
                 >
-                  &times;
-                </button>
-              </Badge>
+                  {role.roleName}
+                  <button
+                    className="ml-1 text-gray-400 hover:text-red-500"
+                    onClick={(e) => { e.stopPropagation(); handleDeleteClubRole(role.id); }}
+                  >
+                    &times;
+                  </button>
+                </Badge>
+              </div>
             ))
           )}
         </div>

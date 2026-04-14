@@ -10,7 +10,7 @@ export async function GET() {
 
   const roles = await prisma.dutyRole.findMany({
     where: { clubId },
-    orderBy: { roleName: "asc" },
+    orderBy: [{ sortOrder: "asc" }, { roleName: "asc" }],
   });
 
   return NextResponse.json(roles);
@@ -31,7 +31,14 @@ export async function POST(req: NextRequest) {
   const clubId = (session!.user as Record<string, unknown>)?.clubId as string;
 
   try {
-    const role = await prisma.dutyRole.create({ data: { roleName: roleName.trim(), clubId } });
+    const maxRole = await prisma.dutyRole.findFirst({
+      where: { clubId },
+      orderBy: { sortOrder: "desc" },
+      select: { sortOrder: true },
+    });
+    const nextSortOrder = (maxRole?.sortOrder ?? -1) + 1;
+
+    const role = await prisma.dutyRole.create({ data: { roleName: roleName.trim(), clubId, sortOrder: nextSortOrder } });
     return NextResponse.json(role, { status: 201 });
   } catch (err: unknown) {
     if (err && typeof err === "object" && "code" in err && err.code === "P2002") {
@@ -70,6 +77,42 @@ export async function PUT(req: NextRequest) {
     }
     throw err;
   }
+}
+
+export async function PATCH(req: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const role = session.user?.role;
+  if (role !== "ADMIN" && role !== "SUPER_ADMIN" && role !== "TEAM_MANAGER") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const clubId = (session.user as Record<string, unknown>)?.clubId as string;
+  const { orderedIds } = await req.json();
+
+  if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
+    return NextResponse.json({ error: "orderedIds array is required" }, { status: 400 });
+  }
+
+  // Verify all IDs belong to this club
+  const roles = await prisma.dutyRole.findMany({
+    where: { clubId },
+    select: { id: true },
+  });
+  const validIds = new Set(roles.map((r) => r.id));
+  for (const id of orderedIds) {
+    if (!validIds.has(id)) {
+      return NextResponse.json({ error: "Invalid role ID" }, { status: 400 });
+    }
+  }
+
+  await prisma.$transaction(
+    orderedIds.map((id: string, index: number) =>
+      prisma.dutyRole.update({ where: { id }, data: { sortOrder: index } })
+    )
+  );
+
+  return NextResponse.json({ success: true });
 }
 
 export async function DELETE(req: NextRequest) {

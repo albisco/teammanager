@@ -27,7 +27,7 @@
  * to see the plaintext.
  */
 
-import { randomBytes, createHash } from "crypto";
+import { randomBytes, createHash, randomUUID } from "crypto";
 import { config } from "dotenv";
 import { neon } from "@neondatabase/serverless";
 
@@ -103,9 +103,10 @@ async function main() {
   const token = randomBytes(32).toString("base64url");
   const tokenHash = createHash("sha256").update(token).digest("hex");
 
+  const id = randomUUID();
   const rows = await sql`
-    INSERT INTO "McpToken" ("userId", name, "tokenHash", "createdAt")
-    VALUES (${user.id}, ${name}, ${tokenHash}, NOW())
+    INSERT INTO "McpToken" (id, "userId", name, "tokenHash", "createdAt")
+    VALUES (${id}, ${user.id}, ${name}, ${tokenHash}, NOW())
     RETURNING id, name, "createdAt"
   `;
   const row = rows[0] as { id: string; name: string; createdAt: string };

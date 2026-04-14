@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -178,11 +178,37 @@ export default function ManagerAwardsPage() {
     });
   }
 
-  if (loading) return <p className="text-gray-500">Loading...</p>;
-
   const activeRounds = data?.rounds.filter((r) => !r.isBye) || [];
   const awardTypes = data?.awardTypes || [];
   const players = data?.players || [];
+
+  // Award eligibility: players missing each award type + players with no awards at all
+  const eligibilityColumns = useMemo(() => {
+    const columns: { label: string; players: Player[] }[] = [];
+
+    for (const t of awardTypes) {
+      const missing = players.filter((player) => {
+        const playerTally = data?.tally[player.id] || {};
+        return (playerTally[t.id] || 0) === 0;
+      });
+      columns.push({ label: `No ${t.name}`, players: missing });
+    }
+
+    const noAwards = players.filter((player) => {
+      const playerTally = data?.tally[player.id] || {};
+      const total = Object.values(playerTally).reduce((sum, n) => sum + n, 0);
+      return total === 0;
+    });
+    columns.push({ label: "No Awards", players: noAwards });
+
+    return columns;
+  }, [awardTypes, players, data?.tally]);
+
+  const eligibilityMaxRows = useMemo(() => {
+    return Math.max(0, ...eligibilityColumns.map((c) => c.players.length));
+  }, [eligibilityColumns]);
+
+  if (loading) return <p className="text-gray-500">Loading...</p>;
 
   return (
     <div>
@@ -353,6 +379,38 @@ export default function ManagerAwardsPage() {
                     </TableRow>
                   );
                 })}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      )}
+
+      {/* Award Eligibility */}
+      {awardTypes.length > 0 && players.length > 0 && eligibilityMaxRows > 0 && (
+        <div className="mb-8">
+          <h2 className="text-xl font-semibold mb-3">Award Eligibility</h2>
+          <div className="bg-white rounded-lg border overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  {eligibilityColumns.map((col) => (
+                    <TableHead key={col.label} className="text-center">
+                      {col.label}
+                      <span className="ml-1 text-xs text-gray-400 font-normal">({col.players.length})</span>
+                    </TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {Array.from({ length: eligibilityMaxRows }).map((_, rowIdx) => (
+                  <TableRow key={rowIdx}>
+                    {eligibilityColumns.map((col) => (
+                      <TableCell key={col.label} className="text-center text-sm">
+                        {col.players[rowIdx]?.name || ""}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           </div>
