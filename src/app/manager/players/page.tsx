@@ -135,18 +135,6 @@ export default function ManagerPlayersPage() {
     setSaving(false);
   }
 
-  async function handleDelete(player: Player) {
-    if (!confirm(`Delete ${player.firstName} ${player.surname}? This cannot be undone.`)) return;
-    const res = await fetch(`/api/players/${player.id}`, { method: "DELETE" });
-    if (res.ok) {
-      toast.success("Player deleted");
-      fetchPlayers();
-    } else {
-      const data = await res.json();
-      toast.error(data.error || "Failed to delete");
-    }
-  }
-
   const filtered = players.filter(
     (p) =>
       p.firstName.toLowerCase().includes(search.toLowerCase()) ||
@@ -214,10 +202,7 @@ export default function ManagerPlayersPage() {
                     )}
                   </TableCell>
                   <TableCell>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" onClick={() => openEdit(p)}>Edit</Button>
-                      <Button variant="destructive" size="sm" onClick={() => handleDelete(p)}>Delete</Button>
-                    </div>
+                    <Button variant="outline" size="sm" onClick={() => openEdit(p)}>Edit</Button>
                   </TableCell>
                 </TableRow>
               ))
