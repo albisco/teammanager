@@ -50,4 +50,5 @@ test-results/
 .claude/settings.local.json
 
 # CSV data files
-*.csv
+U10*.csv
+U10 *.csv
