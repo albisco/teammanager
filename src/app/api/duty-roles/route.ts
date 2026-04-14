@@ -81,7 +81,8 @@ export async function PUT(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  const role = session?.user?.role;
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const role = session.user?.role;
   if (role !== "ADMIN" && role !== "SUPER_ADMIN" && role !== "TEAM_MANAGER") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
