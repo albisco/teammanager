@@ -334,7 +334,7 @@ describe("resolveDisplayName", () => {
     ["external_uncle_dave", { id: "external_uncle_dave", name: "Uncle Dave" }],
   ]);
 
-  it("returns full name for SPECIALIST roles (family-linked)", () => {
+  it("returns person name for SPECIALIST roles (family-linked)", () => {
     const input = {
       teamDutyRoles: [{
         id: "tdr1",
@@ -349,8 +349,8 @@ describe("resolveDisplayName", () => {
       familyMap,
     };
 
-    expect(resolveDisplayName(input, { teamDutyRoleId: "tdr1", assignedFamilyId: "family_lawson" })).toBe("Kylie Lawson");
-    expect(resolveDisplayName(input, { teamDutyRoleId: "tdr1", assignedFamilyId: "family_smith" })).toBe("Grant Smith");
+    expect(resolveDisplayName(input, { teamDutyRoleId: "tdr1", assignedFamilyId: "family_lawson" })).toBe("Kylie");
+    expect(resolveDisplayName(input, { teamDutyRoleId: "tdr1", assignedFamilyId: "family_smith" })).toBe("Grant");
   });
 
   it("returns person name for SPECIALIST roles (external person)", () => {
@@ -370,7 +370,7 @@ describe("resolveDisplayName", () => {
     expect(resolveDisplayName(input, { teamDutyRoleId: "tdr1", assignedFamilyId: "external_uncle_dave" })).toBe("Uncle Dave");
   });
 
-  it("returns full name for FIXED roles", () => {
+  it("returns person name for FIXED roles", () => {
     const input = {
       teamDutyRoles: [{
         id: "tdr1",
@@ -382,7 +382,7 @@ describe("resolveDisplayName", () => {
       familyMap,
     };
 
-    expect(resolveDisplayName(input, { teamDutyRoleId: "tdr1", assignedFamilyId: "family_lawson" })).toBe("Kylie Lawson");
+    expect(resolveDisplayName(input, { teamDutyRoleId: "tdr1", assignedFamilyId: "family_lawson" })).toBe("Kylie");
   });
 
   it("returns family surname for ROTATING roles", () => {
