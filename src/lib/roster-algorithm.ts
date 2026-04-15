@@ -203,8 +203,7 @@ export function resolveDisplayName(
 
     if (tdr.roleType === "FIXED" && tdr.assignedFamilyId && tdr.assignedPersonName) {
       if (assignment.assignedFamilyId === tdr.assignedFamilyId) {
-        const surname = input.familyMap.get(tdr.assignedFamilyId)?.name;
-        return surname ? `${tdr.assignedPersonName} ${surname}` : tdr.assignedPersonName;
+        return tdr.assignedPersonName;
       }
     }
 
@@ -212,9 +211,7 @@ export function resolveDisplayName(
       for (const s of tdr.specialists) {
         const fId = s.familyId || `external_${s.personName.toLowerCase().replace(/\s+/g, "_")}`;
         if (assignment.assignedFamilyId === fId) {
-          // Full name: "Gav Prendergast" for family-linked, just name for external
-          const surname = s.familyId ? input.familyMap.get(s.familyId)?.name : null;
-          return surname ? `${s.personName} ${surname}` : s.personName;
+          return s.personName;
         }
       }
     }

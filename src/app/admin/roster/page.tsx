@@ -315,10 +315,6 @@ export default function RosterPage() {
 
   /** Build full name for a specialist: "Gav Prendergast" for family-linked, just name for external */
   function specialistFullName(s: { personName: string; familyId: string | null }): string {
-    if (s.familyId) {
-      const surname = rosterData?.families.find((f) => f.id === s.familyId)?.name;
-      if (surname) return `${s.personName} ${surname}`;
-    }
     return s.personName;
   }
 
@@ -333,8 +329,7 @@ export default function RosterPage() {
       if (specialist) return specialistFullName(specialist);
     }
     if (role?.roleType === "FIXED" && role.assignedPersonName && role.assignedFamilyId === familyId) {
-      const surname = rosterData?.families.find((f) => f.id === role.assignedFamilyId)?.name;
-      return surname ? `${role.assignedPersonName} ${surname}` : role.assignedPersonName;
+      return role.assignedPersonName;
     }
     return rosterData?.families.find((f) => f.id === familyId)?.name || familyId;
   }
@@ -345,8 +340,7 @@ export default function RosterPage() {
     switch (role.roleType) {
       case "FIXED": {
         if (!role.assignedPersonName) return "Unassigned";
-        const surname = role.assignedFamilyId ? rosterData?.families.find((f) => f.id === role.assignedFamilyId)?.name : null;
-        return surname ? `${role.assignedPersonName} ${surname}` : role.assignedPersonName;
+        return role.assignedPersonName;
       }
       case "SPECIALIST":
         return (role.specialists.map((s) => specialistFullName(s)).join(", ") || "No specialists") + slotSuffix;
@@ -674,7 +668,7 @@ export default function RosterPage() {
                               }}
                             >
                               {assignment ? (
-                                <span>{assignment.familyName}</span>
+                                <span>{resolveAssignName(role.id, assignment.familyId)}</span>
                               ) : (
                                 <span className="text-gray-300">—</span>
                               )}
