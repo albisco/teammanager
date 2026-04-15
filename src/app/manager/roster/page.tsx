@@ -53,8 +53,6 @@ interface RosterRound {
   isBye: boolean;
   date: string | null;
   gameTime: string | null;
-  opponent: string | null;
-  venue: string | null;
 }
 
 interface RosterRole {
@@ -684,8 +682,16 @@ export default function ManagerRosterPage() {
                   <TableRow>
                     <TableHead className="sticky left-0 bg-card z-10 min-w-[150px]">Family</TableHead>
                     {activeRounds.map((r) => (
-                      <TableHead key={r.id} className="text-center min-w-[60px]">
-                        R{r.roundNumber}
+                      <TableHead key={r.id} className="text-center min-w-[70px]">
+                        <div>R{r.roundNumber}</div>
+                        {r.date && (
+                          <div className="text-xs font-normal text-gray-400">
+                            {new Date(r.date).toLocaleDateString("en-AU", { day: "numeric", month: "short" })}
+                          </div>
+                        )}
+                        {r.gameTime && (
+                          <div className="text-xs font-normal text-gray-400">{r.gameTime}</div>
+                        )}
                       </TableHead>
                     ))}
                   </TableRow>
@@ -755,8 +761,13 @@ export default function ManagerRosterPage() {
                   {activeRounds.map((r) => (
                     <TableHead key={r.id} className="text-center min-w-[100px]">
                       <div>R{r.roundNumber}</div>
-                      {r.opponent && (
-                        <div className="text-xs font-normal text-gray-400">{r.opponent}</div>
+                      {r.date && (
+                        <div className="text-xs font-normal text-gray-400">
+                          {new Date(r.date).toLocaleDateString("en-AU", { day: "numeric", month: "short" })}
+                        </div>
+                      )}
+                      {r.gameTime && (
+                        <div className="text-xs font-normal text-gray-400">{r.gameTime}</div>
                       )}
                     </TableHead>
                   ))}

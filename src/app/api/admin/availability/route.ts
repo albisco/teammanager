@@ -46,8 +46,7 @@ export async function GET(req: NextRequest) {
     id: r.id,
     roundNumber: r.roundNumber,
     date: r.date,
-    opponent: r.opponent,
-    venue: r.venue,
+    gameTime: r.gameTime,
     availabilities: r.playerAvailabilities.map((pa) => ({
       playerId: pa.playerId,
       playerName: `${pa.player.firstName} ${pa.player.surname}`,

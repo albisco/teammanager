@@ -14,8 +14,6 @@ interface Round {
   roundNumber: number;
   date: string | null;
   gameTime: string | null;
-  opponent: string | null;
-  venue: string | null;
   isBye?: boolean;
 }
 
@@ -39,9 +37,7 @@ function formatMessage(round: Round, duties: Duty[], teamName: string): string {
 
   const header = [
     `Round ${round.roundNumber} \u2013 ${teamName}`,
-    [dateStr, round.opponent ? `vs ${round.opponent}` : null, round.venue]
-      .filter(Boolean)
-      .join(" | "),
+    dateStr,
   ]
     .filter(Boolean)
     .join("\n");
