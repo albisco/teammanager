@@ -42,7 +42,7 @@ export default function ManagerDashboard() {
 
   useEffect(() => {
     fetch("/api/manager/team")
-      .then((r) => r.json())
+      .then((r) => r.ok ? r.json() : null)
       .then((data) => { setTeam(data); setLoading(false); });
     fetch("/api/manager/next-round-duties")
       .then((r) => r.json())

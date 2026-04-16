@@ -57,9 +57,9 @@ export default function ManagerPlayersPage() {
 
   const fetchPlayers = useCallback(() => {
     fetch("/api/manager/team")
-      .then((r) => r.json())
+      .then((r) => r.ok ? r.json() : null)
       .then((data) => {
-        const sorted = (data.players || [])
+        const sorted = (data?.players || [])
           .map((tp: { player: Player }) => tp.player)
           .sort((a: Player, b: Player) => a.jumperNumber - b.jumperNumber);
         setPlayers(sorted);

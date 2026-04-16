@@ -32,9 +32,9 @@ export default function ManagerFixturePage() {
 
   useEffect(() => {
     fetch("/api/manager/team")
-      .then((r) => r.json())
+      .then((r) => r.ok ? r.json() : null)
       .then((data) => {
-        setRounds(data.rounds || []);
+        setRounds(data?.rounds || []);
         setLoading(false);
       });
   }, []);
