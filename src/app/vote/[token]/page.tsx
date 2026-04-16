@@ -35,6 +35,7 @@ export default function VotePage() {
   const [selfPlayerId, setSelfPlayerId] = useState("");
   const [rankings, setRankings] = useState<(string | null)[]>([]);
   const [step, setStep] = useState<"name" | "vote" | "done">("name");
+  const [votingFull, setVotingFull] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
 
@@ -75,8 +76,27 @@ export default function VotePage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
         <Card className="w-full max-w-md">
-          <CardContent className="p-6 text-center">
+          <CardContent className="p-6 text-center space-y-4">
             <p className="text-gray-600">Voting is closed for this round.</p>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setData(null);
+                setError("");
+                fetch(`/api/voting/${token}`)
+                  .then((res) => {
+                    if (!res.ok) throw new Error("Not found");
+                    return res.json();
+                  })
+                  .then((d: VotingData) => {
+                    setData(d);
+                    setRankings(new Array(d.team.votingScheme.length).fill(null));
+                  })
+                  .catch(() => setError("Voting session not found"));
+              }}
+            >
+              Refresh
+            </Button>
           </CardContent>
         </Card>
       </div>
@@ -123,6 +143,8 @@ export default function VotePage() {
     });
 
     if (res.ok) {
+      const d = await res.json().catch(() => ({}));
+      setVotingFull(!!d.sessionClosed);
       setStep("done");
     } else {
       const d = await res.json();
@@ -265,6 +287,11 @@ export default function VotePage() {
             <div className="text-center py-8">
               <p className="text-2xl font-bold text-green-600 mb-2">Vote Submitted!</p>
               <p className="text-gray-600">Thanks {voterName}, your vote has been recorded.</p>
+              {votingFull && (
+                <p className="mt-4 text-sm text-amber-700">
+                  Voting is now closed for this round — the maximum number of votes has been reached.
+                </p>
+              )}
             </div>
           )}
         </CardContent>

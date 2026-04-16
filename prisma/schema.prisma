@@ -9,11 +9,12 @@ datasource db {
 }
 
 model Club {
-  id          String   @id @default(cuid())
-  name        String
-  slug        String   @unique
-  isAdultClub Boolean  @default(false)
-  createdAt   DateTime @default(now())
+  id               String   @id @default(cuid())
+  name             String
+  slug             String   @unique
+  isAdultClub      Boolean  @default(false)
+  maxVotesPerRound Int      @default(4)
+  createdAt        DateTime @default(now())
 
   users     User[]
   seasons   Season[]
@@ -52,6 +53,12 @@ enum DutyRoleType {
   FREQUENCY
 }
 
+enum TeamStaffRole {
+  HEAD_COACH
+  TEAM_MANAGER
+  ASSISTANT_COACH
+}
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -66,6 +73,7 @@ model User {
   votes                Vote[]
   managedTeams         Team[]               @relation("TeamManager")
   mcpTokens            McpToken[]
+  teamStaffRoles       TeamStaff[]          @relation("TeamStaffUser")
 }
 
 model McpToken {
@@ -136,13 +144,18 @@ model Team {
 }
 
 model TeamStaff {
-  id     String @id @default(cuid())
-  teamId String
-  team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  role   String
-  name   String
+  id          String        @id @default(cuid())
+  teamId      String
+  team        Team          @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  userId      String?
+  user        User?         @relation("TeamStaffUser", fields: [userId], references: [id], onDelete: SetNull)
+  role        TeamStaffRole
+  displayName String?
+  createdAt   DateTime      @default(now())
 
-  @@unique([teamId, role])
+  @@unique([teamId, userId])
+  @@index([userId])
+  @@index([teamId, role])
 }
 
 model TeamPlayer {

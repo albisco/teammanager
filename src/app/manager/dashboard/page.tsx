@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import ShareDutiesPanel from "@/app/manager/roster/ShareDutiesPanel";
+import { TEAM_STAFF_ROLE, type TeamStaffRoleName, teamStaffRoleLabel } from "@/lib/roles";
 
 interface Round {
   id: string;
@@ -14,6 +15,13 @@ interface Round {
   venue: string | null;
 }
 
+interface StaffMember {
+  id: string;
+  role: TeamStaffRoleName;
+  user: { id: string; name: string } | null;
+  displayName: string | null;
+}
+
 interface Team {
   id: string;
   name: string;
@@ -21,6 +29,7 @@ interface Team {
   season: { name: string; year: number };
   _count: { players: number; rounds: number };
   rounds: Round[];
+  staff: StaffMember[];
 }
 
 interface NextRoundDuties {
@@ -92,6 +101,28 @@ export default function ManagerDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {team.staff.length > 0 && (
+        <Card className="max-w-md mb-6">
+          <CardHeader className="p-4 pb-2">
+            <CardTitle className="text-base">Team Staff</CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 pt-0 space-y-3">
+            {([TEAM_STAFF_ROLE.HEAD_COACH, TEAM_STAFF_ROLE.TEAM_MANAGER, TEAM_STAFF_ROLE.ASSISTANT_COACH] as TeamStaffRoleName[]).map((role) => {
+              const members = team.staff.filter((s) => s.role === role);
+              if (members.length === 0) return null;
+              return (
+                <div key={role}>
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{teamStaffRoleLabel(role)}</p>
+                  {members.map((s) => (
+                    <p key={s.id} className="text-sm">{s.user?.name ?? s.displayName ?? "Unassigned"}</p>
+                  ))}
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
 
       {nextRound && (
         <Card className="max-w-md">

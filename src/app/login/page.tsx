@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ROLE } from "@/lib/roles";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -32,9 +33,9 @@ export default function LoginPage() {
       } else if (res?.ok) {
         const sessionRes = await fetch("/api/auth/session");
         const session = await sessionRes.json();
-        if (session?.user?.role === "ADMIN" || session?.user?.role === "SUPER_ADMIN") {
+        if (session?.user?.role === ROLE.ADMIN || session?.user?.role === ROLE.SUPER_ADMIN) {
           router.push("/admin/dashboard");
-        } else if (session?.user?.role === "TEAM_MANAGER") {
+        } else if (session?.user?.role === ROLE.TEAM_MANAGER) {
           router.push("/manager/dashboard");
         } else {
           router.push("/family/dashboard");

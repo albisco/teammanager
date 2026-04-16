@@ -1,15 +1,16 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
+import { Role } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
-  if (session?.user?.role !== "ADMIN" && session?.user?.role !== "SUPER_ADMIN") {
+  if (session?.user?.role !== Role.ADMIN && session?.user?.role !== Role.SUPER_ADMIN) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const isSuperAdmin = session.user.role === "SUPER_ADMIN";
+  const isSuperAdmin = session.user.role === Role.SUPER_ADMIN;
   const clubId = (session.user as Record<string, unknown>)?.clubId as string;
 
   const clubs = await prisma.club.findMany({
@@ -26,7 +27,12 @@ export async function GET() {
           teams: {
             orderBy: [{ ageGroup: "asc" }, { name: "asc" }],
             include: {
-              manager: { select: { id: true, name: true, email: true, role: true } },
+              staff: {
+                include: {
+                  user: { select: { id: true, name: true, email: true, role: true } },
+                },
+                orderBy: [{ role: "asc" }, { createdAt: "asc" }],
+              },
               players: {
                 include: {
                   player: {
@@ -45,8 +51,8 @@ export async function GET() {
   });
 
   const result = clubs.map((club) => {
-    // Club-level admins (ADMIN role)
-    const admins = club.users.filter((u) => u.role === "ADMIN" || u.role === "SUPER_ADMIN");
+    // Club-level admins (ADMIN + SUPER_ADMIN roles)
+    const admins = club.users.filter((u) => u.role === Role.ADMIN || u.role === Role.SUPER_ADMIN);
 
     const seasons = club.seasons.map((season) => ({
       id: season.id,
@@ -65,13 +71,19 @@ export async function GET() {
           id: team.id,
           name: team.name,
           ageGroup: team.ageGroup,
-          manager: team.manager as { id: string; name: string; email: string; role: string } | null,
+          staff: team.staff
+            .filter((s) => s.user)
+            .map((s) => ({
+              id: s.id,
+              role: s.role,
+              user: s.user as { id: string; name: string; email: string; role: string },
+            })),
           familyUsers: Array.from(familyMap.values()).sort((a, b) => a.name.localeCompare(b.name)),
         };
       }),
     }));
 
-    // Flat list of all teams for the team-assignment dropdown
+    // Flat list of all teams for the team-assignment editor
     const allTeams = seasons.flatMap((s) =>
       s.teams.map((t) => ({ id: t.id, name: t.name, ageGroup: t.ageGroup, seasonName: s.name }))
     );
