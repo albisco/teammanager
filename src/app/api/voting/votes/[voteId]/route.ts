@@ -1,18 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
+import { Role, TeamStaffRole } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { hasStaffRole } from "@/lib/team-access";
 
-// DELETE a single vote (ADMIN / SUPER_ADMIN / TEAM_MANAGER scoped to their team/club).
-// Note: deleting a vote does NOT automatically reopen a closed voting session —
-// reopening is an explicit action via PUT /api/voting.
+// DELETE a single vote (ADMIN / SUPER_ADMIN / TEAM_MANAGER staff role scoped to
+// the vote's team). Note: deleting a vote does NOT automatically reopen a
+// closed voting session — reopening is an explicit action via PUT /api/voting.
 export async function DELETE(
   _req: NextRequest,
   { params }: { params: { voteId: string } },
 ) {
   const session = await getServerSession(authOptions);
-  const role = session?.user?.role;
-  if (role !== "ADMIN" && role !== "SUPER_ADMIN" && role !== "TEAM_MANAGER") {
+  const role = session?.user?.role as Role | undefined;
+  if (role !== Role.ADMIN && role !== Role.SUPER_ADMIN && role !== Role.TEAM_MANAGER) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -26,7 +28,6 @@ export async function DELETE(
               team: {
                 select: {
                   id: true,
-                  managerId: true,
                   season: { select: { clubId: true } },
                 },
               },
@@ -43,18 +44,17 @@ export async function DELETE(
 
   const voteClubId = vote.votingSession.round.team.season.clubId;
   const voteTeamId = vote.votingSession.round.team.id;
-  const voteTeamManagerId = vote.votingSession.round.team.managerId;
 
   const sessionUser = session?.user as Record<string, unknown> | undefined;
   const sessionClubId = sessionUser?.clubId as string | undefined;
   const sessionUserId = sessionUser?.id as string | undefined;
 
-  if (role === "ADMIN") {
+  if (role === Role.ADMIN) {
     if (!sessionClubId || sessionClubId !== voteClubId) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
-  } else if (role === "TEAM_MANAGER") {
-    if (!sessionUserId || voteTeamManagerId !== sessionUserId) {
+  } else if (role === Role.TEAM_MANAGER) {
+    if (!sessionUserId || !(await hasStaffRole(sessionUserId, voteTeamId, TeamStaffRole.TEAM_MANAGER))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
   }

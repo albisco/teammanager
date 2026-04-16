@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
+import { Role, TeamStaffRole } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { hasStaffRole } from "@/lib/team-access";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  const role = session?.user?.role;
-  if (role !== "ADMIN" && role !== "SUPER_ADMIN" && role !== "TEAM_MANAGER") {
+  const role = session?.user?.role as Role | undefined;
+  const userId = session?.user?.id;
+  if (role !== Role.ADMIN && role !== Role.SUPER_ADMIN && role !== Role.TEAM_MANAGER) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -15,6 +18,14 @@ export async function GET(req: NextRequest) {
 
   if (!teamId) {
     return NextResponse.json({ error: "teamId is required" }, { status: 400 });
+  }
+
+  // TEAM_MANAGER users must hold the TEAM_MANAGER staff role on this team.
+  if (
+    role === Role.TEAM_MANAGER &&
+    (!userId || !(await hasStaffRole(userId, teamId, TeamStaffRole.TEAM_MANAGER)))
+  ) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   // Get all players for this team + the club's maxVotesPerRound

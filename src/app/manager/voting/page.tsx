@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -13,6 +14,8 @@ import {
 import { toast } from "sonner";
 import QRCode from "qrcode";
 import Image from "next/image";
+import { useActiveTeam } from "@/hooks/use-active-team";
+import { TEAM_STAFF_ROLE } from "@/lib/roles";
 
 interface VotingSession {
   id: string;
@@ -46,7 +49,18 @@ interface AuditEntry {
 
 export default function ManagerVotingPage() {
   const { data: session } = useSession();
+  const router = useRouter();
+  const { activeStaffRole, status: activeTeamStatus } = useActiveTeam();
   const teamId = (session?.user as Record<string, unknown>)?.teamId as string | null;
+
+  // Defense-in-depth: only TEAM_MANAGER sub-role may administer voting.
+  useEffect(() => {
+    if (activeTeamStatus !== "authenticated") return;
+    if (activeStaffRole && activeStaffRole !== TEAM_STAFF_ROLE.TEAM_MANAGER) {
+      toast.error("Voting is only available to Team Managers");
+      router.replace("/manager/dashboard");
+    }
+  }, [activeTeamStatus, activeStaffRole, router]);
 
   const [rounds, setRounds] = useState<RoundWithVoting[]>([]);
   const [maxVotesPerRound, setMaxVotesPerRound] = useState<number | null>(null);

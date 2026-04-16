@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { ROLE } from "@/lib/roles";
 
 interface Player {
   id: string;
@@ -77,7 +78,7 @@ export default function AvailabilityPage() {
   // Guard: only adult clubs
   useEffect(() => {
     const user = session?.user as Record<string, unknown> | undefined;
-    if (session && !user?.isAdultClub && user?.role !== "SUPER_ADMIN") {
+    if (session && !user?.isAdultClub && user?.role !== ROLE.SUPER_ADMIN) {
       router.push("/admin/dashboard");
     }
   }, [session, router]);

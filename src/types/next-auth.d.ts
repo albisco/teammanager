@@ -1,4 +1,7 @@
 import "next-auth";
+import type { TeamStaffRole } from "@prisma/client";
+
+type ManagerTeam = { teamId: string; role: TeamStaffRole };
 
 declare module "next-auth" {
   interface Session {
@@ -9,6 +12,8 @@ declare module "next-auth" {
       role: "SUPER_ADMIN" | "ADMIN" | "TEAM_MANAGER" | "FAMILY";
       clubId: string | null;
       teamId: string | null;
+      teams: ManagerTeam[];
+      isAdultClub: boolean;
     };
   }
 }
@@ -19,5 +24,7 @@ declare module "next-auth/jwt" {
     id: string;
     clubId: string | null;
     teamId: string | null;
+    teams: ManagerTeam[];
+    isAdultClub: boolean;
   }
 }

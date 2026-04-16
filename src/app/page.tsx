@@ -5,15 +5,16 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { ROLE } from "@/lib/roles";
 
 export default function Home() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
   useEffect(() => {
-    if (session?.user?.role === "ADMIN" || session?.user?.role === "SUPER_ADMIN") {
+    if (session?.user?.role === ROLE.ADMIN || session?.user?.role === ROLE.SUPER_ADMIN) {
       router.push("/admin/dashboard");
-    } else if (session?.user?.role === "TEAM_MANAGER") {
+    } else if (session?.user?.role === ROLE.TEAM_MANAGER) {
       router.push("/manager/dashboard");
     } else if (session?.user) {
       router.push("/family/dashboard");

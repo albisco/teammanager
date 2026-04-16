@@ -7,12 +7,15 @@ import { useSession, signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { TeamSwitcher } from "@/components/ui/team-switcher";
+import { useActiveTeam } from "@/hooks/use-active-team";
+import { TEAM_STAFF_ROLE } from "@/lib/roles";
 
-const navItems = [
+const navItems: Array<{ href: string; label: string; teamManagerOnly?: boolean }> = [
   { href: "/manager/dashboard", label: "Dashboard" },
   { href: "/manager/players", label: "Players" },
   { href: "/manager/fixture", label: "Fixture" },
-  { href: "/manager/voting", label: "Voting" },
+  { href: "/manager/voting", label: "Voting", teamManagerOnly: true },
   { href: "/manager/roster", label: "Roster" },
   { href: "/manager/awards", label: "Awards" },
   { href: "/manager/ask", label: "Ask AI" },
@@ -21,8 +24,13 @@ const navItems = [
 export default function ManagerLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { data: session } = useSession();
+  const { activeStaffRole } = useActiveTeam();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const asideRef = useRef<HTMLElement>(null);
+
+  const visibleNavItems = navItems.filter(
+    (item) => !item.teamManagerOnly || activeStaffRole === TEAM_STAFF_ROLE.TEAM_MANAGER
+  );
 
   useEffect(() => {
     if (asideRef.current) {
@@ -95,8 +103,9 @@ export default function ManagerLayout({ children }: { children: React.ReactNode 
             </button>
           </div>
         </div>
+        <TeamSwitcher />
         <nav className="flex-1 p-4 space-y-1">
-          {navItems.map((item) => (
+          {visibleNavItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}

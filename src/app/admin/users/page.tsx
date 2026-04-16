@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { ROLE, TEAM_STAFF_ROLE, TeamStaffRoleName, teamStaffRoleLabel } from "@/lib/roles";
 
 interface UserData {
   id: string;
@@ -17,11 +18,17 @@ interface UserData {
   role: string;
 }
 
+interface StaffEntry {
+  id: string;
+  role: TeamStaffRoleName;
+  user: UserData;
+}
+
 interface TeamData {
   id: string;
   name: string;
   ageGroup: string;
-  manager: UserData | null;
+  staff: StaffEntry[];
   familyUsers: UserData[];
 }
 
@@ -62,17 +69,35 @@ const ROLE_VARIANTS: Record<string, "default" | "secondary" | "outline" | "destr
   SUPER_ADMIN: "destructive",
 };
 
-const emptyForm = { name: "", email: "", password: "", role: "FAMILY", teamId: "", clubId: "" };
+type StaffAssignment = { teamId: string; role: TeamStaffRoleName };
+
+type FormState = {
+  name: string;
+  email: string;
+  password: string;
+  role: string;
+  clubId: string;
+  staff: StaffAssignment[];
+};
+
+const emptyForm: FormState = {
+  name: "",
+  email: "",
+  password: "",
+  role: ROLE.FAMILY,
+  clubId: "",
+  staff: [],
+};
 
 export default function UsersPage() {
   const { data: session } = useSession();
-  const isSuperAdmin = (session?.user as Record<string, unknown>)?.role === "SUPER_ADMIN";
+  const isSuperAdmin = (session?.user as Record<string, unknown>)?.role === ROLE.SUPER_ADMIN;
 
   const [clubs, setClubs] = useState<ClubData[]>([]);
   const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserData | null>(null);
-  const [form, setForm] = useState(emptyForm);
+  const [form, setForm] = useState<FormState>(emptyForm);
   const [loading, setLoading] = useState(false);
 
   const fetchData = useCallback(async () => {
@@ -98,32 +123,57 @@ export default function UsersPage() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  // Look up a user's current staff rows across the club data we already have.
+  const staffForUser = useMemo(() => {
+    const map = new Map<string, StaffAssignment[]>();
+    for (const club of clubs) {
+      for (const season of club.seasons) {
+        for (const team of season.teams) {
+          for (const s of team.staff) {
+            const arr = map.get(s.user.id) ?? [];
+            arr.push({ teamId: team.id, role: s.role });
+            map.set(s.user.id, arr);
+          }
+        }
+      }
+    }
+    return map;
+  }, [clubs]);
+
   function openAdd(clubId: string) {
     setEditingUser(null);
     setForm({ ...emptyForm, clubId });
     setDialogOpen(true);
   }
 
-  function openEdit(user: UserData, clubId: string, teamId?: string) {
+  function openEdit(user: UserData, clubId: string) {
     setEditingUser(user);
     setForm({
       name: user.name,
       email: user.email,
       password: "",
       role: user.role,
-      teamId: teamId || "",
       clubId,
+      staff: staffForUser.get(user.id) ?? [],
     });
     setDialogOpen(true);
   }
 
   async function handleSave() {
     setLoading(true);
+    const payload = {
+      name: form.name,
+      email: form.email,
+      password: form.password,
+      role: form.role,
+      clubId: form.clubId,
+      teamStaff: form.role === ROLE.TEAM_MANAGER ? form.staff : [],
+    };
     if (editingUser) {
       const res = await fetch(`/api/users/${editingUser.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
       if (res.ok) {
         toast.success("User updated");
@@ -137,7 +187,7 @@ export default function UsersPage() {
       const res = await fetch("/api/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
       if (res.ok) {
         toast.success("User created");
@@ -175,6 +225,29 @@ export default function UsersPage() {
   const dialogClub = clubs.find((c) => c.id === form.clubId);
   const availableTeams = dialogClub?.allTeams ?? [];
 
+  function addStaffRow() {
+    const firstTeam = availableTeams[0];
+    if (!firstTeam) {
+      toast.error("No teams available to assign — create a team first.");
+      return;
+    }
+    setForm((f) => ({
+      ...f,
+      staff: [...f.staff, { teamId: firstTeam.id, role: TEAM_STAFF_ROLE.TEAM_MANAGER }],
+    }));
+  }
+
+  function updateStaffRow(index: number, patch: Partial<StaffAssignment>) {
+    setForm((f) => ({
+      ...f,
+      staff: f.staff.map((row, i) => (i === index ? { ...row, ...patch } : row)),
+    }));
+  }
+
+  function removeStaffRow(index: number) {
+    setForm((f) => ({ ...f, staff: f.staff.filter((_, i) => i !== index) }));
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -211,6 +284,7 @@ export default function UsersPage() {
               <div className="space-y-2">
                 {season.teams.map((team) => {
                   const expanded = expandedTeams.has(team.id);
+                  const staffCount = team.staff.length;
                   return (
                     <div key={team.id} className="border rounded-lg bg-card">
                       {/* Team header */}
@@ -223,7 +297,7 @@ export default function UsersPage() {
                         </span>
                         <div className="flex items-center gap-3">
                           <span className="text-sm text-muted-foreground">
-                            {(team.manager ? 1 : 0) + team.familyUsers.length} user{(team.manager ? 1 : 0) + team.familyUsers.length !== 1 ? "s" : ""}
+                            {staffCount + team.familyUsers.length} user{staffCount + team.familyUsers.length !== 1 ? "s" : ""}
                           </span>
                           <svg
                             className={`w-4 h-4 text-muted-foreground transition-transform ${expanded ? "rotate-180" : ""}`}
@@ -236,17 +310,23 @@ export default function UsersPage() {
 
                       {expanded && (
                         <div className="border-t px-4 py-3 space-y-3">
-                          {/* Team Manager */}
+                          {/* Team Staff */}
                           <div>
-                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Team Manager</p>
-                            {team.manager ? (
-                              <UserRow
-                                user={team.manager}
-                                onEdit={() => openEdit(team.manager!, club.id, team.id)}
-                                onDelete={() => handleDelete(team.manager!)}
-                              />
+                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Team Staff</p>
+                            {team.staff.length === 0 ? (
+                              <p className="text-sm text-muted-foreground italic">No staff assigned</p>
                             ) : (
-                              <p className="text-sm text-muted-foreground italic">No manager assigned</p>
+                              <div className="space-y-1">
+                                {team.staff.map((s) => (
+                                  <UserRow
+                                    key={s.id}
+                                    user={s.user}
+                                    badgeOverride={teamStaffRoleLabel(s.role)}
+                                    onEdit={() => openEdit(s.user, club.id)}
+                                    onDelete={() => handleDelete(s.user)}
+                                  />
+                                ))}
+                              </div>
                             )}
                           </div>
 
@@ -322,28 +402,75 @@ export default function UsersPage() {
               <Label>Role *</Label>
               <Select
                 value={form.role}
-                onChange={(e) => setForm({ ...form, role: e.target.value, teamId: "" })}
+                onChange={(e) => setForm({ ...form, role: e.target.value, staff: [] })}
               >
-                <option value="FAMILY">Family</option>
-                <option value="TEAM_MANAGER">Team Manager</option>
-                <option value="ADMIN">Admin</option>
-                {isSuperAdmin && <option value="SUPER_ADMIN">Super Admin</option>}
+                <option value={ROLE.FAMILY}>Family</option>
+                <option value={ROLE.TEAM_MANAGER}>Team Manager</option>
+                <option value={ROLE.ADMIN}>Admin</option>
+                {isSuperAdmin && <option value={ROLE.SUPER_ADMIN}>Super Admin</option>}
               </Select>
             </div>
-            {form.role === "TEAM_MANAGER" && availableTeams.length > 0 && (
+
+            {form.role === ROLE.TEAM_MANAGER && (
               <div className="space-y-2">
-                <Label>Assign to Team</Label>
-                <Select
-                  value={form.teamId}
-                  onChange={(e) => setForm({ ...form, teamId: e.target.value })}
-                >
-                  <option value="">— No team —</option>
-                  {availableTeams.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.ageGroup} {t.name} ({t.seasonName})
-                    </option>
-                  ))}
-                </Select>
+                <div className="flex items-center justify-between">
+                  <Label>Team Assignments</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addStaffRow}
+                    disabled={availableTeams.length === 0}
+                  >
+                    + Add
+                  </Button>
+                </div>
+                {availableTeams.length === 0 ? (
+                  <p className="text-sm text-muted-foreground italic">
+                    No teams available in this club yet.
+                  </p>
+                ) : form.staff.length === 0 ? (
+                  <p className="text-sm text-muted-foreground italic">
+                    No teams assigned. Add a row to give this user access to a team.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {form.staff.map((row, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <Select
+                          className="flex-1"
+                          value={row.teamId}
+                          onChange={(e) => updateStaffRow(i, { teamId: e.target.value })}
+                        >
+                          {availableTeams.map((t) => (
+                            <option key={t.id} value={t.id}>
+                              {t.ageGroup} {t.name} ({t.seasonName})
+                            </option>
+                          ))}
+                        </Select>
+                        <Select
+                          className="w-44"
+                          value={row.role}
+                          onChange={(e) =>
+                            updateStaffRow(i, { role: e.target.value as TeamStaffRoleName })
+                          }
+                        >
+                          <option value={TEAM_STAFF_ROLE.HEAD_COACH}>Head Coach</option>
+                          <option value={TEAM_STAFF_ROLE.TEAM_MANAGER}>Team Manager</option>
+                          <option value={TEAM_STAFF_ROLE.ASSISTANT_COACH}>Assistant Coach</option>
+                        </Select>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeStaffRow(i)}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -399,10 +526,12 @@ function UserRow({
   user,
   onEdit,
   onDelete,
+  badgeOverride,
 }: {
   user: UserData;
   onEdit: () => void;
   onDelete: () => void;
+  badgeOverride?: string;
 }) {
   return (
     <div className="flex items-center justify-between px-4 py-2.5">
@@ -412,7 +541,7 @@ function UserRow({
       </div>
       <div className="flex items-center gap-2 ml-4 shrink-0">
         <Badge variant={ROLE_VARIANTS[user.role] ?? "outline"}>
-          {ROLE_LABELS[user.role] ?? user.role}
+          {badgeOverride ?? ROLE_LABELS[user.role] ?? user.role}
         </Badge>
         <Button variant="outline" size="sm" onClick={onEdit}>Edit</Button>
         <Button variant="destructive" size="sm" onClick={onDelete}>Delete</Button>
