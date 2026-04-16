@@ -25,6 +25,10 @@ export async function GET() {
           },
         },
       },
+      staff: {
+        include: { user: { select: { id: true, name: true } } },
+        orderBy: [{ role: "asc" }, { createdAt: "asc" }],
+      },
       rounds: { orderBy: { roundNumber: "asc" } },
       _count: { select: { players: true, rounds: true } },
     },
