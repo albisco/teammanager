@@ -73,8 +73,8 @@ export default function ManagerVotingPage() {
   useEffect(() => {
     if (!teamId) return;
     fetch("/api/manager/team")
-      .then((r) => r.json())
-      .then((data) => setTeamName(`${data.ageGroup} ${data.name}`));
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => { if (data) setTeamName(`${data.ageGroup} ${data.name}`); });
     fetchRounds();
   }, [teamId, fetchRounds]);
 
