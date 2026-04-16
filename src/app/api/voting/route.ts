@@ -13,17 +13,27 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "teamId is required" }, { status: 400 });
   }
 
-  const rounds = await prisma.round.findMany({
-    where: { teamId },
-    include: {
-      votingSession: {
-        include: { _count: { select: { votes: true } } },
+  const [rounds, team] = await Promise.all([
+    prisma.round.findMany({
+      where: { teamId },
+      include: {
+        votingSession: {
+          include: { _count: { select: { votes: true } } },
+        },
       },
-    },
-    orderBy: { roundNumber: "asc" },
-  });
+      orderBy: { roundNumber: "asc" },
+    }),
+    prisma.team.findUnique({
+      where: { id: teamId },
+      select: {
+        season: { select: { club: { select: { maxVotesPerRound: true } } } },
+      },
+    }),
+  ]);
 
-  return NextResponse.json(rounds);
+  const maxVotesPerRound = team?.season.club.maxVotesPerRound ?? null;
+
+  return NextResponse.json({ rounds, maxVotesPerRound });
 }
 
 // POST: open voting for a round

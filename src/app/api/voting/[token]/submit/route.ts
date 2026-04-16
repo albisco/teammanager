@@ -14,7 +14,17 @@ export async function POST(req: NextRequest, { params }: { params: { token: stri
 
   const votingSession = await prisma.votingSession.findUnique({
     where: { qrToken: params.token },
-    include: { round: { include: { team: { include: { season: true } } } } },
+    include: {
+      round: {
+        include: {
+          team: {
+            include: {
+              season: { include: { club: { select: { id: true, maxVotesPerRound: true } } } },
+            },
+          },
+        },
+      },
+    },
   });
 
   if (!votingSession) {
@@ -24,6 +34,8 @@ export async function POST(req: NextRequest, { params }: { params: { token: stri
   if (votingSession.status !== "OPEN") {
     return NextResponse.json({ error: "Voting is closed for this round" }, { status: 400 });
   }
+
+  const maxVotes = votingSession.round.team.season.club.maxVotesPerRound;
 
   // Validate rankings: unique player IDs
   const playerIds = rankings.map((r: { playerId: string }) => r.playerId);
@@ -76,14 +88,54 @@ export async function POST(req: NextRequest, { params }: { params: { token: stri
     points: votingScheme[i],
   }));
 
-  const vote = await prisma.vote.create({
-    data: {
-      votingSessionId: votingSession.id,
-      voterId,
-      voterType,
-      rankings: rankedWithPoints,
-    },
-  });
+  try {
+    const { vote, sessionClosed } = await prisma.$transaction(async (tx) => {
+      // Re-check current session status + vote count inside the transaction to
+      // guard against races where two concurrent submits both see count = max-1.
+      const current = await tx.votingSession.findUnique({
+        where: { id: votingSession.id },
+        select: { status: true, _count: { select: { votes: true } } },
+      });
+      if (!current || current.status !== "OPEN") {
+        throw new Error("SESSION_CLOSED");
+      }
+      if (current._count.votes >= maxVotes) {
+        await tx.votingSession.update({
+          where: { id: votingSession.id },
+          data: { status: "CLOSED" },
+        });
+        throw new Error("SESSION_FULL");
+      }
 
-  return NextResponse.json(vote, { status: 201 });
+      const created = await tx.vote.create({
+        data: {
+          votingSessionId: votingSession.id,
+          voterId,
+          voterType,
+          rankings: rankedWithPoints,
+        },
+      });
+
+      const newCount = current._count.votes + 1;
+      let closed = false;
+      if (newCount >= maxVotes) {
+        await tx.votingSession.update({
+          where: { id: votingSession.id },
+          data: { status: "CLOSED" },
+        });
+        closed = true;
+      }
+      return { vote: created, sessionClosed: closed };
+    });
+
+    return NextResponse.json({ ...vote, sessionClosed }, { status: 201 });
+  } catch (err: unknown) {
+    if (err instanceof Error && (err.message === "SESSION_CLOSED" || err.message === "SESSION_FULL")) {
+      return NextResponse.json(
+        { error: "Voting is closed for this round" },
+        { status: 400 },
+      );
+    }
+    throw err;
+  }
 }

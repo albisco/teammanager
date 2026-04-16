@@ -9,11 +9,12 @@ datasource db {
 }
 
 model Club {
-  id          String   @id @default(cuid())
-  name        String
-  slug        String   @unique
-  isAdultClub Boolean  @default(false)
-  createdAt   DateTime @default(now())
+  id               String   @id @default(cuid())
+  name             String
+  slug             String   @unique
+  isAdultClub      Boolean  @default(false)
+  maxVotesPerRound Int      @default(4)
+  createdAt        DateTime @default(now())
 
   users     User[]
   seasons   Season[]

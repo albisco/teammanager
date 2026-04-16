@@ -19,6 +19,7 @@ interface Club {
   name: string;
   slug: string;
   isAdultClub: boolean;
+  maxVotesPerRound: number;
   createdAt: string;
   _count: { users: number; seasons: number; players: number };
 }
@@ -34,6 +35,7 @@ export default function ClubsPage() {
     name: "",
     slug: "",
     isAdultClub: false,
+    maxVotesPerRound: 4,
     adminName: "",
     adminEmail: "",
     adminPassword: "",
@@ -65,13 +67,13 @@ export default function ClubsPage() {
 
   function openAdd() {
     setEditingClub(null);
-    setForm({ name: "", slug: "", isAdultClub: false, adminName: "", adminEmail: "", adminPassword: "" });
+    setForm({ name: "", slug: "", isAdultClub: false, maxVotesPerRound: 4, adminName: "", adminEmail: "", adminPassword: "" });
     setDialogOpen(true);
   }
 
   function openEdit(club: Club) {
     setEditingClub(club);
-    setForm({ name: club.name, slug: club.slug, isAdultClub: club.isAdultClub, adminName: "", adminEmail: "", adminPassword: "" });
+    setForm({ name: club.name, slug: club.slug, isAdultClub: club.isAdultClub, maxVotesPerRound: club.maxVotesPerRound, adminName: "", adminEmail: "", adminPassword: "" });
     setDialogOpen(true);
   }
 
@@ -87,7 +89,7 @@ export default function ClubsPage() {
       const res = await fetch("/api/clubs", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: editingClub.id, name: form.name, slug: form.slug, isAdultClub: form.isAdultClub }),
+        body: JSON.stringify({ id: editingClub.id, name: form.name, slug: form.slug, isAdultClub: form.isAdultClub, maxVotesPerRound: form.maxVotesPerRound }),
       });
       if (res.ok) {
         toast.success("Club updated");
@@ -225,6 +227,16 @@ export default function ClubsPage() {
               <Label className="cursor-pointer" onClick={() => setForm({ ...form, isAdultClub: !form.isAdultClub })}>
                 Adult club (player availability &amp; player voting)
               </Label>
+            </div>
+            <div className="space-y-2">
+              <Label>Max Votes Per Round</Label>
+              <Input
+                type="number"
+                min={1}
+                value={form.maxVotesPerRound}
+                onChange={(e) => setForm({ ...form, maxVotesPerRound: Math.max(1, Number(e.target.value) || 1) })}
+              />
+              <p className="text-xs text-gray-500">Voting auto-closes when a round hits this many votes.</p>
             </div>
 
             {!editingClub && (

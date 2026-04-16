@@ -36,6 +36,7 @@ interface LeaderboardEntry {
 }
 
 interface AuditEntry {
+  id: string;
   voterName: string;
   voterType: "PARENT" | "COACH";
   roundNumber: number;
@@ -48,6 +49,7 @@ export default function ManagerVotingPage() {
   const teamId = (session?.user as Record<string, unknown>)?.teamId as string | null;
 
   const [rounds, setRounds] = useState<RoundWithVoting[]>([]);
+  const [maxVotesPerRound, setMaxVotesPerRound] = useState<number | null>(null);
   const [teamName, setTeamName] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -67,7 +69,11 @@ export default function ManagerVotingPage() {
   const fetchRounds = useCallback(async () => {
     if (!teamId) return;
     const res = await fetch(`/api/voting?teamId=${teamId}`);
-    if (res.ok) setRounds(await res.json());
+    if (res.ok) {
+      const data = await res.json();
+      setRounds(data.rounds ?? []);
+      setMaxVotesPerRound(data.maxVotesPerRound ?? null);
+    }
   }, [teamId]);
 
   useEffect(() => {
@@ -108,6 +114,20 @@ export default function ManagerVotingPage() {
     }
   }
 
+  async function deleteVote(voteId: string) {
+    if (!confirm("Delete this vote? Voting will remain in its current status — use the round's Reopen button if you want to accept more votes.")) return;
+    const res = await fetch(`/api/voting/votes/${voteId}`, { method: "DELETE" });
+    if (res.ok) {
+      toast.success("Vote deleted");
+      setAudit((prev) => prev.filter((a) => a.id !== voteId));
+      setVoteCount((c) => Math.max(0, c - 1));
+      fetchRounds();
+    } else {
+      const data = await res.json().catch(() => ({}));
+      toast.error(data.error || "Failed to delete vote");
+    }
+  }
+
   async function showQR(token: string, roundLabel: string) {
     const link = `${window.location.origin}/vote/${token}`;
     setQrLink(link);
@@ -143,7 +163,14 @@ export default function ManagerVotingPage() {
         </Button>
       </div>
 
-      {teamName && <p className="text-gray-500 mb-4">{teamName}</p>}
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
+        {teamName && <p className="text-gray-500">{teamName}</p>}
+        {maxVotesPerRound !== null && (
+          <span className="text-sm text-gray-600">
+            Max votes per round: <Badge variant="secondary">{maxVotesPerRound}</Badge>
+          </span>
+        )}
+      </div>
 
       <div className="bg-card rounded-lg border">
         <Table>
@@ -179,11 +206,17 @@ export default function ManagerVotingPage() {
                       <Badge variant="outline">No voting</Badge>
                     ) : round.votingSession.status === "OPEN" ? (
                       <Badge className="bg-green-600">Open</Badge>
+                    ) : maxVotesPerRound !== null && round.votingSession._count.votes >= maxVotesPerRound ? (
+                      <Badge className="bg-amber-600">Full</Badge>
                     ) : (
                       <Badge variant="secondary">Closed</Badge>
                     )}
                   </TableCell>
-                  <TableCell>{round.votingSession?._count.votes ?? "—"}</TableCell>
+                  <TableCell>
+                    {round.votingSession
+                      ? `${round.votingSession._count.votes}${maxVotesPerRound !== null ? ` / ${maxVotesPerRound}` : ""}`
+                      : "—"}
+                  </TableCell>
                   <TableCell>
                     <div className="flex gap-2">
                       {!round.votingSession ? (
@@ -278,13 +311,14 @@ export default function ManagerVotingPage() {
                       <TableHead className="w-16">Rnd</TableHead>
                       <TableHead>Rankings</TableHead>
                       <TableHead className="w-36">Submitted</TableHead>
+                      <TableHead className="w-20"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {audit.length === 0 ? (
-                      <TableRow><TableCell colSpan={5} className="text-center text-gray-500 py-8">No votes to audit.</TableCell></TableRow>
-                    ) : audit.sort((a, b) => a.roundNumber - b.roundNumber).map((entry, i) => (
-                      <TableRow key={i}>
+                      <TableRow><TableCell colSpan={6} className="text-center text-gray-500 py-8">No votes to audit.</TableCell></TableRow>
+                    ) : audit.slice().sort((a, b) => a.roundNumber - b.roundNumber).map((entry) => (
+                      <TableRow key={entry.id}>
                         <TableCell className="font-medium">{entry.voterName}</TableCell>
                         <TableCell><Badge variant={entry.voterType === "COACH" ? "default" : "secondary"}>{entry.voterType}</Badge></TableCell>
                         <TableCell className="font-mono">{entry.roundNumber}</TableCell>
@@ -295,6 +329,9 @@ export default function ManagerVotingPage() {
                         </TableCell>
                         <TableCell className="text-sm text-gray-500 whitespace-nowrap">
                           {new Date(entry.submittedAt).toLocaleDateString("en-AU", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                        </TableCell>
+                        <TableCell>
+                          <Button size="sm" variant="destructive" onClick={() => deleteVote(entry.id)}>Delete</Button>
                         </TableCell>
                       </TableRow>
                     ))}

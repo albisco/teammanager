@@ -17,11 +17,18 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "teamId is required" }, { status: 400 });
   }
 
-  // Get all players for this team
-  const teamPlayers = await prisma.teamPlayer.findMany({
-    where: { teamId },
-    include: { player: { select: { id: true, firstName: true, surname: true, jumperNumber: true } } },
-  });
+  // Get all players for this team + the club's maxVotesPerRound
+  const [teamPlayers, team] = await Promise.all([
+    prisma.teamPlayer.findMany({
+      where: { teamId },
+      include: { player: { select: { id: true, firstName: true, surname: true, jumperNumber: true } } },
+    }),
+    prisma.team.findUnique({
+      where: { id: teamId },
+      select: { season: { select: { club: { select: { maxVotesPerRound: true } } } } },
+    }),
+  ]);
+  const maxVotesPerRound = team?.season.club.maxVotesPerRound ?? null;
 
   // Get votes — either for a specific round or all rounds in the team
   const whereClause = roundId
@@ -64,8 +71,9 @@ export async function GET(req: NextRequest) {
     }))
     .sort((a, b) => b.totalPoints - a.totalPoints);
 
-  // Build audit trail
+  // Build audit trail — include vote id so the UI can call DELETE.
   const audit = votes.map((vote) => ({
+    id: vote.id,
     voterName: vote.voter.name,
     voterType: vote.voterType,
     roundNumber: vote.votingSession.round.roundNumber,
@@ -79,5 +87,5 @@ export async function GET(req: NextRequest) {
     playerMap[tp.player.id] = `${tp.player.firstName} ${tp.player.surname}`;
   }
 
-  return NextResponse.json({ leaderboard, voteCount: votes.length, audit, playerMap });
+  return NextResponse.json({ leaderboard, voteCount: votes.length, audit, playerMap, maxVotesPerRound });
 }
