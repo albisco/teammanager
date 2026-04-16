@@ -14,7 +14,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     prisma.round.findMany({
       where: { teamId },
       orderBy: { roundNumber: "asc" },
-      select: { id: true, roundNumber: true, isBye: true, date: true, opponent: true },
+      select: { id: true, roundNumber: true, isBye: true, date: true, gameTime: true },
     }),
     prisma.teamDutyRole.findMany({
       where: { teamId },

@@ -19,8 +19,7 @@ interface Round {
   id: string;
   roundNumber: number;
   date: string | null;
-  opponent: string | null;
-  venue: string | null;
+  gameTime: string | null;
   isBye: boolean;
 }
 
@@ -194,20 +193,16 @@ export default function PlayerAvailabilityPage() {
                     <div key={round.id} className="px-4 py-3 bg-white">
                       <div className="flex flex-col gap-0.5 mb-3">
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium">Round {round.roundNumber}</span>
+                          <span className="text-sm font-medium">R{round.roundNumber}</span>
                           {round.date && (
                             <span className="text-xs text-gray-500">{formatDate(round.date)}</span>
+                          )}
+                          {round.gameTime && (
+                            <span className="text-xs text-gray-500">{round.gameTime}</span>
                           )}
                           {isSaving && <span className="text-xs text-gray-400 ml-auto">Saving...</span>}
                           {justSaved && !isSaving && <span className="text-xs text-green-600 ml-auto">Saved ✓</span>}
                         </div>
-                        {(round.opponent || round.venue) && (
-                          <span className="text-xs text-gray-500">
-                            {round.opponent && `vs ${round.opponent}`}
-                            {round.opponent && round.venue && " · "}
-                            {round.venue}
-                          </span>
-                        )}
                       </div>
                       <div className="flex gap-2">
                         <button
