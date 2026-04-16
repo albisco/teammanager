@@ -2,6 +2,11 @@
 
 All notable changes to Team Manager are documented here.
 
+## [0.2.0.1] - 2026-04-16
+
+### Fixed
+- Manager portal no longer crashes with a client-side TypeError when a TEAM_MANAGER user has no team assigned. All four manager pages (dashboard, fixture, players, voting) now check the HTTP response status before parsing JSON, so an unassigned manager sees a clear "No team assigned" message instead of a blank screen.
+
 ## [0.2.0.0] - 2026-04-02
 
 ### Added
