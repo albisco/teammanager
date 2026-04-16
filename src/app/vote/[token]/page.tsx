@@ -235,8 +235,8 @@ export default function VotePage() {
                         key={player.id}
                         className={`text-left px-3 py-2 rounded-md text-sm border transition-colors ${
                           rankings[i] === player.id
-                            ? "bg-primary text-primary-foreground border-primary"
-                            : "bg-white hover:bg-gray-100 border-gray-200"
+                            ? "bg-black text-white border-black"
+                            : "bg-white text-black border-gray-200 hover:bg-gray-100"
                         }`}
                         onClick={() => setRanking(i, player.id)}
                       >
