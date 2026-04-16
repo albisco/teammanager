@@ -6,8 +6,9 @@ import { prisma } from "@/lib/prisma";
 import { hasStaffRole } from "@/lib/team-access";
 
 // DELETE a single vote (ADMIN / SUPER_ADMIN / TEAM_MANAGER staff role scoped to
-// the vote's team). Note: deleting a vote does NOT automatically reopen a
-// closed voting session — reopening is an explicit action via PUT /api/voting.
+// the vote's team). If the session was auto-closed because it hit
+// maxVotesPerRound and the delete drops the count below max, the session is
+// automatically reopened so the QR code works again.
 export async function DELETE(
   _req: NextRequest,
   { params }: { params: { voteId: string } },
@@ -28,7 +29,7 @@ export async function DELETE(
               team: {
                 select: {
                   id: true,
-                  season: { select: { clubId: true } },
+                  season: { select: { clubId: true, club: { select: { maxVotesPerRound: true } } } },
                 },
               },
             },
@@ -59,7 +60,25 @@ export async function DELETE(
     }
   }
 
+  const sessionId = vote.votingSession.id;
+  const sessionStatus = vote.votingSession.status;
+
   await prisma.vote.delete({ where: { id: params.voteId } });
 
-  return NextResponse.json({ success: true, teamId: voteTeamId });
+  // If the session was CLOSED and the delete dropped count below
+  // maxVotesPerRound, auto-reopen so the QR code works again.
+  let reopened = false;
+  if (sessionStatus === "CLOSED") {
+    const remaining = await prisma.vote.count({ where: { votingSessionId: sessionId } });
+    const maxVotes = vote.votingSession.round.team.season.club.maxVotesPerRound;
+    if (remaining < maxVotes) {
+      await prisma.votingSession.update({
+        where: { id: sessionId },
+        data: { status: "OPEN" },
+      });
+      reopened = true;
+    }
+  }
+
+  return NextResponse.json({ success: true, teamId: voteTeamId, reopened });
 }

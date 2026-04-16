@@ -76,8 +76,27 @@ export default function VotePage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
         <Card className="w-full max-w-md">
-          <CardContent className="p-6 text-center">
+          <CardContent className="p-6 text-center space-y-4">
             <p className="text-gray-600">Voting is closed for this round.</p>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setData(null);
+                setError("");
+                fetch(`/api/voting/${token}`)
+                  .then((res) => {
+                    if (!res.ok) throw new Error("Not found");
+                    return res.json();
+                  })
+                  .then((d: VotingData) => {
+                    setData(d);
+                    setRankings(new Array(d.team.votingScheme.length).fill(null));
+                  })
+                  .catch(() => setError("Voting session not found"));
+              }}
+            >
+              Refresh
+            </Button>
           </CardContent>
         </Card>
       </div>
