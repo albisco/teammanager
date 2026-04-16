@@ -345,10 +345,6 @@ export default function ManagerRosterPage() {
 
   /** Build full name for a specialist: "Gav Prendergast" for family-linked, just name for external */
   function specialistFullName(s: { personName: string; familyId: string | null }): string {
-    if (s.familyId) {
-      const surname = rosterData?.families.find((f) => f.id === s.familyId)?.name;
-      if (surname) return `${s.personName} ${surname}`;
-    }
     return s.personName;
   }
 
@@ -363,8 +359,7 @@ export default function ManagerRosterPage() {
       if (specialist) return specialistFullName(specialist);
     }
     if (role?.roleType === "FIXED" && role.assignedPersonName && role.assignedFamilyId === familyId) {
-      const surname = rosterData?.families.find((f) => f.id === role.assignedFamilyId)?.name;
-      return surname ? `${role.assignedPersonName} ${surname}` : role.assignedPersonName;
+      return role.assignedPersonName;
     }
     return rosterData?.families.find((f) => f.id === familyId)?.name || familyId;
   }
@@ -375,8 +370,7 @@ export default function ManagerRosterPage() {
     switch (role.roleType) {
       case "FIXED": {
         if (!role.assignedPersonName) return "Unassigned";
-        const surname = role.assignedFamilyId ? rosterData?.families.find((f) => f.id === role.assignedFamilyId)?.name : null;
-        return surname ? `${role.assignedPersonName} ${surname}` : role.assignedPersonName;
+        return role.assignedPersonName;
       }
       case "SPECIALIST":
         return (role.specialists.map((s) => specialistFullName(s)).join(", ") || "No specialists") + slotSuffix;
@@ -530,7 +524,7 @@ export default function ManagerRosterPage() {
       .map((role) => {
         const key = `${roundId}:${role.id}`;
         const assignments = rosterData.assignments[key] ?? [];
-        return { roleName: role.roleName, names: assignments.map((a) => a.familyName) };
+        return { roleName: role.roleName, names: assignments.map((a) => resolveAssignName(role.id, a.familyId)) };
       })
       .filter((d) => d.names.length > 0);
   }
@@ -795,7 +789,7 @@ export default function ManagerRosterPage() {
                                 <div
                                   key={slot}
                                   draggable={!!a}
-                                  title={hasConflict ? `${a.familyName} is unavailable for this round` : undefined}
+                                  title={hasConflict ? `${resolveAssignName(role.id, a.familyId)} is unavailable for this round` : undefined}
                                   className={[
                                     "rounded px-1 select-none cursor-pointer hover:bg-blue-50",
                                     isDropTarget ? "ring-2 ring-blue-400 bg-blue-100" : "",
@@ -812,7 +806,7 @@ export default function ManagerRosterPage() {
                                   {a ? (
                                     <>
                                       {hasConflict && <span className="mr-0.5">⚠</span>}
-                                      {a.familyName}
+                                      {resolveAssignName(role.id, a.familyId)}
                                     </>
                                   ) : <span className="text-gray-300">—</span>}
                                 </div>
