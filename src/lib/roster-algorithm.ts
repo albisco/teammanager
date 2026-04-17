@@ -64,6 +64,13 @@ interface RosterInput {
   }[];
   exclusions: { familyId: string; teamDutyRoleId: string }[];
   unavailabilities: { familyId: string; roundId: string }[];
+  /**
+   * Pre-existing assignments from locked rounds. These are counted toward
+   * fairness totals so regenerated rounds account for what locked rounds
+   * already assigned — a family with a locked duty won't be over-assigned
+   * the same role in unlocked rounds.
+   */
+  lockedAssignments?: { teamDutyRoleId: string; assignedFamilyId: string }[];
 }
 
 interface RosterOutput {
@@ -74,7 +81,7 @@ interface RosterOutput {
 }
 
 export function generateRoster(input: RosterInput): RosterOutput[] {
-  const { rounds, families, teamDutyRoles, exclusions, unavailabilities } = input;
+  const { rounds, families, teamDutyRoles, exclusions, unavailabilities, lockedAssignments = [] } = input;
 
   const exclusionSet = new Set(
     exclusions.map((e) => `${e.familyId}:${e.teamDutyRoleId}`)
@@ -91,6 +98,21 @@ export function generateRoster(input: RosterInput): RosterOutput[] {
     roleAssignments[family.id] = {};
     for (const role of teamDutyRoles) {
       roleAssignments[family.id][role.id] = 0;
+    }
+  }
+
+  // Pre-seed counts from locked round assignments so fairness is maintained
+  // across locked and unlocked rounds alike.
+  const roleTypeMap = new Map(teamDutyRoles.map((r) => [r.id, r.roleType]));
+  for (const la of lockedAssignments) {
+    const familyId = la.assignedFamilyId;
+    if (!(familyId in totalAssignments)) continue; // external specialist, skip fairness
+    const roleType = roleTypeMap.get(la.teamDutyRoleId);
+    if (roleType === "ROTATING" || roleType === "FREQUENCY") {
+      totalAssignments[familyId]++;
+    }
+    if (roleType && roleType !== "FIXED") {
+      roleAssignments[familyId][la.teamDutyRoleId] = (roleAssignments[familyId][la.teamDutyRoleId] || 0) + 1;
     }
   }
 

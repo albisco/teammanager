@@ -156,15 +156,16 @@ model TeamPlayer {
 }
 
 model Round {
-  id          String   @id @default(cuid())
-  teamId      String
-  team        Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  roundNumber Int
-  date        DateTime?
-  gameTime    String?
-  isBye       Boolean  @default(false)
-  opponent    String?
-  venue       String?
+  id               String   @id @default(cuid())
+  teamId           String
+  team             Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  roundNumber      Int
+  date             DateTime?
+  gameTime         String?
+  isBye            Boolean  @default(false)
+  opponent         String?
+  venue            String?
+  isRosterLocked   Boolean  @default(false)
 
   votingSession          VotingSession?
   rosterAssignments      RosterAssignment[]

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { deriveFamilies, resolveDisplayName } from "@/lib/roster-algorithm";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -27,29 +28,68 @@ export async function GET() {
     return NextResponse.json({ round: null, duties: [] });
   }
 
-  // Get assignments for this round with role names
-  const assignments = await prisma.rosterAssignment.findMany({
-    where: { roundId: nextRound.id },
-    include: {
-      teamDutyRole: {
-        include: { dutyRole: true },
+  // Fetch everything needed to resolve display names correctly
+  const [assignments, teamDutyRoles, teamPlayers] = await Promise.all([
+    prisma.rosterAssignment.findMany({
+      where: { roundId: nextRound.id },
+      include: {
+        teamDutyRole: {
+          include: {
+            dutyRole: true,
+            specialists: true,
+          },
+        },
       },
-    },
-    orderBy: { slot: "asc" },
-  });
+    }),
+    prisma.teamDutyRole.findMany({
+      where: { teamId },
+      include: {
+        dutyRole: true,
+        specialists: true,
+      },
+    }),
+    prisma.teamPlayer.findMany({
+      where: { teamId },
+      include: { player: { select: { surname: true, firstName: true, parent1: true } } },
+    }),
+  ]);
 
-  // Group by role name
-  const roleMap = new Map<string, string[]>();
+  const families = deriveFamilies(teamPlayers.map((tp) => tp.player));
+  const familyMap = new Map(families.map((f) => [f.id, f]));
+
+  const displayNameInput = {
+    teamDutyRoles: teamDutyRoles.map((tdr) => ({
+      id: tdr.id,
+      roleType: tdr.roleType as "FIXED" | "SPECIALIST" | "ROTATING" | "FREQUENCY",
+      assignedFamilyId: tdr.assignedFamilyId,
+      assignedPersonName: tdr.assignedPersonName,
+      specialists: tdr.specialists.map((s) => ({ personName: s.personName, familyId: s.familyId })),
+    })),
+    familyMap,
+  };
+
+  // Group by role, preserving dutyRole sort order
+  const roleMap = new Map<string, { sortOrder: number; roleName: string; names: string[] }>();
   for (const a of assignments) {
-    const roleName = a.teamDutyRole.dutyRole.roleName;
-    if (!roleMap.has(roleName)) roleMap.set(roleName, []);
-    roleMap.get(roleName)!.push(a.assignedFamilyName);
+    const tdr = a.teamDutyRole;
+    const roleId = tdr.id;
+    if (!roleMap.has(roleId)) {
+      roleMap.set(roleId, {
+        sortOrder: tdr.dutyRole.sortOrder,
+        roleName: tdr.dutyRole.roleName,
+        names: [],
+      });
+    }
+    const displayName = resolveDisplayName(displayNameInput, {
+      teamDutyRoleId: a.teamDutyRoleId,
+      assignedFamilyId: a.assignedFamilyId,
+    });
+    roleMap.get(roleId)!.names.push(displayName);
   }
 
-  const duties = Array.from(roleMap.entries()).map(([roleName, names]) => ({
-    roleName,
-    names,
-  }));
+  const duties = Array.from(roleMap.values())
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.roleName.localeCompare(b.roleName))
+    .map(({ roleName, names }) => ({ roleName, names }));
 
   return NextResponse.json({
     round: {

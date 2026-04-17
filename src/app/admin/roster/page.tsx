@@ -58,6 +58,7 @@ interface RosterRound {
   isBye: boolean;
   date: string | null;
   gameTime: string | null;
+  isRosterLocked: boolean;
 }
 
 interface RosterRole {
@@ -351,16 +352,33 @@ export default function RosterPage() {
     }
   }
 
+  // === Lock/Unlock Round ===
+  async function handleToggleLock(round: RosterRound) {
+    const newLocked = !round.isRosterLocked;
+    const res = await fetch(`/api/rounds/${round.id}/lock`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ locked: newLocked }),
+    });
+    if (res.ok) {
+      toast.success(newLocked ? `Round ${round.roundNumber} locked` : `Round ${round.roundNumber} unlocked`);
+      if (selectedTeam) fetchRosterData(selectedTeam.id);
+    } else {
+      toast.error("Failed to update lock");
+    }
+  }
+
   // === Roster Generation ===
   async function handleGenerate() {
     if (!selectedTeam) return;
-    if (!confirm("This will overwrite any existing roster assignments for this team. Continue?")) return;
+    if (!confirm("This will overwrite roster assignments for unlocked rounds. Locked rounds will be preserved. Continue?")) return;
 
     setGenerating(true);
     const res = await fetch(`/api/teams/${selectedTeam.id}/roster/generate`, { method: "POST" });
     if (res.ok) {
       const data = await res.json();
-      toast.success(`Roster generated — ${data.count} assignments created`);
+      const lockedNote = data.skippedLockedRounds > 0 ? `, ${data.skippedLockedRounds} locked round${data.skippedLockedRounds !== 1 ? "s" : ""} preserved` : "";
+      toast.success(`Roster generated — ${data.count} assignments created${lockedNote}`);
       fetchRosterData(selectedTeam.id);
     } else {
       const data = await res.json();
@@ -572,8 +590,16 @@ export default function RosterPage() {
                       <TableRow>
                         <TableHead className="sticky left-0 bg-card z-10 min-w-[150px]">Family</TableHead>
                         {activeRounds.map((r) => (
-                          <TableHead key={r.id} className="text-center min-w-[60px]">
-                            R{r.roundNumber}
+                          <TableHead key={r.id} className="text-center min-w-[70px]">
+                            <div>R{r.roundNumber}</div>
+                            {r.date && (
+                              <div className="text-xs font-normal text-gray-400">
+                                {new Date(r.date).toLocaleDateString("en-AU", { day: "numeric", month: "short" })}
+                              </div>
+                            )}
+                            {r.gameTime && (
+                              <div className="text-xs font-normal text-gray-400">{r.gameTime}</div>
+                            )}
                           </TableHead>
                         ))}
                       </TableRow>
@@ -586,14 +612,16 @@ export default function RosterPage() {
                           </TableCell>
                           {activeRounds.map((round) => {
                             const isUnavailable = unavailabilities.has(`${family.id}:${round.id}`);
+                            const isLocked = round.isRosterLocked;
                             return (
                               <TableCell key={round.id} className="text-center">
                                 <input
                                   type="checkbox"
-                                  className="rounded border-gray-300 cursor-pointer"
+                                  className={`rounded border-gray-300 ${isLocked ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
                                   checked={isUnavailable}
-                                  onChange={() => toggleUnavailability(family.id, round.id)}
-                                  title={isUnavailable ? "Available" : "Mark unavailable"}
+                                  disabled={isLocked}
+                                  onChange={() => !isLocked && toggleUnavailability(family.id, round.id)}
+                                  title={isLocked ? "Round is locked" : isUnavailable ? "Mark available" : "Mark unavailable"}
                                 />
                               </TableCell>
                             );
@@ -637,7 +665,16 @@ export default function RosterPage() {
                       <TableHead className="sticky left-0 bg-card z-10 min-w-[150px]">Role</TableHead>
                       {activeRounds.map((r) => (
                         <TableHead key={r.id} className="text-center min-w-[100px]">
-                          <div>R{r.roundNumber}</div>
+                          <div className="flex items-center justify-center gap-1">
+                            <span>R{r.roundNumber}</span>
+                            <button
+                              onClick={() => handleToggleLock(r)}
+                              title={r.isRosterLocked ? "Unlock round" : "Lock round"}
+                              className="text-gray-400 hover:text-gray-700 leading-none"
+                            >
+                              {r.isRosterLocked ? "🔒" : "🔓"}
+                            </button>
+                          </div>
                           {r.date && (
                             <div className="text-xs font-normal text-gray-400">
                               {new Date(r.date).toLocaleDateString("en-AU", { day: "numeric", month: "short" })}
@@ -664,12 +701,14 @@ export default function RosterPage() {
                         {activeRounds.map((round) => {
                           const assignments = rosterData.assignments[`${round.id}:${role.id}`];
                           const assignment = assignments?.[0];
+                          const isLocked = round.isRosterLocked;
                           return (
                             <TableCell
                               key={round.id}
-                              className="text-center text-sm cursor-pointer hover:bg-blue-50"
+                              className={`text-center text-sm${isLocked ? " bg-gray-50 cursor-default text-gray-500" : " cursor-pointer hover:bg-blue-50"}`}
+                              title={isLocked ? "Round is locked" : undefined}
                               onClick={() => {
-                                openOverrideDialog(round.id, role.id, role.roleName, round.roundNumber);
+                                if (!isLocked) openOverrideDialog(round.id, role.id, role.roleName, round.roundNumber);
                               }}
                             >
                               {assignment ? (
@@ -685,7 +724,7 @@ export default function RosterPage() {
                   </TableBody>
                 </Table>
               </div>
-              <p className="text-xs text-gray-400 mt-2">Click a cell to reassign. Fixed roles cannot be changed here.</p>
+              <p className="text-xs text-gray-400 mt-2">Click a cell to reassign. Click 🔓 on a round to lock it — locked rounds are preserved during regeneration.</p>
             </div>
           )}
         </>
