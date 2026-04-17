@@ -6,18 +6,36 @@ import bcrypt from "bcryptjs";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
-  if (session?.user?.role !== "SUPER_ADMIN") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const role = session?.user?.role;
+
+  if (role === "SUPER_ADMIN") {
+    const clubs = await prisma.club.findMany({
+      include: {
+        _count: { select: { users: true, seasons: true, players: true } },
+      },
+      orderBy: { name: "asc" },
+    });
+    return NextResponse.json(clubs);
   }
 
-  const clubs = await prisma.club.findMany({
-    include: {
-      _count: { select: { users: true, seasons: true, players: true } },
-    },
-    orderBy: { name: "asc" },
-  });
+  // ADMINs can read their own club only, so admin pages can reflect current
+  // club-wide settings (e.g. enforceFamilyVoteExclusion) without a second
+  // endpoint. Same shape as the SUPER_ADMIN response for consistency.
+  if (role === "ADMIN") {
+    const adminClubId = (session?.user as Record<string, unknown>)?.clubId as string | undefined;
+    if (!adminClubId) {
+      return NextResponse.json([]);
+    }
+    const club = await prisma.club.findUnique({
+      where: { id: adminClubId },
+      include: {
+        _count: { select: { users: true, seasons: true, players: true } },
+      },
+    });
+    return NextResponse.json(club ? [club] : []);
+  }
 
-  return NextResponse.json(clubs);
+  return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 }
 
 export async function POST(req: NextRequest) {
@@ -26,7 +44,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const { name, slug, adminName, adminEmail, adminPassword, isAdultClub, maxVotesPerRound } = await req.json();
+  const { name, slug, adminName, adminEmail, adminPassword, isAdultClub, enforceFamilyVoteExclusion, maxVotesPerRound } = await req.json();
 
   if (!name || !slug) {
     return NextResponse.json({ error: "Club name and slug are required" }, { status: 400 });
@@ -47,6 +65,7 @@ export async function POST(req: NextRequest) {
         name,
         slug: slug.toLowerCase().replace(/\s+/g, "-"),
         isAdultClub: !!isAdultClub,
+        enforceFamilyVoteExclusion: !!enforceFamilyVoteExclusion,
         ...(maxVotes !== undefined ? { maxVotesPerRound: maxVotes } : {}),
       },
     });
@@ -82,20 +101,27 @@ export async function PUT(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { id, name, slug, isAdultClub, maxVotesPerRound } = body;
+  const { id, name, slug, isAdultClub, enforceFamilyVoteExclusion, maxVotesPerRound } = body;
   if (!id) return NextResponse.json({ error: "ID is required" }, { status: 400 });
 
-  // ADMINs can only update their own club, and only the maxVotesPerRound field.
+  // ADMINs can only update their own club, and only a small allow-list of
+  // club-wide voting settings (maxVotesPerRound, enforceFamilyVoteExclusion).
   if (role === "ADMIN") {
     const adminClubId = (session?.user as Record<string, unknown>)?.clubId as string | undefined;
     if (!adminClubId || adminClubId !== id) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
     if (name !== undefined || slug !== undefined || isAdultClub !== undefined) {
-      return NextResponse.json({ error: "ADMINs may only update maxVotesPerRound" }, { status: 403 });
+      return NextResponse.json(
+        { error: "ADMINs may only update maxVotesPerRound or enforceFamilyVoteExclusion" },
+        { status: 403 },
+      );
     }
-    if (maxVotesPerRound === undefined) {
-      return NextResponse.json({ error: "maxVotesPerRound is required" }, { status: 400 });
+    if (maxVotesPerRound === undefined && enforceFamilyVoteExclusion === undefined) {
+      return NextResponse.json(
+        { error: "maxVotesPerRound or enforceFamilyVoteExclusion is required" },
+        { status: 400 },
+      );
     }
   }
 
@@ -115,6 +141,8 @@ export async function PUT(req: NextRequest) {
         name: name || undefined,
         slug: slug ? slug.toLowerCase().replace(/\s+/g, "-") : undefined,
         isAdultClub: isAdultClub !== undefined ? !!isAdultClub : undefined,
+        enforceFamilyVoteExclusion:
+          enforceFamilyVoteExclusion !== undefined ? !!enforceFamilyVoteExclusion : undefined,
         maxVotesPerRound: maxVotes,
       },
     });

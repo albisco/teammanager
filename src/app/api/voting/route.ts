@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const [rounds, team] = await Promise.all([
+  const [rounds, team, rosterRows] = await Promise.all([
     prisma.round.findMany({
       where: { teamId },
       include: {
@@ -54,14 +54,44 @@ export async function GET(req: NextRequest) {
     prisma.team.findUnique({
       where: { id: teamId },
       select: {
-        season: { select: { club: { select: { maxVotesPerRound: true } } } },
+        season: {
+          select: {
+            club: {
+              select: { maxVotesPerRound: true, enforceFamilyVoteExclusion: true },
+            },
+          },
+        },
       },
+    }),
+    // Distinct rostered family ids per round so the admin can see how many
+    // families qualify for the per-round parent vote dropdown.
+    // Match the same isVotingRole filter used on the vote page so the admin
+    // count reflects exactly what voters will see in the dropdown.
+    prisma.rosterAssignment.findMany({
+      where: { round: { teamId }, teamDutyRole: { dutyRole: { isVotingRole: true } } },
+      select: { roundId: true, assignedFamilyId: true },
     }),
   ]);
 
   const maxVotesPerRound = team?.season.club.maxVotesPerRound ?? null;
+  const enforceFamilyVoteExclusion = team?.season.club.enforceFamilyVoteExclusion ?? false;
 
-  return NextResponse.json({ rounds, maxVotesPerRound });
+  const rosteredFamilyCountByRound: Record<string, number> = {};
+  const perRoundIds = new Map<string, Set<string>>();
+  for (const r of rosterRows) {
+    if (!perRoundIds.has(r.roundId)) perRoundIds.set(r.roundId, new Set());
+    perRoundIds.get(r.roundId)!.add(r.assignedFamilyId);
+  }
+  for (const [roundId, set] of Array.from(perRoundIds.entries())) {
+    rosteredFamilyCountByRound[roundId] = set.size;
+  }
+
+  return NextResponse.json({
+    rounds,
+    maxVotesPerRound,
+    enforceFamilyVoteExclusion,
+    rosteredFamilyCountByRound,
+  });
 }
 
 // POST: open voting for a round

@@ -9,12 +9,13 @@ datasource db {
 }
 
 model Club {
-  id               String   @id @default(cuid())
-  name             String
-  slug             String   @unique
-  isAdultClub      Boolean  @default(false)
-  maxVotesPerRound Int      @default(4)
-  createdAt        DateTime @default(now())
+  id                         String   @id @default(cuid())
+  name                       String
+  slug                       String   @unique
+  isAdultClub                Boolean  @default(false)
+  enforceFamilyVoteExclusion Boolean  @default(false)
+  maxVotesPerRound           Int      @default(4)
+  createdAt                  DateTime @default(now())
 
   users     User[]
   seasons   Season[]
@@ -214,11 +215,12 @@ model Vote {
 }
 
 model DutyRole {
-  id        String @id @default(cuid())
-  roleName  String
-  sortOrder Int    @default(0)
-  clubId    String
-  club      Club   @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  id            String  @id @default(cuid())
+  roleName      String
+  sortOrder     Int     @default(0)
+  clubId        String
+  club          Club    @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  isVotingRole  Boolean @default(false)
 
   teamDutyRoles TeamDutyRole[]
 

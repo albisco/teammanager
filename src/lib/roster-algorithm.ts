@@ -50,6 +50,49 @@ export function deriveFamilies(
   return families;
 }
 
+/**
+ * Like deriveFamilies, but also returns the set of playerIds that belong to
+ * each family. Source of truth for "which players share this family" when the
+ * voting flow excludes a parent's own children from the rankings.
+ */
+export function deriveFamiliesWithPlayers(
+  players: { id: string; surname: string; firstName: string; parent1?: string | null }[]
+): { id: string; name: string; playerIds: string[] }[] {
+  const baseFamilies = deriveFamilies(players);
+  const result = baseFamilies.map((f) => ({ ...f, playerIds: [] as string[] }));
+  const byId = new Map(result.map((f) => [f.id, f]));
+
+  // Re-apply the same keying rules to map each player to a family id.
+  const bySurname = new Map<string, typeof players>();
+  for (const p of players) {
+    const key = p.surname.toLowerCase().replace(/\s+/g, "_");
+    if (!bySurname.has(key)) bySurname.set(key, []);
+    bySurname.get(key)!.push(p);
+  }
+
+  for (const [surnameKey, group] of Array.from(bySurname.entries())) {
+    const distinctParents = Array.from(
+      new Set(group.map((p) => p.parent1?.trim()).filter(Boolean) as string[])
+    );
+
+    if (distinctParents.length <= 1) {
+      const familyId = `family_${surnameKey}`;
+      const fam = byId.get(familyId);
+      if (fam) for (const p of group) fam.playerIds.push(p.id);
+    } else {
+      for (const p of group) {
+        const parent = p.parent1?.trim() || p.firstName;
+        const parentKey = parent.toLowerCase().replace(/\s+/g, "_");
+        const familyId = `family_${surnameKey}_${parentKey}`;
+        const fam = byId.get(familyId);
+        if (fam) fam.playerIds.push(p.id);
+      }
+    }
+  }
+
+  return result;
+}
+
 interface RosterInput {
   rounds: { id: string; roundNumber: number; isBye: boolean }[];
   families: { id: string; name: string }[];

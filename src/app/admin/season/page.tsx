@@ -77,7 +77,13 @@ export default function SeasonPage() {
   // Team dialog
   const [teamDialogOpen, setTeamDialogOpen] = useState(false);
   const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
-  const [teamForm, setTeamForm] = useState({ name: "", ageGroup: "", votingScheme: "5,4,3,2,1" });
+  const [teamForm, setTeamForm] = useState({
+    name: "",
+    ageGroup: "",
+    votingScheme: "5,4,3,2,1",
+    parentVoterCount: "2",
+  });
+  const [teamDialogStaff, setTeamDialogStaff] = useState<{ headCoach: number; assistantCoach: number } | null>(null);
 
   // Round dialog
   const [roundDialogOpen, setRoundDialogOpen] = useState(false);
@@ -170,7 +176,8 @@ export default function SeasonPage() {
   // === Team CRUD ===
   function openAddTeam() {
     setEditingTeamId(null);
-    setTeamForm({ name: "", ageGroup: "", votingScheme: "5,4,3,2,1" });
+    setTeamForm({ name: "", ageGroup: "", votingScheme: "5,4,3,2,1", parentVoterCount: "2" });
+    setTeamDialogStaff(null);
     setTeamDialogOpen(true);
   }
   function openEditTeam(team: TeamSummary) {
@@ -179,18 +186,35 @@ export default function SeasonPage() {
       name: team.name,
       ageGroup: team.ageGroup,
       votingScheme: (team.votingScheme as number[]).join(","),
+      parentVoterCount: String(team.parentVoterCount ?? 2),
     });
+    setTeamDialogStaff(null);
+    fetch(`/api/teams/${team.id}/staff`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows: { role: string }[]) => {
+        const headCoach = rows.filter((s) => s.role === "HEAD_COACH").length;
+        const assistantCoach = rows.filter((s) => s.role === "ASSISTANT_COACH").length;
+        setTeamDialogStaff({ headCoach, assistantCoach });
+      })
+      .catch(() => setTeamDialogStaff({ headCoach: 0, assistantCoach: 0 }));
     setTeamDialogOpen(true);
   }
   async function handleSaveTeam() {
     if (!selectedSeason) return;
     setLoading(true);
     const votingScheme = teamForm.votingScheme.split(",").map((s) => parseInt(s.trim())).filter((n) => !isNaN(n));
+    const parentVoterCount = Math.max(1, parseInt(teamForm.parentVoterCount) || 2);
     const url = editingTeamId ? `/api/teams/${editingTeamId}` : "/api/teams";
     const method = editingTeamId ? "PUT" : "POST";
     const res = await fetch(url, {
       method, headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...teamForm, votingScheme, seasonId: selectedSeason.id }),
+      body: JSON.stringify({
+        name: teamForm.name,
+        ageGroup: teamForm.ageGroup,
+        votingScheme,
+        parentVoterCount,
+        seasonId: selectedSeason.id,
+      }),
     });
     if (res.ok) {
       toast.success(editingTeamId ? "Team updated" : "Team created");
@@ -536,6 +560,31 @@ export default function SeasonPage() {
               <Input value={teamForm.votingScheme} onChange={(e) => setTeamForm({ ...teamForm, votingScheme: e.target.value })} placeholder="5,4,3,2,1" />
               <p className="text-xs text-gray-500">Points awarded for each vote position (best to least)</p>
             </div>
+            <div className="space-y-2">
+              <Label>Parent voters per round</Label>
+              <Input
+                type="number"
+                min={1}
+                value={teamForm.parentVoterCount}
+                onChange={(e) => setTeamForm({ ...teamForm, parentVoterCount: e.target.value })}
+              />
+              <p className="text-xs text-gray-500">Maximum number of family votes accepted per round.</p>
+            </div>
+            {editingTeamId && teamDialogStaff && (
+              <div className="space-y-1 rounded-md border bg-gray-50 p-3">
+                <p className="text-xs font-medium text-gray-700">
+                  Coach votes: {teamDialogStaff.headCoach} Head Coach
+                  {teamDialogStaff.assistantCoach > 0
+                    ? ` + ${teamDialogStaff.assistantCoach} Assistant Coach${teamDialogStaff.assistantCoach !== 1 ? "es" : ""}`
+                    : ""} (one vote each)
+                </p>
+                {teamDialogStaff.headCoach + teamDialogStaff.assistantCoach === 0 && (
+                  <p className="text-xs text-amber-700">
+                    No coach seats configured — set a Head Coach / Assistant Coach in Team Staff to enable coach voting.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setTeamDialogOpen(false)}>Cancel</Button>

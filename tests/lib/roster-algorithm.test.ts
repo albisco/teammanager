@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { generateRoster, resolveDisplayName, deriveFamilyMembers, deriveFamilies } from "../../src/lib/roster-algorithm";
+import { generateRoster, resolveDisplayName, deriveFamilyMembers, deriveFamilies, deriveFamiliesWithPlayers } from "../../src/lib/roster-algorithm";
 
 describe("generateRoster", () => {
   const baseRounds = [
@@ -581,5 +581,33 @@ describe("deriveFamilies", () => {
     const result = deriveFamilies(players);
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe("family_smith");
+  });
+});
+
+describe("deriveFamiliesWithPlayers", () => {
+  it("groups siblings under one family and lists their playerIds", () => {
+    const players = [
+      { id: "p1", surname: "Smith", firstName: "Tom", parent1: "Jane" },
+      { id: "p2", surname: "Smith", firstName: "Ella", parent1: "Jane" },
+      { id: "p3", surname: "Jones", firstName: "Sam", parent1: "Kate" },
+    ];
+    const result = deriveFamiliesWithPlayers(players);
+    const smith = result.find((f) => f.id === "family_smith");
+    const jones = result.find((f) => f.id === "family_jones");
+    expect(smith?.playerIds.sort()).toEqual(["p1", "p2"]);
+    expect(jones?.playerIds).toEqual(["p3"]);
+  });
+
+  it("disambiguates two Smith families by parent1 and maps each player to its own family", () => {
+    const players = [
+      { id: "p1", surname: "Smith", firstName: "Tom", parent1: "Jane" },
+      { id: "p2", surname: "Smith", firstName: "Liam", parent1: "Marco" },
+    ];
+    const result = deriveFamiliesWithPlayers(players);
+    expect(result).toHaveLength(2);
+    const jane = result.find((f) => f.id === "family_smith_jane");
+    const marco = result.find((f) => f.id === "family_smith_marco");
+    expect(jane?.playerIds).toEqual(["p1"]);
+    expect(marco?.playerIds).toEqual(["p2"]);
   });
 });

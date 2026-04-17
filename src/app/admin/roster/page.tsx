@@ -31,6 +31,7 @@ interface GlobalDutyRole {
   id: string;
   roleName: string;
   sortOrder: number;
+  isVotingRole: boolean;
 }
 
 interface SpecialistEntry {
@@ -110,6 +111,7 @@ export default function RosterPage() {
   const [clubRoleDialogOpen, setClubRoleDialogOpen] = useState(false);
   const [editingClubRole, setEditingClubRole] = useState<GlobalDutyRole | null>(null);
   const [clubRoleName, setClubRoleName] = useState("");
+  const [clubRoleIsVoting, setClubRoleIsVoting] = useState(false);
 
   // Team config dialog
   const [configDialogOpen, setConfigDialogOpen] = useState(false);
@@ -204,12 +206,14 @@ export default function RosterPage() {
   function openAddClubRole() {
     setEditingClubRole(null);
     setClubRoleName("");
+    setClubRoleIsVoting(false);
     setClubRoleDialogOpen(true);
   }
 
   function openEditClubRole(role: GlobalDutyRole) {
     setEditingClubRole(role);
     setClubRoleName(role.roleName);
+    setClubRoleIsVoting(!!role.isVotingRole);
     setClubRoleDialogOpen(true);
   }
 
@@ -217,8 +221,8 @@ export default function RosterPage() {
     setLoading(true);
     const method = editingClubRole ? "PUT" : "POST";
     const body = editingClubRole
-      ? { id: editingClubRole.id, roleName: clubRoleName }
-      : { roleName: clubRoleName };
+      ? { id: editingClubRole.id, roleName: clubRoleName, isVotingRole: clubRoleIsVoting }
+      : { roleName: clubRoleName, isVotingRole: clubRoleIsVoting };
 
     const res = await fetch("/api/duty-roles", {
       method,
@@ -483,6 +487,9 @@ export default function RosterPage() {
                   onClick={() => openEditClubRole(role)}
                 >
                   {role.roleName}
+                  {role.isVotingRole && (
+                    <span className="ml-1 text-xs bg-primary text-primary-foreground rounded px-1">Voting</span>
+                  )}
                   <button
                     className="ml-1 text-gray-400 hover:text-red-500"
                     onClick={(e) => { e.stopPropagation(); handleDeleteClubRole(role.id); }}
@@ -744,6 +751,23 @@ export default function RosterPage() {
                 onChange={(e) => setClubRoleName(e.target.value)}
                 placeholder="e.g. Goal Umpire, Canteen, Photographer"
               />
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <Label>Voting eligibility role</Label>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Families assigned to this role can vote as a parent voter.
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={clubRoleIsVoting}
+                onClick={() => setClubRoleIsVoting((v) => !v)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ${clubRoleIsVoting ? "bg-primary" : "bg-gray-200"}`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${clubRoleIsVoting ? "translate-x-6" : "translate-x-1"}`} />
+              </button>
             </div>
           </div>
           <DialogFooter>
