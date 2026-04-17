@@ -6,18 +6,36 @@ import bcrypt from "bcryptjs";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
-  if (session?.user?.role !== "SUPER_ADMIN") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const role = session?.user?.role;
+
+  if (role === "SUPER_ADMIN") {
+    const clubs = await prisma.club.findMany({
+      include: {
+        _count: { select: { users: true, seasons: true, players: true } },
+      },
+      orderBy: { name: "asc" },
+    });
+    return NextResponse.json(clubs);
   }
 
-  const clubs = await prisma.club.findMany({
-    include: {
-      _count: { select: { users: true, seasons: true, players: true } },
-    },
-    orderBy: { name: "asc" },
-  });
+  // ADMINs can read their own club only, so admin pages can reflect current
+  // club-wide settings (e.g. enforceFamilyVoteExclusion) without a second
+  // endpoint. Same shape as the SUPER_ADMIN response for consistency.
+  if (role === "ADMIN") {
+    const adminClubId = (session?.user as Record<string, unknown>)?.clubId as string | undefined;
+    if (!adminClubId) {
+      return NextResponse.json([]);
+    }
+    const club = await prisma.club.findUnique({
+      where: { id: adminClubId },
+      include: {
+        _count: { select: { users: true, seasons: true, players: true } },
+      },
+    });
+    return NextResponse.json(club ? [club] : []);
+  }
 
-  return NextResponse.json(clubs);
+  return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 }
 
 export async function POST(req: NextRequest) {

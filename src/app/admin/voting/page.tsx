@@ -101,6 +101,22 @@ export default function VotingPage() {
 
   useEffect(() => { fetchSeasons(); }, [fetchSeasons]);
 
+  // Load the current club's voting settings on mount so the header reflects
+  // DB state even before a team is selected.
+  useEffect(() => {
+    if (!clubId) return;
+    fetch("/api/clubs")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((clubs: { id: string; maxVotesPerRound: number; enforceFamilyVoteExclusion: boolean }[]) => {
+        const own = clubs.find((c) => c.id === clubId);
+        if (own) {
+          setMaxVotesPerRound(own.maxVotesPerRound);
+          setEnforceFamilyVoteExclusion(!!own.enforceFamilyVoteExclusion);
+        }
+      })
+      .catch(() => {});
+  }, [clubId]);
+
   const fetchRounds = useCallback(async (teamId: string) => {
     const res = await fetch(`/api/voting?teamId=${teamId}`);
     if (res.ok) {
