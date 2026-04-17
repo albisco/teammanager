@@ -54,14 +54,21 @@ export async function GET(req: NextRequest) {
     prisma.team.findUnique({
       where: { id: teamId },
       select: {
-        season: { select: { club: { select: { maxVotesPerRound: true } } } },
+        season: {
+          select: {
+            club: {
+              select: { maxVotesPerRound: true, enforceFamilyVoteExclusion: true },
+            },
+          },
+        },
       },
     }),
   ]);
 
   const maxVotesPerRound = team?.season.club.maxVotesPerRound ?? null;
+  const enforceFamilyVoteExclusion = team?.season.club.enforceFamilyVoteExclusion ?? false;
 
-  return NextResponse.json({ rounds, maxVotesPerRound });
+  return NextResponse.json({ rounds, maxVotesPerRound, enforceFamilyVoteExclusion });
 }
 
 // POST: open voting for a round

@@ -86,17 +86,24 @@ export async function PUT(req: NextRequest) {
   const { id, name, slug, isAdultClub, enforceFamilyVoteExclusion, maxVotesPerRound } = body;
   if (!id) return NextResponse.json({ error: "ID is required" }, { status: 400 });
 
-  // ADMINs can only update their own club, and only the maxVotesPerRound field.
+  // ADMINs can only update their own club, and only a small allow-list of
+  // club-wide voting settings (maxVotesPerRound, enforceFamilyVoteExclusion).
   if (role === "ADMIN") {
     const adminClubId = (session?.user as Record<string, unknown>)?.clubId as string | undefined;
     if (!adminClubId || adminClubId !== id) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
-    if (name !== undefined || slug !== undefined || isAdultClub !== undefined || enforceFamilyVoteExclusion !== undefined) {
-      return NextResponse.json({ error: "ADMINs may only update maxVotesPerRound" }, { status: 403 });
+    if (name !== undefined || slug !== undefined || isAdultClub !== undefined) {
+      return NextResponse.json(
+        { error: "ADMINs may only update maxVotesPerRound or enforceFamilyVoteExclusion" },
+        { status: 403 },
+      );
     }
-    if (maxVotesPerRound === undefined) {
-      return NextResponse.json({ error: "maxVotesPerRound is required" }, { status: 400 });
+    if (maxVotesPerRound === undefined && enforceFamilyVoteExclusion === undefined) {
+      return NextResponse.json(
+        { error: "maxVotesPerRound or enforceFamilyVoteExclusion is required" },
+        { status: 400 },
+      );
     }
   }
 
