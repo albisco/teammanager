@@ -71,6 +71,7 @@ export default function VotingPage() {
   const [rounds, setRounds] = useState<RoundWithVoting[]>([]);
   const [maxVotesPerRound, setMaxVotesPerRound] = useState<number | null>(null);
   const [enforceFamilyVoteExclusion, setEnforceFamilyVoteExclusion] = useState(false);
+  const [rosteredCounts, setRosteredCounts] = useState<Record<string, number>>({});
   const [savingEnforcement, setSavingEnforcement] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -124,6 +125,7 @@ export default function VotingPage() {
       setRounds(data.rounds ?? []);
       setMaxVotesPerRound(data.maxVotesPerRound ?? null);
       setEnforceFamilyVoteExclusion(!!data.enforceFamilyVoteExclusion);
+      setRosteredCounts(data.rosteredFamilyCountByRound ?? {});
     }
   }, []);
 
@@ -330,6 +332,9 @@ export default function VotingPage() {
                   <TableHead>Date</TableHead>
                   <TableHead className="w-28">Status</TableHead>
                   <TableHead className="w-20">Votes</TableHead>
+                  {enforceFamilyVoteExclusion && (
+                    <TableHead className="w-28">Families rostered</TableHead>
+                  )}
                   <TableHead className="w-64">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -359,6 +364,11 @@ export default function VotingPage() {
                         ? `${round.votingSession._count.votes}${maxVotesPerRound !== null ? ` / ${maxVotesPerRound}` : ""}`
                         : "—"}
                     </TableCell>
+                    {enforceFamilyVoteExclusion && (
+                      <TableCell>
+                        {rosteredCounts[round.id] ?? 0}
+                      </TableCell>
+                    )}
                     <TableCell>
                       <div className="flex gap-2">
                         {!round.votingSession ? (
