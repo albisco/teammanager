@@ -53,6 +53,7 @@ interface RosterRound {
   isBye: boolean;
   date: string | null;
   gameTime: string | null;
+  isRosterLocked: boolean;
 }
 
 interface RosterRole {
@@ -393,15 +394,31 @@ export default function ManagerRosterPage() {
     }
   }
 
+  async function handleToggleLock(round: RosterRound) {
+    const newLocked = !round.isRosterLocked;
+    const res = await fetch(`/api/rounds/${round.id}/lock`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ locked: newLocked }),
+    });
+    if (res.ok) {
+      toast.success(newLocked ? `Round ${round.roundNumber} locked` : `Round ${round.roundNumber} unlocked`);
+      fetchRosterData();
+    } else {
+      toast.error("Failed to update lock");
+    }
+  }
+
   async function handleGenerate() {
     if (!teamId) return;
-    if (!confirm("This will overwrite any existing roster assignments for this team. Continue?")) return;
+    if (!confirm("This will overwrite roster assignments for unlocked rounds. Locked rounds will be preserved. Continue?")) return;
 
     setGenerating(true);
     const res = await fetch(`/api/teams/${teamId}/roster/generate`, { method: "POST" });
     if (res.ok) {
       const data = await res.json();
-      toast.success(`Roster generated — ${data.count} assignments created`);
+      const lockedNote = data.skippedLockedRounds > 0 ? `, ${data.skippedLockedRounds} locked round${data.skippedLockedRounds !== 1 ? "s" : ""} preserved` : "";
+      toast.success(`Roster generated — ${data.count} assignments created${lockedNote}`);
       fetchRosterData();
     } else {
       const data = await res.json();
@@ -704,14 +721,16 @@ export default function ManagerRosterPage() {
                       </TableCell>
                       {activeRounds.map((round) => {
                         const isUnavailable = unavailabilities.has(`${family.id}:${round.id}`);
+                        const isLocked = round.isRosterLocked;
                         return (
                           <TableCell key={round.id} className="text-center">
                             <input
                               type="checkbox"
-                              className="rounded border-gray-300 cursor-pointer"
+                              className={`rounded border-gray-300 ${isLocked ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
                               checked={isUnavailable}
-                              onChange={() => toggleUnavailability(family.id, round.id)}
-                              title={isUnavailable ? "Mark available" : "Mark unavailable"}
+                              disabled={isLocked}
+                              onChange={() => !isLocked && toggleUnavailability(family.id, round.id)}
+                              title={isLocked ? "Round is locked" : isUnavailable ? "Mark available" : "Mark unavailable"}
                             />
                           </TableCell>
                         );
@@ -760,7 +779,16 @@ export default function ManagerRosterPage() {
                   <TableHead className="sticky left-0 bg-card z-10 min-w-[150px]">Role</TableHead>
                   {activeRounds.map((r) => (
                     <TableHead key={r.id} className="text-center min-w-[100px]">
-                      <div>R{r.roundNumber}</div>
+                      <div className="flex items-center justify-center gap-1">
+                        <span>R{r.roundNumber}</span>
+                        <button
+                          onClick={() => handleToggleLock(r)}
+                          title={r.isRosterLocked ? "Unlock round" : "Lock round"}
+                          className="text-gray-400 hover:text-gray-700 leading-none"
+                        >
+                          {r.isRosterLocked ? "🔒" : "🔓"}
+                        </button>
+                      </div>
                       {r.date && (
                         <div className="text-xs font-normal text-gray-400">
                           {new Date(r.date).toLocaleDateString("en-AU", { day: "numeric", month: "short" })}
@@ -787,36 +815,38 @@ export default function ManagerRosterPage() {
                     {activeRounds.map((round) => {
                       const slotAssignments = rosterData.assignments[`${round.id}:${role.id}`] || [];
                       const totalSlots = role.slots ?? 1;
+                      const isLocked = round.isRosterLocked;
                       return (
-                        <TableCell key={round.id} className="text-center text-sm align-top py-2">
+                        <TableCell key={round.id} className={`text-center text-sm align-top py-2${isLocked ? " bg-gray-50" : ""}`}>
                           <div className="flex flex-col gap-0.5">
                             {Array.from({ length: totalSlots }).map((_, slot) => {
                               const a = slotAssignments.find((x) => x.slot === slot);
                               const dropKey = `${round.id}:${role.id}:${slot}`;
-                              const isDropTarget = dragOverKey === dropKey && dragSource?.roleId === role.id;
+                              const isDropTarget = !isLocked && dragOverKey === dropKey && dragSource?.roleId === role.id;
                               const isDragging = dragSource?.roundId === round.id && dragSource?.roleId === role.id && dragSource?.slot === slot;
                               const hasConflict = a && unavailabilities.has(`${a.familyId}:${round.id}`);
                               return (
                                 <div
                                   key={slot}
-                                  draggable={!!a}
-                                  title={hasConflict ? `${resolveAssignName(role.id, a.familyId)} is unavailable for this round` : undefined}
+                                  draggable={!isLocked && !!a}
+                                  title={isLocked ? "Round is locked" : hasConflict ? `${resolveAssignName(role.id, a.familyId)} is unavailable for this round` : undefined}
                                   className={[
-                                    "rounded px-1 select-none cursor-pointer hover:bg-blue-50",
+                                    "rounded px-1 select-none",
+                                    isLocked ? "cursor-default text-gray-500" : "cursor-pointer hover:bg-blue-50",
                                     isDropTarget ? "ring-2 ring-blue-400 bg-blue-100" : "",
                                     isDragging ? "opacity-40" : "",
-                                    hasConflict ? "bg-red-100 text-red-700 ring-1 ring-red-300" : "",
+                                    !isLocked && hasConflict ? "bg-red-100 text-red-700 ring-1 ring-red-300" : "",
                                   ].join(" ")}
-                                  onDragStart={() => a && setDragSource({ roundId: round.id, roleId: role.id, slot, familyId: a.familyId })}
+                                  onDragStart={() => !isLocked && a && setDragSource({ roundId: round.id, roleId: role.id, slot, familyId: a.familyId })}
                                   onDragEnd={() => { setDragSource(null); setDragOverKey(null); }}
-                                  onDragOver={(e) => { if (dragSource?.roleId === role.id) { e.preventDefault(); setDragOverKey(dropKey); } }}
+                                  onDragOver={(e) => { if (!isLocked && dragSource?.roleId === role.id) { e.preventDefault(); setDragOverKey(dropKey); } }}
                                   onDragLeave={() => setDragOverKey(null)}
-                                  onDrop={() => handleDrop(round.id, role.id, slot, a?.familyId ?? null)}
-                                  onClick={() => { if (!dragSource) openOverrideDialog(round.id, role.id, role.roleName, round.roundNumber, slot); }}
+                                  onDrop={() => !isLocked && handleDrop(round.id, role.id, slot, a?.familyId ?? null)}
+                                  onClick={() => { if (!isLocked && !dragSource) openOverrideDialog(round.id, role.id, role.roleName, round.roundNumber, slot); }}
                                 >
                                   {a ? (
                                     <>
-                                      {hasConflict && <span className="mr-0.5">⚠</span>}
+                                      {!isLocked && hasConflict && <span className="mr-0.5">⚠</span>}
                                       {resolveAssignName(role.id, a.familyId)}
                                     </>
                                   ) : <span className="text-gray-300">—</span>}
@@ -832,7 +862,7 @@ export default function ManagerRosterPage() {
               </TableBody>
             </Table>
           </div>
-          <p className="text-xs text-gray-400 mt-2">Click a cell to reassign. Drag a name to swap with another round. Fixed roles cannot be changed.</p>
+          <p className="text-xs text-gray-400 mt-2">Click a cell to reassign. Drag a name to swap with another round. Click 🔓 on a round to lock it — locked rounds are preserved during regeneration.</p>
         </div>
       )}
 

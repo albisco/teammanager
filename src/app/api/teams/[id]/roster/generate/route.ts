@@ -45,6 +45,11 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
   const futureRounds = rounds.filter((r) => !r.date || r.date >= today);
   const pastRoundIds = rounds.filter((r) => r.date && r.date < today).map((r) => r.id);
 
+  // Locked future rounds are preserved — their assignments seed the fairness
+  // counters so regenerated rounds account for what locked rounds assigned.
+  const lockedFutureRoundIds = new Set(futureRounds.filter((r) => r.isRosterLocked).map((r) => r.id));
+  const roundsToGenerate = futureRounds.filter((r) => !lockedFutureRoundIds.has(r.id));
+
   // Validate prerequisites
   const activeRounds = rounds.filter((r) => !r.isBye);
   if (activeRounds.length === 0) {
@@ -94,8 +99,16 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
     }
   }
 
+  // Fetch existing assignments for locked future rounds to seed fairness counters
+  const lockedAssignmentRows = lockedFutureRoundIds.size > 0
+    ? await prisma.rosterAssignment.findMany({
+        where: { roundId: { in: Array.from(lockedFutureRoundIds) } },
+        select: { teamDutyRoleId: true, assignedFamilyId: true },
+      })
+    : [];
+
   const input = {
-    rounds: futureRounds.map((r) => ({
+    rounds: roundsToGenerate.map((r) => ({
       id: r.id,
       roundNumber: r.roundNumber,
       isBye: r.isBye,
@@ -120,6 +133,7 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
       familyId: u.familyId,
       roundId: u.roundId,
     })),
+    lockedAssignments: lockedAssignmentRows,
   };
 
   const assignments = generateRoster(input);
@@ -136,11 +150,12 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
     familyMap,
   };
 
-  // Delete existing future assignments and create new ones (past rounds are preserved)
-  const futureRoundIds = futureRounds.map((r) => r.id);
+  // Delete existing assignments for unlocked future rounds only, then create new ones.
+  // Locked future rounds and all past rounds are untouched.
+  const unlockedFutureRoundIds = roundsToGenerate.map((r) => r.id);
   await prisma.$transaction([
     prisma.rosterAssignment.deleteMany({
-      where: { roundId: { in: futureRoundIds }, teamDutyRoleId: { in: teamDutyRoles.map((r) => r.id) } },
+      where: { roundId: { in: unlockedFutureRoundIds }, teamDutyRoleId: { in: teamDutyRoles.map((r) => r.id) } },
     }),
     prisma.rosterAssignment.createMany({
       data: assignments.map((a) => ({
@@ -156,5 +171,6 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
   return NextResponse.json({
     count: assignments.length,
     skippedPastRounds: pastRoundIds.length,
+    skippedLockedRounds: lockedFutureRoundIds.size,
   });
 }

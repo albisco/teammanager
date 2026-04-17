@@ -49,7 +49,7 @@ export async function GET() {
     prisma.round.findMany({
       where: { teamId },
       orderBy: { roundNumber: "asc" },
-      select: { id: true, roundNumber: true, isBye: true, date: true, gameTime: true, opponent: true, venue: true },
+      select: { id: true, roundNumber: true, isBye: true, date: true, gameTime: true, opponent: true, venue: true, isRosterLocked: true },
     }),
     prisma.rosterAssignment.findMany({
       where: { round: { teamId } },
