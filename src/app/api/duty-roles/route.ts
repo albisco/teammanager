@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const { roleName } = await req.json();
+  const { roleName, isVotingRole } = await req.json();
   if (!roleName?.trim()) {
     return NextResponse.json({ error: "Role name is required" }, { status: 400 });
   }
@@ -38,7 +38,14 @@ export async function POST(req: NextRequest) {
     });
     const nextSortOrder = (maxRole?.sortOrder ?? -1) + 1;
 
-    const role = await prisma.dutyRole.create({ data: { roleName: roleName.trim(), clubId, sortOrder: nextSortOrder } });
+    const role = await prisma.dutyRole.create({
+      data: {
+        roleName: roleName.trim(),
+        clubId,
+        sortOrder: nextSortOrder,
+        isVotingRole: !!isVotingRole,
+      },
+    });
     return NextResponse.json(role, { status: 201 });
   } catch (err: unknown) {
     if (err && typeof err === "object" && "code" in err && err.code === "P2002") {
@@ -55,7 +62,7 @@ export async function PUT(req: NextRequest) {
   }
 
   const clubId = (session.user as Record<string, unknown>)?.clubId as string;
-  const { id, roleName } = await req.json();
+  const { id, roleName, isVotingRole } = await req.json();
   if (!id || !roleName?.trim()) {
     return NextResponse.json({ error: "ID and role name are required" }, { status: 400 });
   }
@@ -68,7 +75,10 @@ export async function PUT(req: NextRequest) {
   try {
     const role = await prisma.dutyRole.update({
       where: { id },
-      data: { roleName: roleName.trim() },
+      data: {
+        roleName: roleName.trim(),
+        isVotingRole: isVotingRole !== undefined ? !!isVotingRole : undefined,
+      },
     });
     return NextResponse.json(role);
   } catch (err: unknown) {

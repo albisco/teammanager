@@ -65,8 +65,10 @@ export async function GET(req: NextRequest) {
     }),
     // Distinct rostered family ids per round so the admin can see how many
     // families qualify for the per-round parent vote dropdown.
+    // Match the same isVotingRole filter used on the vote page so the admin
+    // count reflects exactly what voters will see in the dropdown.
     prisma.rosterAssignment.findMany({
-      where: { round: { teamId } },
+      where: { round: { teamId }, teamDutyRole: { dutyRole: { isVotingRole: true } } },
       select: { roundId: true, assignedFamilyId: true },
     }),
   ]);

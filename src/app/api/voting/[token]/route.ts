@@ -52,8 +52,14 @@ export async function GET(_req: NextRequest, { params }: { params: { token: stri
   // manually assigned. When enforcement is off we skip this work.
   let rosteredFamilies: { id: string; name: string; playerIds: string[] }[] = [];
   if (enforceFamilyVoteExclusion) {
+    // Only assignments to roles marked isVotingRole determine who can cast a
+    // parent vote — admins designate exactly one duty role (e.g. "Voting") as
+    // the eligibility gate.
     const rosterRows = await prisma.rosterAssignment.findMany({
-      where: { roundId: votingSession.roundId },
+      where: {
+        roundId: votingSession.roundId,
+        teamDutyRole: { dutyRole: { isVotingRole: true } },
+      },
       select: { assignedFamilyId: true },
     });
     const rosteredIds = new Set(rosterRows.map((r) => r.assignedFamilyId));
