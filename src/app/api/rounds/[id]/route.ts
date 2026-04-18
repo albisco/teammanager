@@ -30,8 +30,15 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
-  if (session?.user?.role !== "ADMIN" && session?.user?.role !== "SUPER_ADMIN") {
+  const role = session?.user?.role;
+  if (role !== "ADMIN" && role !== "SUPER_ADMIN" && role !== "TEAM_MANAGER") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  if (role === "TEAM_MANAGER") {
+    const userId = (session!.user as { id: string }).id;
+    const round = await prisma.round.findUnique({ where: { id: params.id }, select: { team: { select: { managerId: true } } } });
+    if (round?.team.managerId !== userId) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   await prisma.round.delete({ where: { id: params.id } });

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,11 +25,15 @@ interface Round {
 }
 
 export default function ManagerFixturePage() {
+  const { data: session } = useSession();
+  const teamId = (session?.user as Record<string, unknown> | undefined)?.teamId as string | null;
   const [rounds, setRounds] = useState<Round[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editingRound, setEditingRound] = useState<Round | null>(null);
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [form, setForm] = useState({ date: "", gameTime: "", opponent: "", venue: "" });
+  const [addForm, setAddForm] = useState({ roundNumber: "", date: "", gameTime: "", opponent: "", venue: "", isBye: false });
 
   useEffect(() => {
     fetch("/api/manager/team")
@@ -73,11 +78,60 @@ export default function ManagerFixturePage() {
     setSaving(false);
   }
 
+  function openAdd() {
+    const next = rounds.length ? Math.max(...rounds.map((r) => r.roundNumber)) + 1 : 1;
+    setAddForm({ roundNumber: String(next), date: "", gameTime: "", opponent: "", venue: "", isBye: false });
+    setAddDialogOpen(true);
+  }
+
+  async function handleAdd() {
+    if (!teamId) { toast.error("No team"); return; }
+    if (!addForm.roundNumber) { toast.error("Round number required"); return; }
+    setSaving(true);
+    const res = await fetch("/api/rounds", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        teamId,
+        roundNumber: parseInt(addForm.roundNumber),
+        date: addForm.date || null,
+        gameTime: addForm.gameTime || null,
+        opponent: addForm.opponent || null,
+        venue: addForm.venue || null,
+        isBye: addForm.isBye,
+      }),
+    });
+    if (res.ok) {
+      const created: Round = await res.json();
+      setRounds((prev) => [...prev, created].sort((a, b) => a.roundNumber - b.roundNumber));
+      setAddDialogOpen(false);
+      toast.success("Round added");
+    } else {
+      const d = await res.json().catch(() => ({}));
+      toast.error(d.error || "Failed to add");
+    }
+    setSaving(false);
+  }
+
+  async function handleDelete(round: Round) {
+    if (!confirm(`Delete round ${round.roundNumber}?`)) return;
+    const res = await fetch(`/api/rounds/${round.id}`, { method: "DELETE" });
+    if (res.ok) {
+      setRounds((prev) => prev.filter((r) => r.id !== round.id));
+      toast.success("Round deleted");
+    } else {
+      toast.error("Failed to delete");
+    }
+  }
+
   if (loading) return <p className="text-gray-500">Loading...</p>;
 
   return (
     <div>
-      <h1 className="text-3xl font-bold mb-6">Fixture</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-3xl font-bold">Fixture</h1>
+        <Button onClick={openAdd}>Add Round</Button>
+      </div>
 
       <div className="bg-card rounded-lg border">
         <Table>
@@ -123,11 +177,16 @@ export default function ManagerFixturePage() {
                       : <Badge variant="outline">Active</Badge>}
                   </TableCell>
                   <TableCell>
-                    {!round.isBye && (
-                      <Button variant="outline" size="sm" onClick={() => openEdit(round)}>
-                        Edit
+                    <div className="flex gap-2">
+                      {!round.isBye && (
+                        <Button variant="outline" size="sm" onClick={() => openEdit(round)}>
+                          Edit
+                        </Button>
+                      )}
+                      <Button variant="destructive" size="sm" onClick={() => handleDelete(round)}>
+                        Delete
                       </Button>
-                    )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
@@ -135,7 +194,46 @@ export default function ManagerFixturePage() {
           </TableBody>
         </Table>
       </div>
-      <p className="text-xs text-gray-400 mt-2">Contact your club admin to add or remove rounds.</p>
+
+      <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Round</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Round Number *</Label>
+                <Input type="number" value={addForm.roundNumber} onChange={(e) => setAddForm({ ...addForm, roundNumber: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Date</Label>
+                <Input type="date" value={addForm.date} onChange={(e) => setAddForm({ ...addForm, date: e.target.value })} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Game Time</Label>
+              <Input type="time" value={addForm.gameTime} onChange={(e) => setAddForm({ ...addForm, gameTime: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Opponent</Label>
+              <Input value={addForm.opponent} onChange={(e) => setAddForm({ ...addForm, opponent: e.target.value })} placeholder="e.g. Smithfield Roos" />
+            </div>
+            <div className="space-y-2">
+              <Label>Venue</Label>
+              <Input value={addForm.venue} onChange={(e) => setAddForm({ ...addForm, venue: e.target.value })} placeholder="e.g. Central Oval" />
+            </div>
+            <div className="flex items-center gap-2">
+              <input id="isBye" type="checkbox" checked={addForm.isBye} onChange={(e) => setAddForm({ ...addForm, isBye: e.target.checked })} />
+              <Label htmlFor="isBye" className="cursor-pointer">Bye round</Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleAdd} disabled={saving}>{saving ? "Saving..." : "Add"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!editingRound} onOpenChange={(open) => { if (!open) setEditingRound(null); }}>
         <DialogContent>

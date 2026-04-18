@@ -22,7 +22,8 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (session?.user?.role !== "ADMIN" && session?.user?.role !== "SUPER_ADMIN") {
+  const role = session?.user?.role;
+  if (role !== "ADMIN" && role !== "SUPER_ADMIN" && role !== "TEAM_MANAGER") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -31,6 +32,12 @@ export async function POST(req: NextRequest) {
 
   if (!teamId || roundNumber == null) {
     return NextResponse.json({ error: "teamId and roundNumber are required" }, { status: 400 });
+  }
+
+  if (role === "TEAM_MANAGER") {
+    const userId = (session!.user as { id: string }).id;
+    const team = await prisma.team.findFirst({ where: { id: teamId, managerId: userId }, select: { id: true } });
+    if (!team) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const round = await prisma.round.create({
