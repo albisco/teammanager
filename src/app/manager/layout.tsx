@@ -13,6 +13,7 @@ type NavItem = {
   label: string;
   requiresAiChat?: boolean;
   requiresRoster?: boolean;
+  requiresAwards?: boolean;
 };
 
 const navItems: NavItem[] = [
@@ -21,7 +22,7 @@ const navItems: NavItem[] = [
   { href: "/manager/fixture", label: "Fixture" },
   { href: "/manager/voting", label: "Voting" },
   { href: "/manager/roster", label: "Roster", requiresRoster: true },
-  { href: "/manager/awards", label: "Awards" },
+  { href: "/manager/awards", label: "Awards", requiresAwards: true },
   { href: "/manager/ask", label: "Ask AI", requiresAiChat: true },
 ];
 
@@ -107,6 +108,7 @@ export default function ManagerLayout({ children }: { children: React.ReactNode 
             const user = session?.user as Record<string, unknown> | undefined;
             if (item.requiresAiChat && user?.enableAiChat === false) return false;
             if (item.requiresRoster && user?.teamEnableRoster === false) return false;
+            if (item.requiresAwards && user?.teamEnableAwards === false) return false;
             return true;
           }).map((item) => (
             <Link

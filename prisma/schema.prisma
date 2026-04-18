@@ -136,6 +136,7 @@ model Team {
   coachVoterCount   Int    @default(1)
   selfManaged       Boolean @default(false)
   enableRoster      Boolean @default(true)
+  enableAwards      Boolean @default(true)
   availabilityToken       String? @unique @default(cuid())
   playerAvailabilityToken String? @unique @default(cuid())
 

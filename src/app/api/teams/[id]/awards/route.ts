@@ -20,6 +20,9 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     }
   }
 
+  const team = await prisma.team.findUnique({ where: { id: teamId }, select: { enableAwards: true } });
+  if (!team?.enableAwards) return NextResponse.json({ error: "Awards disabled for this team" }, { status: 403 });
+
   const [rounds, awardTypes, awards, teamPlayers] = await Promise.all([
     prisma.round.findMany({
       where: { teamId },
@@ -96,6 +99,9 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
   }
+
+  const teamGate = await prisma.team.findUnique({ where: { id: teamId }, select: { enableAwards: true } });
+  if (!teamGate?.enableAwards) return NextResponse.json({ error: "Awards disabled for this team" }, { status: 403 });
 
   const { roundId, awardTypeId, slot, playerId, notes } = await req.json();
 

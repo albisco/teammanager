@@ -18,6 +18,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     }
   }
 
+  const teamGate = await prisma.team.findUnique({ where: { id: teamId }, select: { enableAwards: true } });
+  if (!teamGate?.enableAwards) return NextResponse.json({ error: "Awards disabled for this team" }, { status: 403 });
+
   const { name, description, quantity } = await req.json();
 
   if (!name?.trim()) {

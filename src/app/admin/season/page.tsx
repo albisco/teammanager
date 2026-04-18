@@ -52,6 +52,7 @@ interface TeamSummary {
   coachVoterCount: number;
   selfManaged?: boolean;
   enableRoster?: boolean;
+  enableAwards?: boolean;
   manager: UserInfo | null;
   _count: { players: number; rounds: number };
 }
@@ -90,7 +91,7 @@ export default function SeasonPage() {
   // Team dialog
   const [teamDialogOpen, setTeamDialogOpen] = useState(false);
   const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
-  const [teamForm, setTeamForm] = useState({ name: "", ageGroup: "", votingScheme: "5,4,3,2,1", selfManaged: false, enableRoster: true });
+  const [teamForm, setTeamForm] = useState({ name: "", ageGroup: "", votingScheme: "5,4,3,2,1", selfManaged: false, enableRoster: true, enableAwards: true });
 
   // Round dialog
   const [roundDialogOpen, setRoundDialogOpen] = useState(false);
@@ -224,7 +225,7 @@ export default function SeasonPage() {
   // === Team CRUD ===
   function openAddTeam() {
     setEditingTeamId(null);
-    setTeamForm({ name: "", ageGroup: "", votingScheme: "5,4,3,2,1", selfManaged: false, enableRoster: true });
+    setTeamForm({ name: "", ageGroup: "", votingScheme: "5,4,3,2,1", selfManaged: false, enableRoster: true, enableAwards: true });
     setTeamDialogOpen(true);
   }
   function openEditTeam(team: TeamSummary) {
@@ -235,6 +236,7 @@ export default function SeasonPage() {
       votingScheme: (team.votingScheme as number[]).join(","),
       selfManaged: (team as TeamSummary & { selfManaged?: boolean }).selfManaged ?? false,
       enableRoster: (team as TeamSummary & { enableRoster?: boolean }).enableRoster ?? true,
+      enableAwards: (team as TeamSummary & { enableAwards?: boolean }).enableAwards ?? true,
     });
     setTeamDialogOpen(true);
   }
@@ -646,6 +648,20 @@ export default function SeasonPage() {
               </button>
               <Label className="cursor-pointer" onClick={() => setTeamForm({ ...teamForm, enableRoster: !teamForm.enableRoster })}>
                 Enable duty roster
+              </Label>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={teamForm.enableAwards}
+                onClick={() => setTeamForm({ ...teamForm, enableAwards: !teamForm.enableAwards })}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${teamForm.enableAwards ? "bg-primary" : "bg-gray-200"}`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${teamForm.enableAwards ? "translate-x-6" : "translate-x-1"}`} />
+              </button>
+              <Label className="cursor-pointer" onClick={() => setTeamForm({ ...teamForm, enableAwards: !teamForm.enableAwards })}>
+                Enable awards
               </Label>
             </div>
           </div>

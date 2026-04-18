@@ -30,14 +30,16 @@ export const authOptions: NextAuthOptions = {
         let teamId: string | null = null;
         let teamSelfManaged = false;
         let teamEnableRoster = true;
+        let teamEnableAwards = true;
         if (user.role === "TEAM_MANAGER") {
           const team = await prisma.team.findFirst({
             where: { managerId: user.id },
-            select: { id: true, selfManaged: true, enableRoster: true },
+            select: { id: true, selfManaged: true, enableRoster: true, enableAwards: true },
           });
           teamId = team?.id ?? null;
           teamSelfManaged = team?.selfManaged ?? false;
           teamEnableRoster = team?.enableRoster ?? true;
+          teamEnableAwards = team?.enableAwards ?? true;
         }
 
         let isAdultClub = false;
@@ -65,6 +67,7 @@ export const authOptions: NextAuthOptions = {
           enablePlayHq,
           teamSelfManaged,
           teamEnableRoster,
+          teamEnableAwards,
         };
       },
     }),
@@ -82,6 +85,7 @@ export const authOptions: NextAuthOptions = {
         token.enablePlayHq = u.enablePlayHq as boolean;
         token.teamSelfManaged = u.teamSelfManaged as boolean;
         token.teamEnableRoster = u.teamEnableRoster as boolean;
+        token.teamEnableAwards = u.teamEnableAwards as boolean;
       }
       return token;
     },
@@ -97,6 +101,7 @@ export const authOptions: NextAuthOptions = {
         s.enablePlayHq = token.enablePlayHq;
         s.teamSelfManaged = token.teamSelfManaged;
         s.teamEnableRoster = token.teamEnableRoster;
+        s.teamEnableAwards = token.teamEnableAwards;
       }
       return session;
     },
