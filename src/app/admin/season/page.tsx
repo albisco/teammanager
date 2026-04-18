@@ -50,6 +50,8 @@ interface TeamSummary {
   votingScheme: number[];
   parentVoterCount: number;
   coachVoterCount: number;
+  selfManaged?: boolean;
+  enableRoster?: boolean;
   manager: UserInfo | null;
   _count: { players: number; rounds: number };
 }
@@ -88,7 +90,7 @@ export default function SeasonPage() {
   // Team dialog
   const [teamDialogOpen, setTeamDialogOpen] = useState(false);
   const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
-  const [teamForm, setTeamForm] = useState({ name: "", ageGroup: "", votingScheme: "5,4,3,2,1" });
+  const [teamForm, setTeamForm] = useState({ name: "", ageGroup: "", votingScheme: "5,4,3,2,1", selfManaged: false, enableRoster: true });
 
   // Round dialog
   const [roundDialogOpen, setRoundDialogOpen] = useState(false);
@@ -222,7 +224,7 @@ export default function SeasonPage() {
   // === Team CRUD ===
   function openAddTeam() {
     setEditingTeamId(null);
-    setTeamForm({ name: "", ageGroup: "", votingScheme: "5,4,3,2,1" });
+    setTeamForm({ name: "", ageGroup: "", votingScheme: "5,4,3,2,1", selfManaged: false, enableRoster: true });
     setTeamDialogOpen(true);
   }
   function openEditTeam(team: TeamSummary) {
@@ -231,6 +233,8 @@ export default function SeasonPage() {
       name: team.name,
       ageGroup: team.ageGroup,
       votingScheme: (team.votingScheme as number[]).join(","),
+      selfManaged: (team as TeamSummary & { selfManaged?: boolean }).selfManaged ?? false,
+      enableRoster: (team as TeamSummary & { enableRoster?: boolean }).enableRoster ?? true,
     });
     setTeamDialogOpen(true);
   }
@@ -615,6 +619,34 @@ export default function SeasonPage() {
               <Label>Voting Scheme (comma-separated points)</Label>
               <Input value={teamForm.votingScheme} onChange={(e) => setTeamForm({ ...teamForm, votingScheme: e.target.value })} placeholder="5,4,3,2,1" />
               <p className="text-xs text-gray-500">Points awarded for each vote position (best to least)</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={teamForm.selfManaged}
+                onClick={() => setTeamForm({ ...teamForm, selfManaged: !teamForm.selfManaged })}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${teamForm.selfManaged ? "bg-primary" : "bg-gray-200"}`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${teamForm.selfManaged ? "translate-x-6" : "translate-x-1"}`} />
+              </button>
+              <Label className="cursor-pointer" onClick={() => setTeamForm({ ...teamForm, selfManaged: !teamForm.selfManaged })}>
+                Self-managed (players vote each other, no team staff)
+              </Label>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={teamForm.enableRoster}
+                onClick={() => setTeamForm({ ...teamForm, enableRoster: !teamForm.enableRoster })}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${teamForm.enableRoster ? "bg-primary" : "bg-gray-200"}`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${teamForm.enableRoster ? "translate-x-6" : "translate-x-1"}`} />
+              </button>
+              <Label className="cursor-pointer" onClick={() => setTeamForm({ ...teamForm, enableRoster: !teamForm.enableRoster })}>
+                Enable duty roster
+              </Label>
             </div>
           </div>
           <DialogFooter>

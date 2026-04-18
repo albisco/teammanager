@@ -8,14 +8,21 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 
-const navItems = [
+type NavItem = {
+  href: string;
+  label: string;
+  requiresAiChat?: boolean;
+  requiresRoster?: boolean;
+};
+
+const navItems: NavItem[] = [
   { href: "/manager/dashboard", label: "Dashboard" },
   { href: "/manager/players", label: "Players" },
   { href: "/manager/fixture", label: "Fixture" },
   { href: "/manager/voting", label: "Voting" },
-  { href: "/manager/roster", label: "Roster" },
+  { href: "/manager/roster", label: "Roster", requiresRoster: true },
   { href: "/manager/awards", label: "Awards" },
-  { href: "/manager/ask", label: "Ask AI" },
+  { href: "/manager/ask", label: "Ask AI", requiresAiChat: true },
 ];
 
 export default function ManagerLayout({ children }: { children: React.ReactNode }) {
@@ -96,7 +103,12 @@ export default function ManagerLayout({ children }: { children: React.ReactNode 
           </div>
         </div>
         <nav className="flex-1 p-4 space-y-1">
-          {navItems.map((item) => (
+          {navItems.filter((item) => {
+            const user = session?.user as Record<string, unknown> | undefined;
+            if (item.requiresAiChat && user?.enableAiChat === false) return false;
+            if (item.requiresRoster && user?.teamEnableRoster === false) return false;
+            return true;
+          }).map((item) => (
             <Link
               key={item.href}
               href={item.href}

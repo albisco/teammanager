@@ -19,6 +19,8 @@ interface Club {
   name: string;
   slug: string;
   isAdultClub: boolean;
+  enableAiChat: boolean;
+  enablePlayHq: boolean;
   createdAt: string;
   _count: { users: number; seasons: number; players: number };
 }
@@ -34,6 +36,8 @@ export default function ClubsPage() {
     name: "",
     slug: "",
     isAdultClub: false,
+    enableAiChat: true,
+    enablePlayHq: true,
     adminName: "",
     adminEmail: "",
     adminPassword: "",
@@ -65,13 +69,13 @@ export default function ClubsPage() {
 
   function openAdd() {
     setEditingClub(null);
-    setForm({ name: "", slug: "", isAdultClub: false, adminName: "", adminEmail: "", adminPassword: "" });
+    setForm({ name: "", slug: "", isAdultClub: false, enableAiChat: true, enablePlayHq: true, adminName: "", adminEmail: "", adminPassword: "" });
     setDialogOpen(true);
   }
 
   function openEdit(club: Club) {
     setEditingClub(club);
-    setForm({ name: club.name, slug: club.slug, isAdultClub: club.isAdultClub, adminName: "", adminEmail: "", adminPassword: "" });
+    setForm({ name: club.name, slug: club.slug, isAdultClub: club.isAdultClub, enableAiChat: club.enableAiChat, enablePlayHq: club.enablePlayHq, adminName: "", adminEmail: "", adminPassword: "" });
     setDialogOpen(true);
   }
 
@@ -87,7 +91,7 @@ export default function ClubsPage() {
       const res = await fetch("/api/clubs", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: editingClub.id, name: form.name, slug: form.slug, isAdultClub: form.isAdultClub }),
+        body: JSON.stringify({ id: editingClub.id, name: form.name, slug: form.slug, isAdultClub: form.isAdultClub, enableAiChat: form.enableAiChat, enablePlayHq: form.enablePlayHq }),
       });
       if (res.ok) {
         toast.success("Club updated");
@@ -224,6 +228,34 @@ export default function ClubsPage() {
               </button>
               <Label className="cursor-pointer" onClick={() => setForm({ ...form, isAdultClub: !form.isAdultClub })}>
                 Adult club (player availability &amp; player voting)
+              </Label>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={form.enableAiChat}
+                onClick={() => setForm({ ...form, enableAiChat: !form.enableAiChat })}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ${form.enableAiChat ? "bg-primary" : "bg-gray-200"}`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${form.enableAiChat ? "translate-x-6" : "translate-x-1"}`} />
+              </button>
+              <Label className="cursor-pointer" onClick={() => setForm({ ...form, enableAiChat: !form.enableAiChat })}>
+                Enable Ask AI
+              </Label>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={form.enablePlayHq}
+                onClick={() => setForm({ ...form, enablePlayHq: !form.enablePlayHq })}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ${form.enablePlayHq ? "bg-primary" : "bg-gray-200"}`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${form.enablePlayHq ? "translate-x-6" : "translate-x-1"}`} />
+              </button>
+              <Label className="cursor-pointer" onClick={() => setForm({ ...form, enablePlayHq: !form.enablePlayHq })}>
+                Enable PlayHQ integration
               </Label>
             </div>
 

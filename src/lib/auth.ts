@@ -28,21 +28,29 @@ export const authOptions: NextAuthOptions = {
         if (!isValid) return null;
 
         let teamId: string | null = null;
+        let teamSelfManaged = false;
+        let teamEnableRoster = true;
         if (user.role === "TEAM_MANAGER") {
           const team = await prisma.team.findFirst({
             where: { managerId: user.id },
-            select: { id: true },
+            select: { id: true, selfManaged: true, enableRoster: true },
           });
           teamId = team?.id ?? null;
+          teamSelfManaged = team?.selfManaged ?? false;
+          teamEnableRoster = team?.enableRoster ?? true;
         }
 
         let isAdultClub = false;
+        let enableAiChat = true;
+        let enablePlayHq = true;
         if (user.clubId) {
           const club = await prisma.club.findUnique({
             where: { id: user.clubId },
-            select: { isAdultClub: true },
+            select: { isAdultClub: true, enableAiChat: true, enablePlayHq: true },
           });
           isAdultClub = club?.isAdultClub ?? false;
+          enableAiChat = club?.enableAiChat ?? true;
+          enablePlayHq = club?.enablePlayHq ?? true;
         }
 
         return {
@@ -53,6 +61,10 @@ export const authOptions: NextAuthOptions = {
           clubId: user.clubId,
           teamId,
           isAdultClub,
+          enableAiChat,
+          enablePlayHq,
+          teamSelfManaged,
+          teamEnableRoster,
         };
       },
     }),
@@ -66,6 +78,10 @@ export const authOptions: NextAuthOptions = {
         token.clubId = u.clubId as string;
         token.teamId = u.teamId as string | null;
         token.isAdultClub = u.isAdultClub as boolean;
+        token.enableAiChat = u.enableAiChat as boolean;
+        token.enablePlayHq = u.enablePlayHq as boolean;
+        token.teamSelfManaged = u.teamSelfManaged as boolean;
+        token.teamEnableRoster = u.teamEnableRoster as boolean;
       }
       return token;
     },
@@ -77,6 +93,10 @@ export const authOptions: NextAuthOptions = {
         s.clubId = token.clubId;
         s.teamId = token.teamId;
         s.isAdultClub = token.isAdultClub;
+        s.enableAiChat = token.enableAiChat;
+        s.enablePlayHq = token.enablePlayHq;
+        s.teamSelfManaged = token.teamSelfManaged;
+        s.teamEnableRoster = token.teamEnableRoster;
       }
       return session;
     },

@@ -45,6 +45,7 @@ export async function GET(_req: NextRequest, { params }: { params: { token: stri
       ageGroup: votingSession.round.team.ageGroup,
       seasonName: votingSession.round.team.season.name,
       votingScheme: votingSession.round.team.votingScheme,
+      selfManaged: votingSession.round.team.selfManaged,
     },
     players: votingSession.round.team.players
       .map((tp) => tp.player)

@@ -85,6 +85,13 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  if (user.enableAiChat === false) {
+    return NextResponse.json(
+      { error: "AI chat is disabled for this club" },
+      { status: 403 }
+    );
+  }
+
   // Check for API key
   if (!process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json(

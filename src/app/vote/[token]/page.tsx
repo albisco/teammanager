@@ -20,7 +20,7 @@ interface VotingData {
   status: "OPEN" | "CLOSED";
   isAdultClub: boolean;
   round: { roundNumber: number; opponent: string | null; date: string | null };
-  team: { name: string; ageGroup: string; seasonName: string; votingScheme: number[] };
+  team: { name: string; ageGroup: string; seasonName: string; votingScheme: number[]; selfManaged: boolean };
   players: Player[];
 }
 
@@ -47,6 +47,7 @@ export default function VotePage() {
       .then((d: VotingData) => {
         setData(d);
         setRankings(new Array(d.team.votingScheme.length).fill(null));
+        if (d.team.selfManaged) setVoterType("PLAYER");
       })
       .catch(() => setError("Voting session not found"));
   }, [token]);
@@ -118,6 +119,7 @@ export default function VotePage() {
       body: JSON.stringify({
         voterName: voterName.trim(),
         voterType,
+        voterPlayerId: voterType === "PLAYER" ? selfPlayerId : undefined,
         rankings: rankings.map((playerId) => ({ playerId })),
       }),
     });
@@ -147,34 +149,36 @@ export default function VotePage() {
         <CardContent>
           {step === "name" && (
             <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>I am a...</Label>
-                <div className="flex gap-2">
-                  <Button
-                    variant={voterType === "PARENT" ? "default" : "outline"}
-                    onClick={() => { setVoterType("PARENT"); setSelfPlayerId(""); setVoterName(""); }}
-                    className="flex-1"
-                  >
-                    Parent
-                  </Button>
-                  <Button
-                    variant={voterType === "COACH" ? "default" : "outline"}
-                    onClick={() => { setVoterType("COACH"); setSelfPlayerId(""); setVoterName(""); }}
-                    className="flex-1"
-                  >
-                    Coach
-                  </Button>
-                  {data.isAdultClub && (
+              {!data.team.selfManaged && (
+                <div className="space-y-2">
+                  <Label>I am a...</Label>
+                  <div className="flex gap-2">
                     <Button
-                      variant={voterType === "PLAYER" ? "default" : "outline"}
-                      onClick={() => { setVoterType("PLAYER"); setVoterName(""); }}
+                      variant={voterType === "PARENT" ? "default" : "outline"}
+                      onClick={() => { setVoterType("PARENT"); setSelfPlayerId(""); setVoterName(""); }}
                       className="flex-1"
                     >
-                      Player
+                      Parent
                     </Button>
-                  )}
+                    <Button
+                      variant={voterType === "COACH" ? "default" : "outline"}
+                      onClick={() => { setVoterType("COACH"); setSelfPlayerId(""); setVoterName(""); }}
+                      className="flex-1"
+                    >
+                      Coach
+                    </Button>
+                    {data.isAdultClub && (
+                      <Button
+                        variant={voterType === "PLAYER" ? "default" : "outline"}
+                        onClick={() => { setVoterType("PLAYER"); setVoterName(""); }}
+                        className="flex-1"
+                      >
+                        Player
+                      </Button>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {voterType === "PLAYER" ? (
                 <div className="space-y-2">

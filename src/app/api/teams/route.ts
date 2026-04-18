@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { name, ageGroup, seasonId, votingScheme, parentVoterCount, coachVoterCount } = body;
+  const { name, ageGroup, seasonId, votingScheme, parentVoterCount, coachVoterCount, selfManaged, enableRoster } = body;
 
   if (!name || !ageGroup || !seasonId) {
     return NextResponse.json({ error: "Name, age group, and season are required" }, { status: 400 });
@@ -43,6 +43,8 @@ export async function POST(req: NextRequest) {
       votingScheme: votingScheme || [5, 4, 3, 2, 1],
       parentVoterCount: parentVoterCount ? parseInt(parentVoterCount) : 3,
       coachVoterCount: coachVoterCount ? parseInt(coachVoterCount) : 1,
+      ...(selfManaged !== undefined && { selfManaged: !!selfManaged }),
+      ...(enableRoster !== undefined && { enableRoster: !!enableRoster }),
     },
   });
 

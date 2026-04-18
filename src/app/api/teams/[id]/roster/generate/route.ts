@@ -13,6 +13,9 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
 
   const teamId = params.id;
 
+  const team = await prisma.team.findUnique({ where: { id: teamId }, select: { enableRoster: true } });
+  if (!team?.enableRoster) return NextResponse.json({ error: "Duty roster disabled for this team" }, { status: 403 });
+
   const [rounds, teamDutyRoles, teamPlayers, exclusions, unavailabilities] = await Promise.all([
     prisma.round.findMany({
       where: { teamId },

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(req: NextRequest, { params }: { params: { token: string } }) {
-  const { voterName, voterType, rankings } = await req.json();
+  const { voterName, voterType, rankings, voterPlayerId } = await req.json();
 
   if (!voterName || !voterType || !rankings || !Array.isArray(rankings)) {
     return NextResponse.json({ error: "voterName, voterType, and rankings are required" }, { status: 400 });
@@ -29,6 +29,21 @@ export async function POST(req: NextRequest, { params }: { params: { token: stri
   const playerIds = rankings.map((r: { playerId: string }) => r.playerId);
   if (new Set(playerIds).size !== playerIds.length) {
     return NextResponse.json({ error: "Each player can only appear once in rankings" }, { status: 400 });
+  }
+
+  // Self-vote block: PLAYER voters cannot vote for themselves
+  if (voterType === "PLAYER") {
+    if (!voterPlayerId) {
+      return NextResponse.json({ error: "voterPlayerId required for PLAYER voter" }, { status: 400 });
+    }
+    if (playerIds.includes(voterPlayerId)) {
+      return NextResponse.json({ error: "You cannot vote for yourself" }, { status: 400 });
+    }
+  }
+
+  // For self-managed teams, only PLAYER voters allowed
+  if (votingSession.round.team.selfManaged && voterType !== "PLAYER") {
+    return NextResponse.json({ error: "This team accepts player votes only" }, { status: 400 });
   }
 
   // Validate rankings match voting scheme length

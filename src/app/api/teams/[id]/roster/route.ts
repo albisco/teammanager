@@ -10,6 +10,10 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 
   const teamId = params.id;
 
+  const team = await prisma.team.findUnique({ where: { id: teamId }, select: { enableRoster: true } });
+  if (!team) return NextResponse.json({ error: "Team not found" }, { status: 404 });
+  if (!team.enableRoster) return NextResponse.json({ error: "Duty roster disabled for this team" }, { status: 403 });
+
   const [rounds, teamDutyRoles, assignments, families] = await Promise.all([
     prisma.round.findMany({
       where: { teamId },
