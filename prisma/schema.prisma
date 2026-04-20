@@ -9,13 +9,15 @@ datasource db {
 }
 
 model Club {
-  id          String   @id @default(cuid())
-  name        String
-  slug        String   @unique
-  isAdultClub Boolean  @default(false)
-  enableAiChat Boolean @default(true)
-  enablePlayHq Boolean @default(true)
-  createdAt   DateTime @default(now())
+  id                         String   @id @default(cuid())
+  name                       String
+  slug                       String   @unique
+  isAdultClub                Boolean  @default(false)
+  enforceFamilyVoteExclusion Boolean  @default(false)
+  maxVotesPerRound           Int      @default(4)
+  enableAiChat               Boolean  @default(true)
+  enablePlayHq               Boolean  @default(true)
+  createdAt                  DateTime @default(now())
 
   users     User[]
   seasons   Season[]
@@ -173,15 +175,16 @@ model TeamPlayer {
 }
 
 model Round {
-  id          String   @id @default(cuid())
-  teamId      String
-  team        Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  roundNumber Int
-  date        DateTime?
-  gameTime    String?
-  isBye       Boolean  @default(false)
-  opponent    String?
-  venue       String?
+  id               String    @id @default(cuid())
+  teamId           String
+  team             Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  roundNumber      Int
+  date             DateTime?
+  gameTime         String?
+  isBye            Boolean   @default(false)
+  opponent         String?
+  venue            String?
+  isRosterLocked   Boolean   @default(false)
 
   votingSession          VotingSession?
   rosterAssignments      RosterAssignment[]
@@ -217,11 +220,12 @@ model Vote {
 }
 
 model DutyRole {
-  id        String @id @default(cuid())
-  roleName  String
-  sortOrder Int    @default(0)
-  clubId    String
-  club      Club   @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  id            String  @id @default(cuid())
+  roleName      String
+  sortOrder     Int     @default(0)
+  clubId        String
+  club          Club    @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  isVotingRole  Boolean @default(false)
 
   teamDutyRoles TeamDutyRole[]
 

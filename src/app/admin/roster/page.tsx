@@ -31,6 +31,7 @@ interface GlobalDutyRole {
   id: string;
   roleName: string;
   sortOrder: number;
+  isVotingRole: boolean;
 }
 
 interface SpecialistEntry {
@@ -57,7 +58,8 @@ interface RosterRound {
   roundNumber: number;
   isBye: boolean;
   date: string | null;
-  opponent: string | null;
+  gameTime: string | null;
+  isRosterLocked: boolean;
 }
 
 interface RosterRole {
@@ -109,6 +111,7 @@ export default function RosterPage() {
   const [clubRoleDialogOpen, setClubRoleDialogOpen] = useState(false);
   const [editingClubRole, setEditingClubRole] = useState<GlobalDutyRole | null>(null);
   const [clubRoleName, setClubRoleName] = useState("");
+  const [clubRoleIsVoting, setClubRoleIsVoting] = useState(false);
 
   // Team config dialog
   const [configDialogOpen, setConfigDialogOpen] = useState(false);
@@ -203,12 +206,14 @@ export default function RosterPage() {
   function openAddClubRole() {
     setEditingClubRole(null);
     setClubRoleName("");
+    setClubRoleIsVoting(false);
     setClubRoleDialogOpen(true);
   }
 
   function openEditClubRole(role: GlobalDutyRole) {
     setEditingClubRole(role);
     setClubRoleName(role.roleName);
+    setClubRoleIsVoting(!!role.isVotingRole);
     setClubRoleDialogOpen(true);
   }
 
@@ -216,8 +221,8 @@ export default function RosterPage() {
     setLoading(true);
     const method = editingClubRole ? "PUT" : "POST";
     const body = editingClubRole
-      ? { id: editingClubRole.id, roleName: clubRoleName }
-      : { roleName: clubRoleName };
+      ? { id: editingClubRole.id, roleName: clubRoleName, isVotingRole: clubRoleIsVoting }
+      : { roleName: clubRoleName, isVotingRole: clubRoleIsVoting };
 
     const res = await fetch("/api/duty-roles", {
       method,
@@ -351,16 +356,33 @@ export default function RosterPage() {
     }
   }
 
+  // === Lock/Unlock Round ===
+  async function handleToggleLock(round: RosterRound) {
+    const newLocked = !round.isRosterLocked;
+    const res = await fetch(`/api/rounds/${round.id}/lock`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ locked: newLocked }),
+    });
+    if (res.ok) {
+      toast.success(newLocked ? `Round ${round.roundNumber} locked` : `Round ${round.roundNumber} unlocked`);
+      if (selectedTeam) fetchRosterData(selectedTeam.id);
+    } else {
+      toast.error("Failed to update lock");
+    }
+  }
+
   // === Roster Generation ===
   async function handleGenerate() {
     if (!selectedTeam) return;
-    if (!confirm("This will overwrite any existing roster assignments for this team. Continue?")) return;
+    if (!confirm("This will overwrite roster assignments for unlocked rounds. Locked rounds will be preserved. Continue?")) return;
 
     setGenerating(true);
     const res = await fetch(`/api/teams/${selectedTeam.id}/roster/generate`, { method: "POST" });
     if (res.ok) {
       const data = await res.json();
-      toast.success(`Roster generated — ${data.count} assignments created`);
+      const lockedNote = data.skippedLockedRounds > 0 ? `, ${data.skippedLockedRounds} locked round${data.skippedLockedRounds !== 1 ? "s" : ""} preserved` : "";
+      toast.success(`Roster generated — ${data.count} assignments created${lockedNote}`);
       fetchRosterData(selectedTeam.id);
     } else {
       const data = await res.json();
@@ -465,6 +487,9 @@ export default function RosterPage() {
                   onClick={() => openEditClubRole(role)}
                 >
                   {role.roleName}
+                  {role.isVotingRole && (
+                    <span className="ml-1 text-xs bg-primary text-primary-foreground rounded px-1">Voting</span>
+                  )}
                   <button
                     className="ml-1 text-gray-400 hover:text-red-500"
                     onClick={(e) => { e.stopPropagation(); handleDeleteClubRole(role.id); }}
@@ -572,8 +597,16 @@ export default function RosterPage() {
                       <TableRow>
                         <TableHead className="sticky left-0 bg-card z-10 min-w-[150px]">Family</TableHead>
                         {activeRounds.map((r) => (
-                          <TableHead key={r.id} className="text-center min-w-[60px]">
-                            R{r.roundNumber}
+                          <TableHead key={r.id} className="text-center min-w-[70px]">
+                            <div>R{r.roundNumber}</div>
+                            {r.date && (
+                              <div className="text-xs font-normal text-gray-400">
+                                {new Date(r.date).toLocaleDateString("en-AU", { day: "numeric", month: "short" })}
+                              </div>
+                            )}
+                            {r.gameTime && (
+                              <div className="text-xs font-normal text-gray-400">{r.gameTime}</div>
+                            )}
                           </TableHead>
                         ))}
                       </TableRow>
@@ -586,14 +619,16 @@ export default function RosterPage() {
                           </TableCell>
                           {activeRounds.map((round) => {
                             const isUnavailable = unavailabilities.has(`${family.id}:${round.id}`);
+                            const isLocked = round.isRosterLocked;
                             return (
                               <TableCell key={round.id} className="text-center">
                                 <input
                                   type="checkbox"
-                                  className="rounded border-gray-300 cursor-pointer"
+                                  className={`rounded border-gray-300 ${isLocked ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
                                   checked={isUnavailable}
-                                  onChange={() => toggleUnavailability(family.id, round.id)}
-                                  title={isUnavailable ? "Available" : "Mark unavailable"}
+                                  disabled={isLocked}
+                                  onChange={() => !isLocked && toggleUnavailability(family.id, round.id)}
+                                  title={isLocked ? "Round is locked" : isUnavailable ? "Mark available" : "Mark unavailable"}
                                 />
                               </TableCell>
                             );
@@ -637,9 +672,23 @@ export default function RosterPage() {
                       <TableHead className="sticky left-0 bg-card z-10 min-w-[150px]">Role</TableHead>
                       {activeRounds.map((r) => (
                         <TableHead key={r.id} className="text-center min-w-[100px]">
-                          <div>R{r.roundNumber}</div>
-                          {r.opponent && (
-                            <div className="text-xs font-normal text-gray-400">{r.opponent}</div>
+                          <div className="flex items-center justify-center gap-1">
+                            <span>R{r.roundNumber}</span>
+                            <button
+                              onClick={() => handleToggleLock(r)}
+                              title={r.isRosterLocked ? "Unlock round" : "Lock round"}
+                              className="text-gray-400 hover:text-gray-700 leading-none"
+                            >
+                              {r.isRosterLocked ? "🔒" : "🔓"}
+                            </button>
+                          </div>
+                          {r.date && (
+                            <div className="text-xs font-normal text-gray-400">
+                              {new Date(r.date).toLocaleDateString("en-AU", { day: "numeric", month: "short" })}
+                            </div>
+                          )}
+                          {r.gameTime && (
+                            <div className="text-xs font-normal text-gray-400">{r.gameTime}</div>
                           )}
                         </TableHead>
                       ))}
@@ -659,12 +708,14 @@ export default function RosterPage() {
                         {activeRounds.map((round) => {
                           const assignments = rosterData.assignments[`${round.id}:${role.id}`];
                           const assignment = assignments?.[0];
+                          const isLocked = round.isRosterLocked;
                           return (
                             <TableCell
                               key={round.id}
-                              className="text-center text-sm cursor-pointer hover:bg-blue-50"
+                              className={`text-center text-sm${isLocked ? " bg-gray-50 cursor-default text-gray-500" : " cursor-pointer hover:bg-blue-50"}`}
+                              title={isLocked ? "Round is locked" : undefined}
                               onClick={() => {
-                                openOverrideDialog(round.id, role.id, role.roleName, round.roundNumber);
+                                if (!isLocked) openOverrideDialog(round.id, role.id, role.roleName, round.roundNumber);
                               }}
                             >
                               {assignment ? (
@@ -680,7 +731,7 @@ export default function RosterPage() {
                   </TableBody>
                 </Table>
               </div>
-              <p className="text-xs text-gray-400 mt-2">Click a cell to reassign. Fixed roles cannot be changed here.</p>
+              <p className="text-xs text-gray-400 mt-2">Click a cell to reassign. Click 🔓 on a round to lock it — locked rounds are preserved during regeneration.</p>
             </div>
           )}
         </>
@@ -700,6 +751,23 @@ export default function RosterPage() {
                 onChange={(e) => setClubRoleName(e.target.value)}
                 placeholder="e.g. Goal Umpire, Canteen, Photographer"
               />
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <Label>Voting eligibility role</Label>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Families assigned to this role can vote as a parent voter.
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={clubRoleIsVoting}
+                onClick={() => setClubRoleIsVoting((v) => !v)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ${clubRoleIsVoting ? "bg-primary" : "bg-gray-200"}`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${clubRoleIsVoting ? "translate-x-6" : "translate-x-1"}`} />
+              </button>
             </div>
           </div>
           <DialogFooter>

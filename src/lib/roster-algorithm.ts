@@ -50,6 +50,49 @@ export function deriveFamilies(
   return families;
 }
 
+/**
+ * Like deriveFamilies, but also returns the set of playerIds that belong to
+ * each family. Source of truth for "which players share this family" when the
+ * voting flow excludes a parent's own children from the rankings.
+ */
+export function deriveFamiliesWithPlayers(
+  players: { id: string; surname: string; firstName: string; parent1?: string | null }[]
+): { id: string; name: string; playerIds: string[] }[] {
+  const baseFamilies = deriveFamilies(players);
+  const result = baseFamilies.map((f) => ({ ...f, playerIds: [] as string[] }));
+  const byId = new Map(result.map((f) => [f.id, f]));
+
+  // Re-apply the same keying rules to map each player to a family id.
+  const bySurname = new Map<string, typeof players>();
+  for (const p of players) {
+    const key = p.surname.toLowerCase().replace(/\s+/g, "_");
+    if (!bySurname.has(key)) bySurname.set(key, []);
+    bySurname.get(key)!.push(p);
+  }
+
+  for (const [surnameKey, group] of Array.from(bySurname.entries())) {
+    const distinctParents = Array.from(
+      new Set(group.map((p) => p.parent1?.trim()).filter(Boolean) as string[])
+    );
+
+    if (distinctParents.length <= 1) {
+      const familyId = `family_${surnameKey}`;
+      const fam = byId.get(familyId);
+      if (fam) for (const p of group) fam.playerIds.push(p.id);
+    } else {
+      for (const p of group) {
+        const parent = p.parent1?.trim() || p.firstName;
+        const parentKey = parent.toLowerCase().replace(/\s+/g, "_");
+        const familyId = `family_${surnameKey}_${parentKey}`;
+        const fam = byId.get(familyId);
+        if (fam) fam.playerIds.push(p.id);
+      }
+    }
+  }
+
+  return result;
+}
+
 interface RosterInput {
   rounds: { id: string; roundNumber: number; isBye: boolean }[];
   families: { id: string; name: string }[];
@@ -64,6 +107,13 @@ interface RosterInput {
   }[];
   exclusions: { familyId: string; teamDutyRoleId: string }[];
   unavailabilities: { familyId: string; roundId: string }[];
+  /**
+   * Pre-existing assignments from locked rounds. These are counted toward
+   * fairness totals so regenerated rounds account for what locked rounds
+   * already assigned — a family with a locked duty won't be over-assigned
+   * the same role in unlocked rounds.
+   */
+  lockedAssignments?: { teamDutyRoleId: string; assignedFamilyId: string }[];
 }
 
 interface RosterOutput {
@@ -74,7 +124,7 @@ interface RosterOutput {
 }
 
 export function generateRoster(input: RosterInput): RosterOutput[] {
-  const { rounds, families, teamDutyRoles, exclusions, unavailabilities } = input;
+  const { rounds, families, teamDutyRoles, exclusions, unavailabilities, lockedAssignments = [] } = input;
 
   const exclusionSet = new Set(
     exclusions.map((e) => `${e.familyId}:${e.teamDutyRoleId}`)
@@ -91,6 +141,21 @@ export function generateRoster(input: RosterInput): RosterOutput[] {
     roleAssignments[family.id] = {};
     for (const role of teamDutyRoles) {
       roleAssignments[family.id][role.id] = 0;
+    }
+  }
+
+  // Pre-seed counts from locked round assignments so fairness is maintained
+  // across locked and unlocked rounds alike.
+  const roleTypeMap = new Map(teamDutyRoles.map((r) => [r.id, r.roleType]));
+  for (const la of lockedAssignments) {
+    const familyId = la.assignedFamilyId;
+    if (!(familyId in totalAssignments)) continue; // external specialist, skip fairness
+    const roleType = roleTypeMap.get(la.teamDutyRoleId);
+    if (roleType === "ROTATING" || roleType === "FREQUENCY") {
+      totalAssignments[familyId]++;
+    }
+    if (roleType && roleType !== "FIXED") {
+      roleAssignments[familyId][la.teamDutyRoleId] = (roleAssignments[familyId][la.teamDutyRoleId] || 0) + 1;
     }
   }
 

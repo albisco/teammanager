@@ -14,6 +14,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { ROLE } from "@/lib/roles";
 
 interface TeamInfo {
   id: string;
@@ -55,8 +56,8 @@ const emptyForm = {
 export default function PlayersPage() {
   const { data: session } = useSession();
   const role = (session?.user as Record<string, unknown>)?.role as string;
-  const isSuperAdmin = role === "SUPER_ADMIN";
-  const canEdit = role === "ADMIN" || role === "TEAM_MANAGER";
+  const isSuperAdmin = role === ROLE.SUPER_ADMIN;
+  const canEdit = role === ROLE.ADMIN || role === ROLE.TEAM_MANAGER;
   const [players, setPlayers] = useState<Player[]>([]);
   const [allTeams, setAllTeams] = useState<(TeamInfo & { seasonName: string })[]>([]);
   const [search, setSearch] = useState("");

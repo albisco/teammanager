@@ -6,18 +6,36 @@ import bcrypt from "bcryptjs";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
-  if (session?.user?.role !== "SUPER_ADMIN") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const role = session?.user?.role;
+
+  if (role === "SUPER_ADMIN") {
+    const clubs = await prisma.club.findMany({
+      include: {
+        _count: { select: { users: true, seasons: true, players: true } },
+      },
+      orderBy: { name: "asc" },
+    });
+    return NextResponse.json(clubs);
   }
 
-  const clubs = await prisma.club.findMany({
-    include: {
-      _count: { select: { users: true, seasons: true, players: true } },
-    },
-    orderBy: { name: "asc" },
-  });
+  // ADMINs can read their own club only, so admin pages can reflect current
+  // club-wide settings (e.g. enforceFamilyVoteExclusion) without a second
+  // endpoint. Same shape as the SUPER_ADMIN response for consistency.
+  if (role === "ADMIN") {
+    const adminClubId = (session?.user as Record<string, unknown>)?.clubId as string | undefined;
+    if (!adminClubId) {
+      return NextResponse.json([]);
+    }
+    const club = await prisma.club.findUnique({
+      where: { id: adminClubId },
+      include: {
+        _count: { select: { users: true, seasons: true, players: true } },
+      },
+    });
+    return NextResponse.json(club ? [club] : []);
+  }
 
-  return NextResponse.json(clubs);
+  return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 }
 
 export async function POST(req: NextRequest) {
@@ -26,20 +44,33 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const { name, slug, adminName, adminEmail, adminPassword, isAdultClub, enableAiChat, enablePlayHq } = await req.json();
+  const { name, slug, adminName, adminEmail, adminPassword, isAdultClub, enableAiChat, enablePlayHq, enforceFamilyVoteExclusion, maxVotesPerRound } = await req.json();
 
   if (!name || !slug) {
     return NextResponse.json({ error: "Club name and slug are required" }, { status: 400 });
   }
 
+  let maxVotes: number | undefined;
+  if (maxVotesPerRound !== undefined) {
+    const parsed = Number(maxVotesPerRound);
+    if (!Number.isInteger(parsed) || parsed < 1) {
+      return NextResponse.json({ error: "maxVotesPerRound must be a positive integer" }, { status: 400 });
+    }
+    maxVotes = parsed;
+  }
+
   try {
-    const club = await prisma.club.create({ data: {
-      name,
-      slug: slug.toLowerCase().replace(/\s+/g, "-"),
-      isAdultClub: !!isAdultClub,
-      ...(enableAiChat !== undefined && { enableAiChat: !!enableAiChat }),
-      ...(enablePlayHq !== undefined && { enablePlayHq: !!enablePlayHq }),
-    } });
+    const club = await prisma.club.create({
+      data: {
+        name,
+        slug: slug.toLowerCase().replace(/\s+/g, "-"),
+        isAdultClub: !!isAdultClub,
+        enforceFamilyVoteExclusion: !!enforceFamilyVoteExclusion,
+        ...(maxVotes !== undefined ? { maxVotesPerRound: maxVotes } : {}),
+        ...(enableAiChat !== undefined && { enableAiChat: !!enableAiChat }),
+        ...(enablePlayHq !== undefined && { enablePlayHq: !!enablePlayHq }),
+      },
+    });
 
     // Optionally create a club admin
     if (adminEmail && adminPassword && adminName) {
@@ -66,12 +97,44 @@ export async function POST(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (session?.user?.role !== "SUPER_ADMIN") {
+  const role = session?.user?.role;
+  if (role !== "SUPER_ADMIN" && role !== "ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const { id, name, slug, isAdultClub, enableAiChat, enablePlayHq } = await req.json();
+  const body = await req.json();
+  const { id, name, slug, isAdultClub, enableAiChat, enablePlayHq, enforceFamilyVoteExclusion, maxVotesPerRound } = body;
   if (!id) return NextResponse.json({ error: "ID is required" }, { status: 400 });
+
+  // ADMINs can only update their own club, and only a small allow-list of
+  // club-wide voting settings (maxVotesPerRound, enforceFamilyVoteExclusion).
+  if (role === "ADMIN") {
+    const adminClubId = (session?.user as Record<string, unknown>)?.clubId as string | undefined;
+    if (!adminClubId || adminClubId !== id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    if (name !== undefined || slug !== undefined || isAdultClub !== undefined || enableAiChat !== undefined || enablePlayHq !== undefined) {
+      return NextResponse.json(
+        { error: "ADMINs may only update maxVotesPerRound or enforceFamilyVoteExclusion" },
+        { status: 403 },
+      );
+    }
+    if (maxVotesPerRound === undefined && enforceFamilyVoteExclusion === undefined) {
+      return NextResponse.json(
+        { error: "maxVotesPerRound or enforceFamilyVoteExclusion is required" },
+        { status: 400 },
+      );
+    }
+  }
+
+  let maxVotes: number | undefined;
+  if (maxVotesPerRound !== undefined) {
+    const parsed = Number(maxVotesPerRound);
+    if (!Number.isInteger(parsed) || parsed < 1) {
+      return NextResponse.json({ error: "maxVotesPerRound must be a positive integer" }, { status: 400 });
+    }
+    maxVotes = parsed;
+  }
 
   try {
     const club = await prisma.club.update({
@@ -82,6 +145,9 @@ export async function PUT(req: NextRequest) {
         isAdultClub: isAdultClub !== undefined ? !!isAdultClub : undefined,
         enableAiChat: enableAiChat !== undefined ? !!enableAiChat : undefined,
         enablePlayHq: enablePlayHq !== undefined ? !!enablePlayHq : undefined,
+        enforceFamilyVoteExclusion:
+          enforceFamilyVoteExclusion !== undefined ? !!enforceFamilyVoteExclusion : undefined,
+        maxVotesPerRound: maxVotes,
       },
     });
     return NextResponse.json(club);

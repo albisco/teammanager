@@ -28,19 +28,26 @@ async function status(response: Response) {
 // ---------------------------------------------------------------------------
 
 describe("Voting API roles", () => {
-  test("TM can GET voting sessions", async () => {
+  // TM access is now scoped to the specific team via TeamStaff.TEAM_MANAGER.
+  // With the test prisma mock returning null for teamStaff.findFirst, a TM
+  // without a staff row for the requested team gets 403 — the admin paths
+  // (POST/PUT) short-circuit at the coarse role gate before hitting the DB
+  // and so still return a non-403 at the mock level.
+  test("TM without staff row on team gets 403 on GET", async () => {
     setTestSession(sessions.teamManager);
     const res = await getVoting(createRequest("/api/voting", { searchParams: { teamId: "qa-test-team-id" } }));
-    expect(res.status).not.toBe(403);
+    expect(res.status).toBe(403);
   });
 
-  test("TM can POST open voting", async () => {
+  test("TM passes coarse role gate on POST open voting", async () => {
     setTestSession(sessions.teamManager);
     const res = await postVoting(createRequest("/api/voting", { method: "POST", body: { roundId: "nonexistent" } }));
+    // Passes coarse role gate — fine-grained staff-role check happens after
+    // round lookup, which 404s in the mock before we reach the staff check.
     expect(res.status).not.toBe(403);
   });
 
-  test("TM can PUT toggle voting", async () => {
+  test("TM passes coarse role gate on PUT toggle voting", async () => {
     setTestSession(sessions.teamManager);
     const res = await putVoting(createRequest("/api/voting", { method: "PUT", body: { votingSessionId: "x", status: "CLOSED" } }));
     expect(res.status).not.toBe(403);
@@ -60,10 +67,12 @@ describe("Voting API roles", () => {
 });
 
 describe("Voting Results API roles", () => {
-  test("TM can view results", async () => {
+  test("TM without staff row on team gets 403 on results", async () => {
+    // Scoped gate: a TM user needs a TeamStaff.TEAM_MANAGER row for the
+    // specific team. Mocked prisma returns null → 403.
     setTestSession(sessions.teamManager);
     const res = await getVotingResults(createRequest("/api/voting/results", { searchParams: { teamId: "qa-test-team-id" } }));
-    expect(res.status).not.toBe(403);
+    expect(res.status).toBe(403);
   });
 
   test("ADMIN can view results", async () => {

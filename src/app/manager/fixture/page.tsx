@@ -159,15 +159,11 @@ export default function ManagerFixturePage() {
                   <TableCell className="font-mono">{round.roundNumber}</TableCell>
                   <TableCell>
                     {round.date
-                      ? new Date(round.date).toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" }) + (round.gameTime ? ` ${round.gameTime}` : "")
+                      ? new Date(round.date).toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" })
                       : "—"}
                   </TableCell>
                   <TableCell className="whitespace-nowrap text-sm">
-                    {round.date
-                      ? new Date(round.date).toLocaleTimeString("en-AU", {
-                          hour: "numeric", minute: "2-digit", hour12: true,
-                        })
-                      : "—"}
+                    {round.gameTime || "—"}
                   </TableCell>
                   <TableCell>{round.opponent || "—"}</TableCell>
                   <TableCell>{round.venue || "—"}</TableCell>
@@ -258,14 +254,6 @@ export default function ManagerFixturePage() {
                   onChange={(e) => setForm({ ...form, gameTime: e.target.value })}
                 />
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Time</Label>
-              <Input
-                type="time"
-                value={form.gameTime}
-                onChange={(e) => setForm({ ...form, gameTime: e.target.value })}
-              />
             </div>
             <div className="space-y-2">
               <Label>Opponent</Label>

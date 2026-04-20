@@ -1,13 +1,14 @@
 import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
+import { ROLE } from "@/lib/roles";
 
 export default withAuth(
   function middleware(req) {
     const token = req.nextauth.token;
     const path = req.nextUrl.pathname;
 
-    const isTeamManager = token?.role === "TEAM_MANAGER";
-    const isAdminOrSuper = token?.role === "ADMIN" || token?.role === "SUPER_ADMIN";
+    const isTeamManager = token?.role === ROLE.TEAM_MANAGER;
+    const isAdminOrSuper = token?.role === ROLE.ADMIN || token?.role === ROLE.SUPER_ADMIN;
 
     if (path.startsWith("/admin/players") && !isAdminOrSuper && !isTeamManager) {
       return NextResponse.redirect(new URL("/login", req.url));
@@ -17,7 +18,7 @@ export default withAuth(
       return NextResponse.redirect(new URL("/login", req.url));
     }
 
-    if (path.startsWith("/manager") && token?.role !== "TEAM_MANAGER") {
+    if (path.startsWith("/manager") && token?.role !== ROLE.TEAM_MANAGER) {
       return NextResponse.redirect(new URL("/login", req.url));
     }
 

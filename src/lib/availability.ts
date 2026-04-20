@@ -33,6 +33,7 @@ export async function loadTeamAvailability(teamId: string) {
     id: r.id,
     roundNumber: r.roundNumber,
     date: r.date,
+    gameTime: r.gameTime,
     opponent: r.opponent,
     venue: r.venue,
     availabilities: r.playerAvailabilities.map((pa) => ({

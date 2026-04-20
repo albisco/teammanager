@@ -7,7 +7,7 @@ import { describe, it, expect } from "vitest";
 // Re-implement the pure formatMessage function inline for unit testing.
 // The real implementation lives in src/app/manager/roster/ShareDutiesPanel.tsx.
 function formatMessage(
-  round: { roundNumber: number; date: string | null; opponent: string | null; venue: string | null },
+  round: { roundNumber: number; date: string | null; gameTime: string | null },
   duties: Array<{ roleName: string; names: string[] }>,
   teamName: string
 ): string {
@@ -16,14 +16,12 @@ function formatMessage(
         weekday: "short",
         day: "numeric",
         month: "short",
-      })
+      }) + (round.gameTime ? ` ${round.gameTime}` : "")
     : null;
 
   const header = [
     `Round ${round.roundNumber} \u2013 ${teamName}`,
-    [dateStr, round.opponent ? `vs ${round.opponent}` : null, round.venue]
-      .filter(Boolean)
-      .join(" | "),
+    dateStr,
   ]
     .filter(Boolean)
     .join("\n");
@@ -37,8 +35,7 @@ describe("ShareDutiesPanel formatMessage", () => {
   const baseRound = {
     roundNumber: 4,
     date: "2026-04-04T00:00:00.000Z",
-    opponent: "Cheltenham",
-    venue: "Dendy Park",
+    gameTime: "10:30",
   };
 
   it("includes round number and team name in header", () => {
@@ -48,10 +45,10 @@ describe("ShareDutiesPanel formatMessage", () => {
     expect(result).toContain("\u2013"); // en-dash
   });
 
-  it("includes formatted date, opponent, and venue when all present", () => {
+  it("includes formatted date and time when both present", () => {
     const result = formatMessage(baseRound, [], "U10 Lions");
-    expect(result).toContain("vs Cheltenham");
-    expect(result).toContain("Dendy Park");
+    expect(result).toContain("Apr");
+    expect(result).toContain("10:30");
   });
 
   it("omits date line when date is null", () => {
@@ -61,17 +58,11 @@ describe("ShareDutiesPanel formatMessage", () => {
     expect(result).toContain("Round 4 \u2013 U10 Lions");
   });
 
-  it("omits opponent when null", () => {
-    const round = { ...baseRound, opponent: null };
+  it("omits time when gameTime is null", () => {
+    const round = { ...baseRound, gameTime: null };
     const result = formatMessage(round, [], "U10 Lions");
-    expect(result).not.toContain("vs");
-    expect(result).toContain("Dendy Park");
-  });
-
-  it("omits venue when null", () => {
-    const round = { ...baseRound, venue: null };
-    const result = formatMessage(round, [], "U10 Lions");
-    expect(result).not.toContain("Dendy Park");
+    expect(result).toContain("Apr");
+    expect(result).not.toContain("10:30");
   });
 
   it("returns header only when duties array is empty", () => {

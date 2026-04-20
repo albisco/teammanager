@@ -20,10 +20,14 @@ export async function GET() {
             select: {
               id: true, firstName: true, surname: true, jumperNumber: true,
               dateOfBirth: true, phone: true, contactEmail: true, parent1: true, parent2: true,
-              familyId: true, family: { select: { id: true, name: true } },
+              familyId: true,
             },
           },
         },
+      },
+      staff: {
+        include: { user: { select: { id: true, name: true } } },
+        orderBy: [{ role: "asc" }, { createdAt: "asc" }],
       },
       rounds: { orderBy: { roundNumber: "asc" } },
       _count: { select: { players: true, rounds: true } },

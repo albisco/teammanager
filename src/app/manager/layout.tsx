@@ -7,10 +7,14 @@ import { useSession, signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { TeamSwitcher } from "@/components/ui/team-switcher";
+import { useActiveTeam } from "@/hooks/use-active-team";
+import { TEAM_STAFF_ROLE } from "@/lib/roles";
 
 type NavItem = {
   href: string;
   label: string;
+  teamManagerOnly?: boolean;
   requiresAiChat?: boolean;
   requiresRoster?: boolean;
   requiresAwards?: boolean;
@@ -22,7 +26,7 @@ const navItems: NavItem[] = [
   { href: "/manager/players", label: "Players" },
   { href: "/manager/fixture", label: "Fixture" },
   { href: "/manager/availability", label: "Availability", requiresSelfManaged: true },
-  { href: "/manager/voting", label: "Voting" },
+  { href: "/manager/voting", label: "Voting", teamManagerOnly: true },
   { href: "/manager/roster", label: "Roster", requiresRoster: true },
   { href: "/manager/awards", label: "Awards", requiresAwards: true },
   { href: "/manager/ask", label: "Ask AI", requiresAiChat: true },
@@ -31,8 +35,19 @@ const navItems: NavItem[] = [
 export default function ManagerLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { data: session } = useSession();
+  const { activeStaffRole } = useActiveTeam();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const asideRef = useRef<HTMLElement>(null);
+
+  const user = session?.user as Record<string, unknown> | undefined;
+  const visibleNavItems = navItems.filter((item) => {
+    if (item.teamManagerOnly && activeStaffRole !== TEAM_STAFF_ROLE.TEAM_MANAGER) return false;
+    if (item.requiresAiChat && user?.enableAiChat === false) return false;
+    if (item.requiresRoster && user?.teamEnableRoster === false) return false;
+    if (item.requiresAwards && user?.teamEnableAwards === false) return false;
+    if (item.requiresSelfManaged && user?.teamSelfManaged !== true) return false;
+    return true;
+  });
 
   useEffect(() => {
     if (asideRef.current) {
@@ -105,15 +120,9 @@ export default function ManagerLayout({ children }: { children: React.ReactNode 
             </button>
           </div>
         </div>
+        <TeamSwitcher />
         <nav className="flex-1 p-4 space-y-1">
-          {navItems.filter((item) => {
-            const user = session?.user as Record<string, unknown> | undefined;
-            if (item.requiresAiChat && user?.enableAiChat === false) return false;
-            if (item.requiresRoster && user?.teamEnableRoster === false) return false;
-            if (item.requiresAwards && user?.teamEnableAwards === false) return false;
-            if (item.requiresSelfManaged && user?.teamSelfManaged !== true) return false;
-            return true;
-          }).map((item) => (
+          {visibleNavItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}

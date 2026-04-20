@@ -13,6 +13,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { TeamStaffPanel } from "@/components/team-staff-panel";
 
 interface Round {
   id: string;
@@ -38,11 +39,6 @@ interface TeamPlayerInfo {
   };
 }
 
-interface UserInfo {
-  id: string;
-  name: string;
-}
-
 interface TeamSummary {
   id: string;
   name: string;
@@ -53,7 +49,6 @@ interface TeamSummary {
   selfManaged?: boolean;
   enableRoster?: boolean;
   enableAwards?: boolean;
-  manager: UserInfo | null;
   _count: { players: number; rounds: number };
 }
 
@@ -76,12 +71,6 @@ export default function SeasonPage() {
   const [selectedTeamDetail, setSelectedTeamDetail] = useState<TeamDetail | null>(null);
   const [teamLoading, setTeamLoading] = useState(false);
   const [teamTab, setTeamTab] = useState<"rounds" | "players">("rounds");
-  const [teamManagers, setTeamManagers] = useState<{ id: string; name: string }[]>([]);
-
-  // New team manager dialog
-  const [newTMDialogOpen, setNewTMDialogOpen] = useState(false);
-  const [newTMForm, setNewTMForm] = useState({ name: "", email: "", password: "" });
-  const [newTMLoading, setNewTMLoading] = useState(false);
 
   // Season dialog
   const [seasonDialogOpen, setSeasonDialogOpen] = useState(false);
@@ -91,7 +80,16 @@ export default function SeasonPage() {
   // Team dialog
   const [teamDialogOpen, setTeamDialogOpen] = useState(false);
   const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
-  const [teamForm, setTeamForm] = useState({ name: "", ageGroup: "", votingScheme: "5,4,3,2,1", selfManaged: false, enableRoster: true, enableAwards: true });
+  const [teamForm, setTeamForm] = useState({
+    name: "",
+    ageGroup: "",
+    votingScheme: "5,4,3,2,1",
+    parentVoterCount: "2",
+    selfManaged: false,
+    enableRoster: true,
+    enableAwards: true,
+  });
+  const [teamDialogStaff, setTeamDialogStaff] = useState<{ headCoach: number; assistantCoach: number } | null>(null);
 
   // Round dialog
   const [roundDialogOpen, setRoundDialogOpen] = useState(false);
@@ -140,48 +138,7 @@ export default function SeasonPage() {
     await fetchSeasons();
   }, [selectedTeamSummary, fetchTeamDetail, fetchSeasons]);
 
-  const fetchTeamManagers = useCallback(async () => {
-    const res = await fetch("/api/users?role=TEAM_MANAGER");
-    if (res.ok) setTeamManagers(await res.json());
-  }, []);
-
-  useEffect(() => { fetchSeasons(); fetchTeamManagers(); }, [fetchSeasons, fetchTeamManagers]);
-
-  // === Team Manager creation ===
-  async function handleCreateTM() {
-    setNewTMLoading(true);
-    const res = await fetch("/api/users", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...newTMForm, role: "TEAM_MANAGER" }),
-    });
-    if (res.ok) {
-      const user = await res.json();
-      toast.success(`Team manager ${user.name} created`);
-      setNewTMDialogOpen(false);
-      setNewTMForm({ name: "", email: "", password: "" });
-      await fetchTeamManagers();
-      // Auto-assign to current team
-      if (selectedTeamSummary) {
-        await fetch(`/api/teams/${selectedTeamSummary.id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ managerId: user.id }),
-        });
-        toast.success("Manager assigned to team");
-        setSelectedTeamSummary({ ...selectedTeamSummary, manager: { id: user.id, name: user.name } });
-        fetchSeasons();
-      }
-    } else {
-      try {
-        const err = await res.json();
-        toast.error(err.error || `Failed to create team manager (${res.status})`);
-      } catch {
-        toast.error(`Failed to create team manager (${res.status})`);
-      }
-    }
-    setNewTMLoading(false);
-  }
+  useEffect(() => { fetchSeasons(); }, [fetchSeasons]);
 
   // === Season CRUD ===
   function openAddSeason() {
@@ -225,7 +182,8 @@ export default function SeasonPage() {
   // === Team CRUD ===
   function openAddTeam() {
     setEditingTeamId(null);
-    setTeamForm({ name: "", ageGroup: "", votingScheme: "5,4,3,2,1", selfManaged: false, enableRoster: true, enableAwards: true });
+    setTeamForm({ name: "", ageGroup: "", votingScheme: "5,4,3,2,1", parentVoterCount: "2", selfManaged: false, enableRoster: true, enableAwards: true });
+    setTeamDialogStaff(null);
     setTeamDialogOpen(true);
   }
   function openEditTeam(team: TeamSummary) {
@@ -234,21 +192,41 @@ export default function SeasonPage() {
       name: team.name,
       ageGroup: team.ageGroup,
       votingScheme: (team.votingScheme as number[]).join(","),
-      selfManaged: (team as TeamSummary & { selfManaged?: boolean }).selfManaged ?? false,
-      enableRoster: (team as TeamSummary & { enableRoster?: boolean }).enableRoster ?? true,
-      enableAwards: (team as TeamSummary & { enableAwards?: boolean }).enableAwards ?? true,
+      parentVoterCount: String(team.parentVoterCount ?? 2),
+      selfManaged: team.selfManaged ?? false,
+      enableRoster: team.enableRoster ?? true,
+      enableAwards: team.enableAwards ?? true,
     });
+    setTeamDialogStaff(null);
+    fetch(`/api/teams/${team.id}/staff`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows: { role: string }[]) => {
+        const headCoach = rows.filter((s) => s.role === "HEAD_COACH").length;
+        const assistantCoach = rows.filter((s) => s.role === "ASSISTANT_COACH").length;
+        setTeamDialogStaff({ headCoach, assistantCoach });
+      })
+      .catch(() => setTeamDialogStaff({ headCoach: 0, assistantCoach: 0 }));
     setTeamDialogOpen(true);
   }
   async function handleSaveTeam() {
     if (!selectedSeason) return;
     setLoading(true);
     const votingScheme = teamForm.votingScheme.split(",").map((s) => parseInt(s.trim())).filter((n) => !isNaN(n));
+    const parentVoterCount = Math.max(1, parseInt(teamForm.parentVoterCount) || 2);
     const url = editingTeamId ? `/api/teams/${editingTeamId}` : "/api/teams";
     const method = editingTeamId ? "PUT" : "POST";
     const res = await fetch(url, {
       method, headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...teamForm, votingScheme, seasonId: selectedSeason.id }),
+      body: JSON.stringify({
+        name: teamForm.name,
+        ageGroup: teamForm.ageGroup,
+        votingScheme,
+        parentVoterCount,
+        seasonId: selectedSeason.id,
+        selfManaged: teamForm.selfManaged,
+        enableRoster: teamForm.enableRoster,
+        enableAwards: teamForm.enableAwards,
+      }),
     });
     if (res.ok) {
       toast.success(editingTeamId ? "Team updated" : "Team created");
@@ -373,9 +351,6 @@ export default function SeasonPage() {
                   <p className="text-sm text-gray-500">
                     {team._count.players} player{team._count.players !== 1 ? "s" : ""} &middot; {team._count.rounds} round{team._count.rounds !== 1 ? "s" : ""}
                   </p>
-                  {team.manager && (
-                    <p className="text-xs text-gray-500 mt-1">Manager: {team.manager.name}</p>
-                  )}
                   <p className="text-xs text-gray-400 mt-1">Voting: {(team.votingScheme as number[]).join(", ")} pts</p>
                   <div className="flex gap-1 mt-2">
                     <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); openEditTeam(team); }}>Edit</Button>
@@ -397,42 +372,17 @@ export default function SeasonPage() {
               <h2 className="text-xl font-semibold">
                 {selectedTeamSummary.ageGroup} {selectedTeamSummary.name}
               </h2>
-              <div className="flex items-center gap-2 mt-1">
-                <span className="text-sm text-gray-500">Manager:</span>
-                <select
-                  className="rounded-md border border-gray-300 px-2 py-1 text-sm"
-                  value={selectedTeamSummary.manager?.id || ""}
-                  onChange={async (e) => {
-                    const managerId = e.target.value || null;
-                    const res = await fetch(`/api/teams/${selectedTeamSummary!.id}`, {
-                      method: "PUT",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ managerId }),
-                    });
-                    if (res.ok) {
-                      toast.success(managerId ? "Manager assigned" : "Manager removed");
-                      const selected = managerId ? teamManagers.find(u => u.id === managerId) ?? null : null;
-                      setSelectedTeamSummary({ ...selectedTeamSummary!, manager: selected });
-                      fetchSeasons();
-                    }
-                  }}
-                >
-                  <option value="">— No manager —</option>
-                  {teamManagers.map((u) => (
-                    <option key={u.id} value={u.id}>{u.name}</option>
-                  ))}
-                </select>
-                <button
-                  className="text-sm text-blue-600 hover:underline"
-                  onClick={() => { setNewTMForm({ name: "", email: "", password: "" }); setNewTMDialogOpen(true); }}
-                >
-                  + New
-                </button>
-              </div>
             </div>
             <div className="flex gap-2">
               {teamTab === "rounds" && <Button onClick={openAddRound} disabled={!selectedTeamDetail}>Add Round</Button>}
             </div>
+          </div>
+
+          <div className="mb-6">
+            <TeamStaffPanel
+              teamId={selectedTeamSummary.id}
+              onChange={() => fetchSeasons()}
+            />
           </div>
 
           {teamLoading && !selectedTeamDetail && (
@@ -622,6 +572,31 @@ export default function SeasonPage() {
               <Input value={teamForm.votingScheme} onChange={(e) => setTeamForm({ ...teamForm, votingScheme: e.target.value })} placeholder="5,4,3,2,1" />
               <p className="text-xs text-gray-500">Points awarded for each vote position (best to least)</p>
             </div>
+            <div className="space-y-2">
+              <Label>Parent voters per round</Label>
+              <Input
+                type="number"
+                min={1}
+                value={teamForm.parentVoterCount}
+                onChange={(e) => setTeamForm({ ...teamForm, parentVoterCount: e.target.value })}
+              />
+              <p className="text-xs text-gray-500">Maximum number of family votes accepted per round.</p>
+            </div>
+            {editingTeamId && teamDialogStaff && (
+              <div className="space-y-1 rounded-md border bg-gray-50 p-3">
+                <p className="text-xs font-medium text-gray-700">
+                  Coach votes: {teamDialogStaff.headCoach} Head Coach
+                  {teamDialogStaff.assistantCoach > 0
+                    ? ` + ${teamDialogStaff.assistantCoach} Assistant Coach${teamDialogStaff.assistantCoach !== 1 ? "es" : ""}`
+                    : ""} (one vote each)
+                </p>
+                {teamDialogStaff.headCoach + teamDialogStaff.assistantCoach === 0 && (
+                  <p className="text-xs text-amber-700">
+                    No coach seats configured — set a Head Coach / Assistant Coach in Team Staff to enable coach voting.
+                  </p>
+                )}
+              </div>
+            )}
             <div className="flex items-center gap-3">
               <button
                 type="button"
@@ -713,51 +688,6 @@ export default function SeasonPage() {
         </DialogContent>
       </Dialog>
 
-      {/* New Team Manager Dialog */}
-      <Dialog open={newTMDialogOpen} onOpenChange={setNewTMDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add Team Manager</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label>Name</Label>
-              <Input
-                value={newTMForm.name}
-                onChange={(e) => setNewTMForm({ ...newTMForm, name: e.target.value })}
-                placeholder="e.g. John Smith"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Email</Label>
-              <Input
-                type="email"
-                value={newTMForm.email}
-                onChange={(e) => setNewTMForm({ ...newTMForm, email: e.target.value })}
-                placeholder="john@example.com"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Password</Label>
-              <Input
-                type="password"
-                value={newTMForm.password}
-                onChange={(e) => setNewTMForm({ ...newTMForm, password: e.target.value })}
-                placeholder="Initial password"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setNewTMDialogOpen(false)}>Cancel</Button>
-            <Button
-              onClick={handleCreateTM}
-              disabled={newTMLoading || !newTMForm.name.trim() || !newTMForm.email.trim() || !newTMForm.password.trim()}
-            >
-              {newTMLoading ? "Creating..." : "Create & Assign"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

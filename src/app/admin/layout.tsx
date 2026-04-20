@@ -7,6 +7,7 @@ import { useSession, signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { ROLE } from "@/lib/roles";
 
 const navItems = [
   { href: "/admin/dashboard", label: "Dashboard" },
@@ -53,8 +54,8 @@ export default function AdminLayout({
   const filteredNavItems = navItems.filter((item) => {
     const user = session?.user as Record<string, unknown> | undefined;
     const role = user?.role;
-    if (item.superAdminOnly && role !== "SUPER_ADMIN") return false;
-    if (item.clubAdminOnly && role === "SUPER_ADMIN") return false;
+    if (item.superAdminOnly && role !== ROLE.SUPER_ADMIN) return false;
+    if (item.clubAdminOnly && role === ROLE.SUPER_ADMIN) return false;
     if ((item as { adultOnly?: boolean }).adultOnly && !user?.isAdultClub) return false;
     if ((item as { requiresAiChat?: boolean }).requiresAiChat && user?.enableAiChat === false) return false;
     if ((item as { requiresPlayHq?: boolean }).requiresPlayHq && user?.enablePlayHq === false) return false;

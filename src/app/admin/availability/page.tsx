@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { ROLE } from "@/lib/roles";
 
 interface Player {
   id: string;
@@ -26,8 +27,7 @@ interface Round {
   id: string;
   roundNumber: number;
   date: string | null;
-  opponent: string | null;
-  venue: string | null;
+  gameTime: string | null;
   availabilities: AvailabilityEntry[];
 }
 
@@ -77,7 +77,7 @@ export default function AvailabilityPage() {
   // Guard: only adult clubs
   useEffect(() => {
     const user = session?.user as Record<string, unknown> | undefined;
-    if (session && !user?.isAdultClub && user?.role !== "SUPER_ADMIN") {
+    if (session && !user?.isAdultClub && user?.role !== ROLE.SUPER_ADMIN) {
       router.push("/admin/dashboard");
     }
   }, [session, router]);
@@ -196,12 +196,12 @@ export default function AvailabilityPage() {
                     <div key={round.id} className="bg-card border rounded-lg overflow-hidden">
                       <div className="px-4 py-3 bg-gray-50 dark:bg-gray-800 border-b flex flex-wrap items-center justify-between gap-2">
                         <div>
-                          <span className="font-semibold">Round {round.roundNumber}</span>
+                          <span className="font-semibold">R{round.roundNumber}</span>
                           {round.date && (
                             <span className="ml-2 text-sm text-gray-500">{formatDate(round.date)}</span>
                           )}
-                          {round.opponent && (
-                            <span className="ml-2 text-sm text-gray-500">vs {round.opponent}</span>
+                          {round.gameTime && (
+                            <span className="ml-2 text-sm text-gray-500">{round.gameTime}</span>
                           )}
                         </div>
                         <div className="flex gap-2 text-sm">

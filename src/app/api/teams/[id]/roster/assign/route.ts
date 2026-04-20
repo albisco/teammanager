@@ -24,6 +24,12 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     return NextResponse.json({ error: "roundId and teamDutyRoleId are required" }, { status: 400 });
   }
 
+  // Reject changes to locked rounds
+  const round = await prisma.round.findUnique({ where: { id: roundId }, select: { isRosterLocked: true } });
+  if (round?.isRosterLocked) {
+    return NextResponse.json({ error: "This round is locked and cannot be modified" }, { status: 403 });
+  }
+
   // Clear a specific slot
   if (!assignedFamilyId) {
     await prisma.rosterAssignment.deleteMany({

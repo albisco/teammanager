@@ -8,7 +8,7 @@ export async function GET(_req: NextRequest, { params }: { params: { token: stri
     include: {
       rounds: {
         orderBy: { roundNumber: "asc" },
-        select: { id: true, roundNumber: true, date: true, opponent: true, venue: true, isBye: true },
+        select: { id: true, roundNumber: true, date: true, gameTime: true, isBye: true },
       },
       players: {
         include: {

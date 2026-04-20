@@ -1,6 +1,9 @@
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
+import { Role, TeamStaffRole } from "@prisma/client";
+
+export type ManagerTeam = { teamId: string; role: TeamStaffRole };
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -27,19 +30,60 @@ export const authOptions: NextAuthOptions = {
         );
         if (!isValid) return null;
 
-        let teamId: string | null = null;
+        let teams: ManagerTeam[] = [];
         let teamSelfManaged = false;
         let teamEnableRoster = true;
         let teamEnableAwards = true;
-        if (user.role === "TEAM_MANAGER") {
-          const team = await prisma.team.findFirst({
-            where: { managerId: user.id },
-            select: { id: true, selfManaged: true, enableRoster: true, enableAwards: true },
-          });
-          teamId = team?.id ?? null;
-          teamSelfManaged = team?.selfManaged ?? false;
-          teamEnableRoster = team?.enableRoster ?? true;
-          teamEnableAwards = team?.enableAwards ?? true;
+        if (user.role === Role.TEAM_MANAGER) {
+          // Self-heal backfill: if a legacy Team.managerId exists with no
+          // matching TeamStaff row, create the TEAM_MANAGER row now. This keeps
+          // existing users working until the legacy column is removed in a
+          // follow-up PR.
+          const [staffRows, legacyManagedTeams] = await Promise.all([
+            prisma.teamStaff.findMany({
+              where: { userId: user.id },
+              select: { teamId: true, role: true },
+            }),
+            prisma.team.findMany({
+              where: { managerId: user.id },
+              select: { id: true },
+            }),
+          ]);
+
+          const existingTeamIds = new Set(staffRows.map((r) => r.teamId));
+          const missingLegacyTeams = legacyManagedTeams.filter(
+            (t) => !existingTeamIds.has(t.id)
+          );
+
+          if (missingLegacyTeams.length > 0) {
+            await prisma.teamStaff.createMany({
+              data: missingLegacyTeams.map((t) => ({
+                teamId: t.id,
+                userId: user.id,
+                role: TeamStaffRole.TEAM_MANAGER,
+              })),
+              skipDuplicates: true,
+            });
+            for (const t of missingLegacyTeams) {
+              staffRows.push({
+                teamId: t.id,
+                role: TeamStaffRole.TEAM_MANAGER,
+              });
+            }
+          }
+
+          teams = staffRows;
+
+          const firstTeamId = teams[0]?.teamId;
+          if (firstTeamId) {
+            const team = await prisma.team.findUnique({
+              where: { id: firstTeamId },
+              select: { selfManaged: true, enableRoster: true, enableAwards: true },
+            });
+            teamSelfManaged = team?.selfManaged ?? false;
+            teamEnableRoster = team?.enableRoster ?? true;
+            teamEnableAwards = team?.enableAwards ?? true;
+          }
         }
 
         let isAdultClub = false;
@@ -61,7 +105,8 @@ export const authOptions: NextAuthOptions = {
           name: user.name,
           role: user.role,
           clubId: user.clubId,
-          teamId,
+          teamId: teams[0]?.teamId ?? null,
+          teams,
           isAdultClub,
           enableAiChat,
           enablePlayHq,
@@ -80,6 +125,7 @@ export const authOptions: NextAuthOptions = {
         token.id = user.id;
         token.clubId = u.clubId as string;
         token.teamId = u.teamId as string | null;
+        token.teams = u.teams as ManagerTeam[];
         token.isAdultClub = u.isAdultClub as boolean;
         token.enableAiChat = u.enableAiChat as boolean;
         token.enablePlayHq = u.enablePlayHq as boolean;
@@ -96,6 +142,7 @@ export const authOptions: NextAuthOptions = {
         s.id = token.id;
         s.clubId = token.clubId;
         s.teamId = token.teamId;
+        s.teams = token.teams ?? [];
         s.isAdultClub = token.isAdultClub;
         s.enableAiChat = token.enableAiChat;
         s.enablePlayHq = token.enablePlayHq;
