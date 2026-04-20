@@ -14,12 +14,14 @@ type NavItem = {
   requiresAiChat?: boolean;
   requiresRoster?: boolean;
   requiresAwards?: boolean;
+  requiresSelfManaged?: boolean;
 };
 
 const navItems: NavItem[] = [
   { href: "/manager/dashboard", label: "Dashboard" },
   { href: "/manager/players", label: "Players" },
   { href: "/manager/fixture", label: "Fixture" },
+  { href: "/manager/availability", label: "Availability", requiresSelfManaged: true },
   { href: "/manager/voting", label: "Voting" },
   { href: "/manager/roster", label: "Roster", requiresRoster: true },
   { href: "/manager/awards", label: "Awards", requiresAwards: true },
@@ -109,6 +111,7 @@ export default function ManagerLayout({ children }: { children: React.ReactNode 
             if (item.requiresAiChat && user?.enableAiChat === false) return false;
             if (item.requiresRoster && user?.teamEnableRoster === false) return false;
             if (item.requiresAwards && user?.teamEnableAwards === false) return false;
+            if (item.requiresSelfManaged && user?.teamSelfManaged !== true) return false;
             return true;
           }).map((item) => (
             <Link
