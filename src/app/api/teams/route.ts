@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Role } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -24,12 +25,12 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (session?.user?.role !== "ADMIN" && session?.user?.role !== "SUPER_ADMIN") {
+  if (session?.user?.role !== Role.ADMIN && session?.user?.role !== Role.SUPER_ADMIN) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const body = await req.json();
-  const { name, ageGroup, seasonId, votingScheme, parentVoterCount, coachVoterCount } = body;
+  const { name, ageGroup, seasonId, votingScheme, parentVoterCount, coachVoterCount, selfManaged, enableRoster, enableAwards } = body;
 
   if (!name || !ageGroup || !seasonId) {
     return NextResponse.json({ error: "Name, age group, and season are required" }, { status: 400 });
@@ -43,6 +44,9 @@ export async function POST(req: NextRequest) {
       votingScheme: votingScheme || [5, 4, 3, 2, 1],
       parentVoterCount: parentVoterCount ? parseInt(parentVoterCount) : 3,
       coachVoterCount: coachVoterCount ? parseInt(coachVoterCount) : 1,
+      ...(selfManaged !== undefined && { selfManaged: !!selfManaged }),
+      ...(enableRoster !== undefined && { enableRoster: !!enableRoster }),
+      ...(enableAwards !== undefined && { enableAwards: !!enableAwards }),
     },
   });
 

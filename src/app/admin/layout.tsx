@@ -18,8 +18,8 @@ const navItems = [
   { href: "/admin/availability", label: "Availability", clubAdminOnly: true, adultOnly: true },
   { href: "/admin/roster", label: "Roster", clubAdminOnly: true },
   { href: "/admin/users", label: "Users" },
-  { href: "/admin/playhq", label: "PlayHQ", clubAdminOnly: true },
-  { href: "/admin/ask", label: "Ask AI", clubAdminOnly: true },
+  { href: "/admin/playhq", label: "PlayHQ", clubAdminOnly: true, requiresPlayHq: true },
+  { href: "/admin/ask", label: "Ask AI", clubAdminOnly: true, requiresAiChat: true },
 ];
 
 export default function AdminLayout({
@@ -57,6 +57,8 @@ export default function AdminLayout({
     if (item.superAdminOnly && role !== ROLE.SUPER_ADMIN) return false;
     if (item.clubAdminOnly && role === ROLE.SUPER_ADMIN) return false;
     if ((item as { adultOnly?: boolean }).adultOnly && !user?.isAdultClub) return false;
+    if ((item as { requiresAiChat?: boolean }).requiresAiChat && user?.enableAiChat === false) return false;
+    if ((item as { requiresPlayHq?: boolean }).requiresPlayHq && user?.enablePlayHq === false) return false;
     return true;
   });
 

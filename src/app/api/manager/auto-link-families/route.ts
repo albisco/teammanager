@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Role } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -7,7 +8,7 @@ import { v4 as uuid } from "uuid";
 
 export async function POST() {
   const session = await getServerSession(authOptions);
-  if (session?.user?.role !== "TEAM_MANAGER") {
+  if (session?.user?.role !== Role.TEAM_MANAGER) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -61,7 +62,7 @@ export async function POST() {
 
       // Check if a FAMILY user with this name already exists in the club
       let familyUser = await tx.user.findFirst({
-        where: { clubId, name: displayName, role: "FAMILY" },
+        where: { clubId, name: displayName, role: Role.FAMILY },
       });
 
       if (!familyUser) {
@@ -85,7 +86,7 @@ export async function POST() {
             email,
             passwordHash,
             name: displayName,
-            role: "FAMILY",
+            role: Role.FAMILY,
             clubId,
           },
         });

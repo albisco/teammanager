@@ -31,6 +31,9 @@ export const authOptions: NextAuthOptions = {
         if (!isValid) return null;
 
         let teams: ManagerTeam[] = [];
+        let teamSelfManaged = false;
+        let teamEnableRoster = true;
+        let teamEnableAwards = true;
         if (user.role === Role.TEAM_MANAGER) {
           // Self-heal backfill: if a legacy Team.managerId exists with no
           // matching TeamStaff row, create the TEAM_MANAGER row now. This keeps
@@ -70,15 +73,30 @@ export const authOptions: NextAuthOptions = {
           }
 
           teams = staffRows;
+
+          const firstTeamId = teams[0]?.teamId;
+          if (firstTeamId) {
+            const team = await prisma.team.findUnique({
+              where: { id: firstTeamId },
+              select: { selfManaged: true, enableRoster: true, enableAwards: true },
+            });
+            teamSelfManaged = team?.selfManaged ?? false;
+            teamEnableRoster = team?.enableRoster ?? true;
+            teamEnableAwards = team?.enableAwards ?? true;
+          }
         }
 
         let isAdultClub = false;
+        let enableAiChat = true;
+        let enablePlayHq = true;
         if (user.clubId) {
           const club = await prisma.club.findUnique({
             where: { id: user.clubId },
-            select: { isAdultClub: true },
+            select: { isAdultClub: true, enableAiChat: true, enablePlayHq: true },
           });
           isAdultClub = club?.isAdultClub ?? false;
+          enableAiChat = club?.enableAiChat ?? true;
+          enablePlayHq = club?.enablePlayHq ?? true;
         }
 
         return {
@@ -90,6 +108,11 @@ export const authOptions: NextAuthOptions = {
           teamId: teams[0]?.teamId ?? null,
           teams,
           isAdultClub,
+          enableAiChat,
+          enablePlayHq,
+          teamSelfManaged,
+          teamEnableRoster,
+          teamEnableAwards,
         };
       },
     }),
@@ -104,6 +127,11 @@ export const authOptions: NextAuthOptions = {
         token.teamId = u.teamId as string | null;
         token.teams = u.teams as ManagerTeam[];
         token.isAdultClub = u.isAdultClub as boolean;
+        token.enableAiChat = u.enableAiChat as boolean;
+        token.enablePlayHq = u.enablePlayHq as boolean;
+        token.teamSelfManaged = u.teamSelfManaged as boolean;
+        token.teamEnableRoster = u.teamEnableRoster as boolean;
+        token.teamEnableAwards = u.teamEnableAwards as boolean;
       }
       return token;
     },
@@ -116,6 +144,11 @@ export const authOptions: NextAuthOptions = {
         s.teamId = token.teamId;
         s.teams = token.teams ?? [];
         s.isAdultClub = token.isAdultClub;
+        s.enableAiChat = token.enableAiChat;
+        s.enablePlayHq = token.enablePlayHq;
+        s.teamSelfManaged = token.teamSelfManaged;
+        s.teamEnableRoster = token.teamEnableRoster;
+        s.teamEnableAwards = token.teamEnableAwards;
       }
       return session;
     },

@@ -11,14 +11,25 @@ import { TeamSwitcher } from "@/components/ui/team-switcher";
 import { useActiveTeam } from "@/hooks/use-active-team";
 import { TEAM_STAFF_ROLE } from "@/lib/roles";
 
-const navItems: Array<{ href: string; label: string; teamManagerOnly?: boolean }> = [
+type NavItem = {
+  href: string;
+  label: string;
+  teamManagerOnly?: boolean;
+  requiresAiChat?: boolean;
+  requiresRoster?: boolean;
+  requiresAwards?: boolean;
+  requiresSelfManaged?: boolean;
+};
+
+const navItems: NavItem[] = [
   { href: "/manager/dashboard", label: "Dashboard" },
   { href: "/manager/players", label: "Players" },
   { href: "/manager/fixture", label: "Fixture" },
+  { href: "/manager/availability", label: "Availability", requiresSelfManaged: true },
   { href: "/manager/voting", label: "Voting", teamManagerOnly: true },
-  { href: "/manager/roster", label: "Roster" },
-  { href: "/manager/awards", label: "Awards" },
-  { href: "/manager/ask", label: "Ask AI" },
+  { href: "/manager/roster", label: "Roster", requiresRoster: true },
+  { href: "/manager/awards", label: "Awards", requiresAwards: true },
+  { href: "/manager/ask", label: "Ask AI", requiresAiChat: true },
 ];
 
 export default function ManagerLayout({ children }: { children: React.ReactNode }) {
@@ -28,9 +39,15 @@ export default function ManagerLayout({ children }: { children: React.ReactNode 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const asideRef = useRef<HTMLElement>(null);
 
-  const visibleNavItems = navItems.filter(
-    (item) => !item.teamManagerOnly || activeStaffRole === TEAM_STAFF_ROLE.TEAM_MANAGER
-  );
+  const user = session?.user as Record<string, unknown> | undefined;
+  const visibleNavItems = navItems.filter((item) => {
+    if (item.teamManagerOnly && activeStaffRole !== TEAM_STAFF_ROLE.TEAM_MANAGER) return false;
+    if (item.requiresAiChat && user?.enableAiChat === false) return false;
+    if (item.requiresRoster && user?.teamEnableRoster === false) return false;
+    if (item.requiresAwards && user?.teamEnableAwards === false) return false;
+    if (item.requiresSelfManaged && user?.teamSelfManaged !== true) return false;
+    return true;
+  });
 
   useEffect(() => {
     if (asideRef.current) {

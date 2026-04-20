@@ -39,6 +39,7 @@ interface VotingData {
     seasonName: string;
     votingScheme: number[];
     parentVoterCount: number;
+    selfManaged: boolean;
   };
   players: Player[];
   rosteredFamilies: RosteredFamily[];
@@ -74,6 +75,7 @@ export default function VotePage() {
       .then((d: VotingData) => {
         setData(d);
         setRankings(new Array(d.team.votingScheme.length).fill(null));
+        if (d.team.selfManaged) setVoterType("PLAYER");
       })
       .catch(() => setError("Voting session not found"));
   }, [token]);
@@ -211,7 +213,10 @@ export default function VotePage() {
     const res = await fetch(`/api/voting/${token}/submit`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify({
+        ...body,
+        voterPlayerId: voterType === "PLAYER" ? selfPlayerId : undefined,
+      }),
     });
 
     if (res.ok) {
@@ -241,63 +246,65 @@ export default function VotePage() {
         <CardContent>
           {step === "name" && (
             <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>I am a...</Label>
-                <div className="flex gap-2">
-                  <Button
-                    variant={voterType === "PARENT" ? "default" : "outline"}
-                    onClick={() => {
-                      setVoterType("PARENT");
-                      setSelfPlayerId("");
-                      setCoachStaffId("");
-                      setVoterName("");
-                      resetRankings();
-                    }}
-                    disabled={parentDisabled}
-                    className="flex-1"
-                  >
-                    {parentFull ? "Parent (full)" : "Parent"}
-                  </Button>
-                  <Button
-                    variant={voterType === "COACH" ? "default" : "outline"}
-                    onClick={() => {
-                      setVoterType("COACH");
-                      setSelfPlayerId("");
-                      setSelectedFamilyId("");
-                      setVoterName("");
-                      resetRankings();
-                    }}
-                    disabled={coachDisabled}
-                    className="flex-1"
-                  >
-                    {coachAllVoted ? "Coach (full)" : "Coach"}
-                  </Button>
-                  {data.isAdultClub && (
+              {!data.team.selfManaged && (
+                <div className="space-y-2">
+                  <Label>I am a...</Label>
+                  <div className="flex gap-2">
                     <Button
-                      variant={voterType === "PLAYER" ? "default" : "outline"}
+                      variant={voterType === "PARENT" ? "default" : "outline"}
                       onClick={() => {
-                        setVoterType("PLAYER");
+                        setVoterType("PARENT");
+                        setSelfPlayerId("");
                         setCoachStaffId("");
-                        setSelectedFamilyId("");
                         setVoterName("");
+                        resetRankings();
                       }}
+                      disabled={parentDisabled}
                       className="flex-1"
                     >
-                      Player
+                      {parentFull ? "Parent (full)" : "Parent"}
                     </Button>
+                    <Button
+                      variant={voterType === "COACH" ? "default" : "outline"}
+                      onClick={() => {
+                        setVoterType("COACH");
+                        setSelfPlayerId("");
+                        setSelectedFamilyId("");
+                        setVoterName("");
+                        resetRankings();
+                      }}
+                      disabled={coachDisabled}
+                      className="flex-1"
+                    >
+                      {coachAllVoted ? "Coach (full)" : "Coach"}
+                    </Button>
+                    {data.isAdultClub && (
+                      <Button
+                        variant={voterType === "PLAYER" ? "default" : "outline"}
+                        onClick={() => {
+                          setVoterType("PLAYER");
+                          setCoachStaffId("");
+                          setSelectedFamilyId("");
+                          setVoterName("");
+                        }}
+                        className="flex-1"
+                      >
+                        Player
+                      </Button>
+                    )}
+                  </div>
+                  {voterType === "PARENT" && parentNoRoster && (
+                    <p className="text-xs text-amber-700">
+                      No rostered families for this round — ask the team manager to update the roster.
+                    </p>
+                  )}
+                  {voterType === "COACH" && coachNoStaff && (
+                    <p className="text-xs text-amber-700">
+                      No coach seats configured — ask your admin.
+                    </p>
                   )}
                 </div>
-                {voterType === "PARENT" && parentNoRoster && (
-                  <p className="text-xs text-amber-700">
-                    No rostered families for this round — ask the team manager to update the roster.
-                  </p>
-                )}
-                {voterType === "COACH" && coachNoStaff && (
-                  <p className="text-xs text-amber-700">
-                    No coach seats configured — ask your admin.
-                  </p>
-                )}
-              </div>
+              )}
 
               {voterType === "PLAYER" ? (
                 <div className="space-y-2">

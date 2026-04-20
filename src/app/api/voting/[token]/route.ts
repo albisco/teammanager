@@ -117,6 +117,7 @@ export async function GET(_req: NextRequest, { params }: { params: { token: stri
       seasonName: team.season.name,
       votingScheme: team.votingScheme,
       parentVoterCount: team.parentVoterCount,
+      selfManaged: team.selfManaged,
     },
     players: team.players
       .map((tp) => ({

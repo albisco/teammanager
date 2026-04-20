@@ -48,7 +48,9 @@ interface AwardsData {
 
 export default function ManagerAwardsPage() {
   const { data: session } = useSession();
-  const teamId = (session?.user as Record<string, unknown>)?.teamId as string | null;
+  const user = session?.user as Record<string, unknown> | undefined;
+  const teamId = user?.teamId as string | null;
+  const awardsEnabled = user?.teamEnableAwards !== false;
 
   const [data, setData] = useState<AwardsData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -208,6 +210,7 @@ export default function ManagerAwardsPage() {
     return Math.max(0, ...eligibilityColumns.map((c) => c.players.length));
   }, [eligibilityColumns]);
 
+  if (!awardsEnabled) return <p className="text-gray-500">Awards are disabled for this team.</p>;
   if (loading) return <p className="text-gray-500">Loading...</p>;
 
   return (

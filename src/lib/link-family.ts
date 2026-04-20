@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { Role } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { v4 as uuid } from "uuid";
 
@@ -18,7 +19,7 @@ export async function findOrCreateFamily(
 
   // Check if a FAMILY user with this name already exists in the club
   const existing = await prisma.user.findFirst({
-    where: { clubId, name: displayName, role: "FAMILY" },
+    where: { clubId, name: displayName, role: Role.FAMILY },
     select: { id: true },
   });
 
@@ -41,7 +42,7 @@ export async function findOrCreateFamily(
       email,
       passwordHash,
       name: displayName,
-      role: "FAMILY",
+      role: Role.FAMILY,
       clubId,
     },
   });

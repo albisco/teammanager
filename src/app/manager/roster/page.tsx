@@ -97,7 +97,9 @@ interface SpecialistFormEntry {
 
 export default function ManagerRosterPage() {
   const { data: session } = useSession();
-  const teamId = (session?.user as Record<string, unknown>)?.teamId as string | null;
+  const user = session?.user as Record<string, unknown> | undefined;
+  const teamId = user?.teamId as string | null;
+  const rosterEnabled = user?.teamEnableRoster !== false;
 
   const [teamRoles, setTeamRoles] = useState<TeamRoleConfig[]>([]);
   const [globalRoles, setGlobalRoles] = useState<GlobalDutyRole[]>([]);
@@ -560,6 +562,7 @@ export default function ManagerRosterPage() {
       ? "__custom__"
       : "";
 
+  if (!rosterEnabled) return <p className="text-gray-500">Duty roster is disabled for this team.</p>;
   if (pageLoading) return <p className="text-gray-500">Loading...</p>;
 
   return (
