@@ -2,58 +2,58 @@
 
 ## Project
 
-Team Manager — Multi-tenant sport team management web app for managing multiple clubs, each with teams across age groups. Replaces spreadsheets with player management, best & fairest voting (QR codes), duty rostering, and family self-service.
+Team Manager — Multi-tenant sport team management web app. Manage multiple clubs, teams across age groups. Replace spreadsheets: player management, best & fairest voting (QR codes), duty rostering, family self-service.
 
 ## Tech Stack
 
 - **Next.js 14** (App Router, TypeScript), **Prisma 6** ORM, **PostgreSQL** (Neon serverless, Sydney region)
 - **NextAuth.js 4** (credentials provider, JWT sessions with clubId, role-based middleware)
-- **Tailwind CSS 3** with hand-rolled shadcn-style UI components
-- **Neon adapter:** `@prisma/adapter-neon` for HTTP-based queries (no TCP cold starts)
+- **Tailwind CSS 3** + hand-rolled shadcn-style UI components
+- **Neon adapter:** `@prisma/adapter-neon` for HTTP queries (no TCP cold starts)
 - **QR Codes:** `qrcode` library, **Toasts:** `sonner`
 
 ## Commands
 
 - `npm run dev` — start dev server on port 3000
 - `npm run build` — runs `prisma generate && next build` (production build)
-- `npx prisma db push` — push schema to database (non-interactive, use instead of migrate dev)
-- `npx prisma generate` — regenerate Prisma client after schema changes
+- `npx prisma db push` — push schema to DB (non-interactive, use instead of migrate dev)
+- `npx prisma generate` — regen Prisma client after schema changes
 - `npx prisma db seed` — seed default club + admin user (admin@teammanager.com / admin123)
 
 ## Database
 
 - `.env` has `DATABASE_URL` (Neon pooler endpoint) — **never commit this file**
 - `.env.local` has `NEXTAUTH_SECRET` and `NEXTAUTH_URL` — also gitignored
-- `ANTHROPIC_API_KEY` — required for the in-app AI chat (`/admin/ask`, `/manager/ask`). Set in Vercel env vars or `.env.local`. Without it the chat returns 503. Optional override: `CHAT_MODEL` (defaults to `claude-haiku-4-5-20251001`)
-- Use `npx prisma db push --accept-data-loss` for schema changes (migrate dev doesn't work in non-interactive terminals)
+- `ANTHROPIC_API_KEY` — required for in-app AI chat (`/admin/ask`, `/manager/ask`). Set in Vercel env vars or `.env.local`. Without it chat returns 503. Optional override: `CHAT_MODEL` (defaults to `claude-haiku-4-5-20251001`)
+- Use `npx prisma db push --accept-data-loss` for schema changes (migrate dev fails in non-interactive terminals)
 - Neon DB in `aws-ap-southeast-2` (Sydney), Vercel functions in `syd1` — co-located for low latency
 
 ## Architecture
 
 ### Roles
-- **SUPER_ADMIN** — manages all clubs, not assigned to any club (clubId is null). Can create clubs + provision club admins.
-- **ADMIN** — club-scoped, manages their club's players, seasons, teams, voting, roster.
-- **FAMILY** — club-scoped, views duties, manages availability (not yet built).
+- **SUPER_ADMIN** — manage all clubs, not assigned to club (clubId null). Create clubs + provision club admins.
+- **ADMIN** — club-scoped, manage club's players, seasons, teams, voting, roster.
+- **FAMILY** — club-scoped, view duties, manage availability (not yet built).
 
 ### Multi-Tenancy
-Session-based club scoping. Every user belongs to a Club (except SUPER_ADMIN). JWT includes `clubId`. All API routes filter by `session.user.clubId` — no URL changes needed. Users only see their club's data.
+Session-based club scoping. Every user belongs to Club (except SUPER_ADMIN). JWT includes `clubId`. All API routes filter by `session.user.clubId` — no URL changes needed. Users see only their club's data.
 
 ### Data Model Hierarchy
-Club → Season(s) → Team(s) → Round(s). Players are club-level, linked to teams via TeamPlayer (many-to-many). DutyRoles are club-level, configured per-team via TeamDutyRole. Voting scheme is per-team.
+Club → Season(s) → Team(s) → Round(s). Players club-level, linked to teams via TeamPlayer (many-to-many). DutyRoles club-level, configured per-team via TeamDutyRole. Voting scheme per-team.
 
 ### Key Models (21 total)
 Club, User, Player, Season, Team, TeamPlayer, Round, VotingSession, Vote, DutyRole, TeamDutyRole, TeamDutyRoleSpecialist, RosterAssignment, FamilyExclusion, FamilyUnavailability, PlayerUnavailability, PlayerAvailability
 
-- **Club.isAdultClub** (Boolean, default false) — gates adult-team features: player availability polling and PLAYER voter type. Set by SUPER_ADMIN in club management.
+- **Club.isAdultClub** (Boolean, default false) — gates adult-team features: player availability polling + PLAYER voter type. Set by SUPER_ADMIN in club management.
 - **AvailabilityStatus enum** — AVAILABLE | MAYBE | UNAVAILABLE (used by PlayerAvailability)
-- **VoterType enum** — PARENT | COACH | PLAYER (PLAYER only shown on vote page when club.isAdultClub)
+- **VoterType enum** — PARENT | COACH | PLAYER (PLAYER shown on vote page only when club.isAdultClub)
 - **JWT/session** includes `isAdultClub` alongside `clubId` and `role` for client-side feature gating
 
 ### Duty Role Types (DutyRoleType enum)
 - **FIXED** — same person every round (e.g. coach, team manager)
 - **SPECIALIST** — rotates among listed eligible people only (e.g. field umpire)
 - **ROTATING** — rotates among all families (e.g. canteen, oranges)
-- **FREQUENCY** — like rotating but only fills every N weeks (e.g. photographer every 3 weeks)
+- **FREQUENCY** — like rotating but fills every N weeks (e.g. photographer every 3 weeks)
 
 ### Route Structure
 ```
@@ -112,14 +112,14 @@ Club, User, Player, Season, Team, TeamPlayer, Round, VotingSession, Vote, DutyRo
 ## What's Built
 - Multi-tenancy: Club model, session-based scoping, all routes filtered by clubId
 - Auth: login, JWT sessions with clubId, role middleware (SUPER_ADMIN/ADMIN/FAMILY)
-- Club management: SUPER_ADMIN can create/edit/delete clubs, provision club admin users
+- Club management: SUPER_ADMIN create/edit/delete clubs, provision club admin users
 - Players: CRUD, search, multi-team assignment
 - Seasons: CRUD with team hierarchy, lazy-loaded team details for performance
 - Teams: CRUD with voting scheme config per team
 - Rounds: CRUD scoped to teams, bye support
 - Voting: admin open/close, QR generation, public vote page, results/leaderboard, vote audit trail
 - Duty Roster: club-level role definitions, per-team configuration, roster generation, grid view, manual overrides, family unavailability
-- Share Round Duties: manager roster page and dashboard have a ShareDutiesPanel — copy formatted duty message or open WhatsApp with one tap; auto-selects next upcoming round
+- Share Round Duties: manager roster page + dashboard have ShareDutiesPanel — copy formatted duty message or open WhatsApp one tap; auto-selects next upcoming round
 - UI components: Button, Input, Label, Card, Badge, Table, Select, Textarea, Dialog, Sonner
 
 ## What's NOT Built Yet
@@ -138,37 +138,35 @@ Current system uses free-text voter name with deterministic ID (`anon_{sessionId
 3. **PIN-based** — voters select name + enter PIN
 4. **Pre-registered voter list + cookie** (recommended) — fits existing `parentVoterCount`/`coachVoterCount` fields
 
-Decision depends on how family accounts work — tackle after rostering is built.
+Decision depends on how family accounts work — tackle after rostering built.
 
 ## Dev Workflow
-- **Never push directly to `main`.** Always use feature branches and pull requests.
-- Create a feature branch: `git checkout -b feat/my-feature`
-- Run tests before committing: `npm test`
-- Push branch and create PR: `git push -u origin feat/my-feature && gh pr create`
-- Merge via PR only — Vercel deploys a preview per branch with its own Neon DB branch
+- **Never push directly to `main`.** Use feature branches + pull requests.
+- Create feature branch: `git checkout -b feat/my-feature`
+- Run tests before commit: `npm test`
+- Push branch + create PR: `git push -u origin feat/my-feature && gh pr create`
+- Merge via PR only — Vercel deploys preview per branch with own Neon DB branch
 
 ## Conventions
 - UI components in `src/components/ui/` — Tailwind v3 compatible, no radix dependencies
 - All API routes check auth via `getServerSession(authOptions)`, extract `clubId` from session
-- Admin routes require `role === "ADMIN"` or `"SUPER_ADMIN"`, family routes just require auth
-- Clubs nav link only visible to SUPER_ADMIN in admin layout
+- Admin routes require `role === "ADMIN"` or `"SUPER_ADMIN"`, family routes require auth only
+- Clubs nav link visible to SUPER_ADMIN only in admin layout
 - All portal layouts (admin/manager/family) have mobile-responsive sidebar: hamburger on `<md`, slide-in with overlay, `inert`+`aria-hidden` when closed, auto-close on resize to desktop
 - Club scoping: `(session.user as Record<string, unknown>)?.clubId as string`
 - Anonymous voters get deterministic user IDs: `anon_{sessionId}_{name}`, assigned to club via voting session chain
 - Dates stored as DateTime in Prisma, formatted with `en-AU` locale in UI
-- Always update CLAUDE.md when making major architectural changes
+- Update CLAUDE.md on major architectural changes
 
 ## Skill routing
 
-When the user's request matches an available skill, ALWAYS invoke it using the Skill
-tool as your FIRST action. Do NOT answer directly, do NOT use other tools first.
-The skill has specialized workflows that produce better results than ad-hoc answers.
+On user request matching available skill, ALWAYS invoke via Skill tool as FIRST action. Do NOT answer directly, do NOT use other tools first. Skill has specialized workflows producing better results than ad-hoc answers.
 
 Key routing rules:
 - Product ideas, "is this worth building", brainstorming → invoke office-hours
 - Bugs, errors, "why is this broken", 500 errors → invoke investigate
 - Ship, deploy, push, create PR → invoke ship
-- QA, test the site, find bugs → invoke qa
+- QA, test site, find bugs → invoke qa
 - Code review, check my diff → invoke review
 - Update docs after shipping → invoke document-release
 - Weekly retro → invoke retro

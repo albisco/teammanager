@@ -52,3 +52,4 @@ test-results/
 # CSV data files
 U10*.csv
 U10 *.csv
+.env.preview
