@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { deriveFamiliesWithPlayers } from "@/lib/roster-algorithm";
 
@@ -150,7 +151,7 @@ export async function POST(req: NextRequest, { params }: { params: { token: stri
         email: `${voterId}@anonymous.local`,
         passwordHash: "anonymous",
         name: effectiveVoterName,
-        role: "FAMILY",
+        role: Role.FAMILY,
         clubId: team.season.clubId,
       },
     });

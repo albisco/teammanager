@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Role } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -8,7 +9,7 @@ export async function GET() {
   const session = await getServerSession(authOptions);
   const role = session?.user?.role;
 
-  if (role === "SUPER_ADMIN") {
+  if (role === Role.SUPER_ADMIN) {
     const clubs = await prisma.club.findMany({
       include: {
         _count: { select: { users: true, seasons: true, players: true } },
@@ -21,7 +22,7 @@ export async function GET() {
   // ADMINs can read their own club only, so admin pages can reflect current
   // club-wide settings (e.g. enforceFamilyVoteExclusion) without a second
   // endpoint. Same shape as the SUPER_ADMIN response for consistency.
-  if (role === "ADMIN") {
+  if (role === Role.ADMIN) {
     const adminClubId = (session?.user as Record<string, unknown>)?.clubId as string | undefined;
     if (!adminClubId) {
       return NextResponse.json([]);
@@ -40,7 +41,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (session?.user?.role !== "SUPER_ADMIN") {
+  if (session?.user?.role !== Role.SUPER_ADMIN) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -80,7 +81,7 @@ export async function POST(req: NextRequest) {
           email: adminEmail,
           passwordHash,
           name: adminName,
-          role: "ADMIN",
+          role: Role.ADMIN,
           clubId: club.id,
         },
       });
@@ -98,7 +99,7 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   const session = await getServerSession(authOptions);
   const role = session?.user?.role;
-  if (role !== "SUPER_ADMIN" && role !== "ADMIN") {
+  if (role !== Role.SUPER_ADMIN && role !== Role.ADMIN) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -108,7 +109,7 @@ export async function PUT(req: NextRequest) {
 
   // ADMINs can only update their own club, and only a small allow-list of
   // club-wide voting settings (maxVotesPerRound, enforceFamilyVoteExclusion).
-  if (role === "ADMIN") {
+  if (role === Role.ADMIN) {
     const adminClubId = (session?.user as Record<string, unknown>)?.clubId as string | undefined;
     if (!adminClubId || adminClubId !== id) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -161,7 +162,7 @@ export async function PUT(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (session?.user?.role !== "SUPER_ADMIN") {
+  if (session?.user?.role !== Role.SUPER_ADMIN) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

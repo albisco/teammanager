@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Role } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { loadTeamAvailability } from "@/lib/availability";
@@ -6,7 +7,7 @@ import { loadTeamAvailability } from "@/lib/availability";
 export async function GET() {
   const session = await getServerSession(authOptions);
   const user = session?.user as Record<string, unknown> | undefined;
-  if (!session || user?.role !== "TEAM_MANAGER") {
+  if (!session || user?.role !== Role.TEAM_MANAGER) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Role } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import Anthropic from "@anthropic-ai/sdk";
 import { authOptions } from "@/lib/auth";
@@ -78,7 +79,7 @@ export async function POST(req: NextRequest) {
 
   const user = session.user as Record<string, unknown>;
   const role = user.role as string;
-  if (!["SUPER_ADMIN", "ADMIN", "TEAM_MANAGER"].includes(role)) {
+  if (!([Role.SUPER_ADMIN, Role.ADMIN, Role.TEAM_MANAGER] as string[]).includes(role)) {
     return NextResponse.json(
       { error: "Chat is only available to administrators and team managers" },
       { status: 403 }

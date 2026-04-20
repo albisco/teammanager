@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Role } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -8,7 +9,7 @@ export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const isSuperAdmin = session.user?.role === "SUPER_ADMIN";
+  const isSuperAdmin = session.user?.role === Role.SUPER_ADMIN;
   const clubId = (session.user as Record<string, unknown>)?.clubId as string;
 
   const players = await prisma.player.findMany({
@@ -29,7 +30,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   const role = session?.user?.role;
-  if (!session || (role !== "ADMIN" && role !== "SUPER_ADMIN" && role !== "TEAM_MANAGER")) {
+  if (!session || (role !== Role.ADMIN && role !== Role.SUPER_ADMIN && role !== Role.TEAM_MANAGER)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { Role } from "@prisma/client";
 import {
   deriveFamilies,
   generateRoster,
@@ -51,7 +52,7 @@ const generateRosterTool: ToolDefinition = {
     additionalProperties: false,
   },
   async handler(input, ctx) {
-    assertRole(ctx.scope, ["SUPER_ADMIN", "ADMIN", "TEAM_MANAGER"]);
+    assertRole(ctx.scope, [Role.SUPER_ADMIN, Role.ADMIN, Role.TEAM_MANAGER]);
     const teamId = String(input.teamId);
     assertTeamAccess(ctx.scope, teamId);
 
@@ -243,7 +244,7 @@ const overrideAssignment: ToolDefinition = {
     additionalProperties: false,
   },
   async handler(input, ctx) {
-    assertRole(ctx.scope, ["SUPER_ADMIN", "ADMIN", "TEAM_MANAGER"]);
+    assertRole(ctx.scope, [Role.SUPER_ADMIN, Role.ADMIN, Role.TEAM_MANAGER]);
     const teamId = String(input.teamId);
     const roundNumber = Number(input.roundNumber);
     const teamDutyRoleId = String(input.teamDutyRoleId);
@@ -378,7 +379,7 @@ const markFamilyUnavailable: ToolDefinition = {
     const roundNumber = Number(input.roundNumber);
     assertTeamAccess(ctx.scope, teamId);
     // FAMILY users can only mark their own family unavailable.
-    if (ctx.scope.role === "FAMILY") assertFamilyAccess(ctx.scope, familyId);
+    if (ctx.scope.role === Role.FAMILY) assertFamilyAccess(ctx.scope, familyId);
 
     const round = await prisma.round.findUnique({
       where: { teamId_roundNumber: { teamId, roundNumber } },
