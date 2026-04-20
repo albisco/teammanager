@@ -1,8 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
@@ -54,20 +52,10 @@ function StatusBadge({ status }: { status: "AVAILABLE" | "MAYBE" | "UNAVAILABLE"
 }
 
 export default function ManagerAvailabilityPage() {
-  const { data: session, status } = useSession();
-  const router = useRouter();
   const [data, setData] = useState<AvailabilityData | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [forbidden, setForbidden] = useState(false);
-
-  useEffect(() => {
-    if (status !== "authenticated") return;
-    const user = session?.user as Record<string, unknown> | undefined;
-    if (!user?.teamSelfManaged) {
-      router.push("/manager/dashboard");
-    }
-  }, [session, status, router]);
 
   const fetchData = useCallback(async () => {
     const res = await fetch("/api/manager/availability");
