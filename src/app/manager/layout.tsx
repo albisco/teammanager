@@ -40,7 +40,10 @@ export default function ManagerLayout({ children }: { children: React.ReactNode 
   const asideRef = useRef<HTMLElement>(null);
 
   const user = session?.user as Record<string, unknown> | undefined;
+  const sessionLoaded = !!user;
   const visibleNavItems = navItems.filter((item) => {
+    // While session loads, hide feature-gated items to avoid flashing links the user can't access.
+    if (!sessionLoaded && (item.teamManagerOnly || item.requiresAiChat || item.requiresRoster || item.requiresAwards || item.requiresSelfManaged)) return false;
     if (item.teamManagerOnly && activeStaffRole !== TEAM_STAFF_ROLE.TEAM_MANAGER) return false;
     if (item.requiresAiChat && user?.enableAiChat === false) return false;
     if (item.requiresRoster && user?.teamEnableRoster === false) return false;
