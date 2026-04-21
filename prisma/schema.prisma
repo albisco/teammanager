@@ -141,6 +141,8 @@ model Team {
   enableAwards      Boolean @default(true)
   availabilityToken       String? @unique @default(cuid())
   playerAvailabilityToken String? @unique @default(cuid())
+  fixtureSourceUrl        String?
+  fixtureSyncedAt         DateTime?
 
   players         TeamPlayer[]
   rounds          Round[]
@@ -184,6 +186,8 @@ model Round {
   isBye            Boolean   @default(false)
   opponent         String?
   venue            String?
+  court            String?
+  externalId       String?
   isRosterLocked   Boolean   @default(false)
 
   votingSession          VotingSession?
@@ -194,6 +198,7 @@ model Round {
   awards                 Award[]
 
   @@unique([teamId, roundNumber])
+  @@unique([teamId, externalId])
 }
 
 model VotingSession {

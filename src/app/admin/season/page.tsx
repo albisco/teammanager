@@ -12,6 +12,7 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { TeamStaffPanel } from "@/components/team-staff-panel";
 
@@ -23,6 +24,18 @@ interface Round {
   isBye: boolean;
   opponent: string | null;
   venue: string | null;
+  court?: string | null;
+}
+
+interface FixturePreviewRow {
+  externalId: string;
+  roundNumber: number;
+  date: string | null;
+  gameTime: string | null;
+  opponent: string | null;
+  venue: string | null;
+  court: string | null;
+  isBye: boolean;
 }
 
 interface TeamPlayerInfo {
@@ -97,6 +110,13 @@ export default function SeasonPage() {
   const [roundForm, setRoundForm] = useState({
     roundNumber: "", date: "", gameTime: "", isBye: false, opponent: "", venue: "",
   });
+
+  // Fixture import dialog
+  const [fixtureDialogOpen, setFixtureDialogOpen] = useState(false);
+  const [fixtureIcs, setFixtureIcs] = useState("");
+  const [fixtureSourceUrl, setFixtureSourceUrl] = useState("");
+  const [fixturePreview, setFixturePreview] = useState<FixturePreviewRow[] | null>(null);
+  const [fixtureBusy, setFixtureBusy] = useState(false);
 
   const [loading, setLoading] = useState(false);
 
@@ -248,6 +268,57 @@ export default function SeasonPage() {
     }
   }
 
+  // === Fixture import ===
+  function openFixtureImport() {
+    setFixtureIcs("");
+    setFixtureSourceUrl("");
+    setFixturePreview(null);
+    setFixtureDialogOpen(true);
+  }
+
+  async function handleFixturePreview() {
+    if (!selectedTeamSummary) return;
+    if (!fixtureIcs.trim()) {
+      toast.error("Paste the iCal/.ics contents first");
+      return;
+    }
+    setFixtureBusy(true);
+    const res = await fetch(`/api/teams/${selectedTeamSummary.id}/fixture/import`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ics: fixtureIcs, sourceUrl: fixtureSourceUrl || undefined, dryRun: true }),
+    });
+    setFixtureBusy(false);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: "Parse failed" }));
+      toast.error(err.error || "Parse failed");
+      return;
+    }
+    const data = await res.json();
+    setFixturePreview(data.preview as FixturePreviewRow[]);
+  }
+
+  async function handleFixtureConfirm() {
+    if (!selectedTeamSummary) return;
+    setFixtureBusy(true);
+    const res = await fetch(`/api/teams/${selectedTeamSummary.id}/fixture/import`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ics: fixtureIcs, sourceUrl: fixtureSourceUrl || undefined }),
+    });
+    setFixtureBusy(false);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: "Import failed" }));
+      toast.error(err.error || "Import failed");
+      return;
+    }
+    const data = await res.json();
+    toast.success(`Imported ${data.total} rounds (${data.created} new, ${data.updated} updated)`);
+    setFixtureDialogOpen(false);
+    refreshTeamDetail();
+    fetchSeasons();
+  }
+
   // === Round CRUD ===
   function openAddRound() {
     if (!selectedTeamDetail) return;
@@ -374,7 +445,12 @@ export default function SeasonPage() {
               </h2>
             </div>
             <div className="flex gap-2">
-              {teamTab === "rounds" && <Button onClick={openAddRound} disabled={!selectedTeamDetail}>Add Round</Button>}
+              {teamTab === "rounds" && (
+                <>
+                  <Button variant="outline" onClick={openFixtureImport} disabled={!selectedTeamDetail}>Import Fixture</Button>
+                  <Button onClick={openAddRound} disabled={!selectedTeamDetail}>Add Round</Button>
+                </>
+              )}
             </div>
           </div>
 
@@ -684,6 +760,85 @@ export default function SeasonPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setRoundDialogOpen(false)}>Cancel</Button>
             <Button onClick={handleSaveRound} disabled={loading}>{loading ? "Saving..." : "Save"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* === Fixture Import Dialog === */}
+      <Dialog open={fixtureDialogOpen} onOpenChange={setFixtureDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Import Fixture from iCal</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2 text-sm text-gray-600">
+              <p>On your fixture page (e.g. Revolutionise), open the <b>iCal</b> export link and paste its raw contents below. Each event becomes or updates a round (matched by event UID, then round number).</p>
+            </div>
+            <div className="space-y-2">
+              <Label>Source URL (optional)</Label>
+              <Input
+                value={fixtureSourceUrl}
+                onChange={(e) => setFixtureSourceUrl(e.target.value)}
+                placeholder="https://www.revolutionise.com.au/.../games/team/..."
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>iCal / .ics contents *</Label>
+              <Textarea
+                value={fixtureIcs}
+                onChange={(e) => setFixtureIcs(e.target.value)}
+                placeholder="BEGIN:VCALENDAR..."
+                rows={8}
+                className="font-mono text-xs"
+              />
+            </div>
+            {fixturePreview && (
+              <div className="border rounded-md overflow-hidden">
+                <div className="px-3 py-2 bg-gray-50 text-sm font-medium border-b">
+                  Preview ({fixturePreview.length} rounds)
+                </div>
+                <div className="max-h-64 overflow-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-12">#</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Opponent</TableHead>
+                        <TableHead>Venue</TableHead>
+                        <TableHead>Court</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {fixturePreview.map((r) => (
+                        <TableRow key={r.externalId}>
+                          <TableCell className="font-mono">{r.roundNumber}</TableCell>
+                          <TableCell className="whitespace-nowrap text-xs">
+                            {r.date
+                              ? new Date(r.date).toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" }) + (r.gameTime ? ` ${r.gameTime}` : "")
+                              : "—"}
+                          </TableCell>
+                          <TableCell className="text-xs">{r.opponent || "—"}</TableCell>
+                          <TableCell className="text-xs">{r.venue || "—"}</TableCell>
+                          <TableCell className="text-xs">{r.court || "—"}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setFixtureDialogOpen(false)}>Cancel</Button>
+            {!fixturePreview ? (
+              <Button onClick={handleFixturePreview} disabled={fixtureBusy}>
+                {fixtureBusy ? "Parsing..." : "Preview"}
+              </Button>
+            ) : (
+              <Button onClick={handleFixtureConfirm} disabled={fixtureBusy}>
+                {fixtureBusy ? "Importing..." : `Import ${fixturePreview.length} rounds`}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
