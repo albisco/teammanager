@@ -145,12 +145,13 @@ model Team {
   fixtureSourceUrl        String?
   fixtureSyncedAt         DateTime?
 
-  players         TeamPlayer[]
-  rounds          Round[]
-  teamDutyRoles   TeamDutyRole[]
-  dutyRoles       DutyRole[]
-  awardTypes      AwardType[]
-  staff           TeamStaff[]
+  players               TeamPlayer[]
+  rounds                Round[]
+  teamDutyRoles         TeamDutyRole[]
+  dutyRoles             DutyRole[]
+  dutyRoleExclusions    TeamDutyRoleExclusion[]
+  awardTypes            AwardType[]
+  staff                 TeamStaff[]
 }
 
 model TeamStaff {
@@ -282,6 +283,16 @@ model RosterAssignment {
   slot               Int          @default(0)
 
   @@unique([roundId, teamDutyRoleId, slot])
+}
+
+model TeamDutyRoleExclusion {
+  id         String @id @default(cuid())
+  teamId     String
+  dutyRoleId String
+  team       Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, dutyRoleId])
+  @@index([teamId])
 }
 
 model FamilyExclusion {

@@ -398,17 +398,32 @@ export default function ManagerRosterPage() {
     }
   }
 
+  // Remove club-level role from this team (does not affect club definition)
+  async function handleExcludeClubRole(role: TeamRoleConfig) {
+    if (!teamId) return;
+    if (!confirm(`Remove "${role.roleName}" from this team's roster?\n\nThis only affects your team — the club-level role definition is unchanged. You can ask your club admin to restore it if needed.`)) return;
+
+    const res = await fetch(`/api/teams/${teamId}/duty-roles/exclude/${role.dutyRoleId}`, { method: "DELETE" });
+    if (res.ok) {
+      toast.success(`${role.roleName} removed from team roster`);
+      fetchAll();
+    } else {
+      const d = await res.json().catch(() => ({}));
+      toast.error(d.error || "Failed to remove role");
+    }
+  }
+
   // === Roster Generation ===
   async function handleDeleteRole(role: TeamRoleConfig) {
     if (!teamId || !role.teamDutyRoleId) return;
-    if (!confirm(`Remove "${role.roleName}" from this team? Any roster assignments for this role will be deleted.`)) return;
+    if (!confirm(`Reset configuration for "${role.roleName}"? This clears the current setup but keeps the role in your roster.`)) return;
 
     const res = await fetch(`/api/teams/${teamId}/duty-roles/${role.teamDutyRoleId}`, { method: "DELETE" });
     if (res.ok) {
-      toast.success(`${role.roleName} removed`);
+      toast.success(`${role.roleName} configuration reset`);
       fetchAll();
     } else {
-      toast.error("Failed to remove role");
+      toast.error("Failed to reset role");
     }
   }
 
@@ -685,9 +700,14 @@ export default function ManagerRosterPage() {
                         <Button variant="outline" size="sm" onClick={() => openConfigDialog(role)}>
                           Configure
                         </Button>
-                        {role.configured && (
-                          <Button variant="outline" size="sm" className="text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => handleDeleteRole(role)}>
-                            Remove
+                        {role.configured && !role.isTeamScoped && (
+                          <Button variant="outline" size="sm" className="text-amber-600 hover:text-amber-800 hover:bg-amber-50" onClick={() => handleDeleteRole(role)}>
+                            Reset
+                          </Button>
+                        )}
+                        {!role.isTeamScoped && (
+                          <Button variant="outline" size="sm" className="text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => handleExcludeClubRole(role)}>
+                            Delete
                           </Button>
                         )}
                         {role.isTeamScoped && allowTeamDutyRoles && (
