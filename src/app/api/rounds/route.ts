@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Role } from "@prisma/client";
+import { Role, TeamStaffRole } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { hasStaffRole } from "@/lib/team-access";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -37,8 +38,8 @@ export async function POST(req: NextRequest) {
 
   if (role === Role.TEAM_MANAGER) {
     const userId = (session!.user as { id: string }).id;
-    const team = await prisma.team.findFirst({ where: { id: teamId, managerId: userId }, select: { id: true } });
-    if (!team) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const allowed = await hasStaffRole(userId, teamId, TeamStaffRole.TEAM_MANAGER);
+    if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const round = await prisma.round.create({
