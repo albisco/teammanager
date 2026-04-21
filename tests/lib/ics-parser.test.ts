@@ -84,3 +84,47 @@ describe("mapEventsForTeam", () => {
     expect(mapped[0].opponent).toBe("Hustlers vs Volleybros");
   });
 });
+
+const ECAL_SAMPLE = `BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:ecal-1
+DTSTAMP:20260419T030000Z
+SUMMARY:🏉 Hampton Rovers U12 Mixed YELLOW vs Murrumbeena U12 Mixed LIONS
+LOCATION:Castlefield Reserve 1\\, Hampton
+DTSTART:20260419T030000Z
+END:VEVENT
+BEGIN:VEVENT
+UID:ecal-2
+DTSTAMP:20260425T230000Z
+SUMMARY:🏉 Murrumbeena U12 Mixed LIONS vs Prahran JFC U12 Mixed ZAYLOR
+LOCATION:Murrumbeena Park 1
+DTSTART:20260425T230000Z
+END:VEVENT
+BEGIN:VEVENT
+UID:welcome
+DTSTAMP:20260421T043700Z
+SUMMARY:Welcome to PlayHQ!
+LOCATION:Proudly powered by ECAL
+DTSTART:20260421T043700Z
+END:VEVENT
+END:VCALENDAR
+`;
+
+describe("parseIcs (ecal / PlayHQ)", () => {
+  it("extracts teams from emoji-prefixed summary without Round label", () => {
+    const events = parseIcs(ECAL_SAMPLE);
+    expect(events[0].teamA).toBe("Hampton Rovers U12 Mixed YELLOW");
+    expect(events[0].teamB).toBe("Murrumbeena U12 Mixed LIONS");
+  });
+
+  it("matches our team via token subset and skips non-fixture events", () => {
+    const events = parseIcs(ECAL_SAMPLE);
+    const mapped = mapEventsForTeam(events, "Murrumbeena U12 Lions");
+    expect(mapped).toHaveLength(2);
+    expect(mapped[0].opponent).toBe("Hampton Rovers U12 Mixed YELLOW");
+    expect(mapped[1].opponent).toBe("Prahran JFC U12 Mixed ZAYLOR");
+    expect(mapped[0].roundNumber).toBe(1);
+    expect(mapped[1].roundNumber).toBe(2);
+  });
+});
