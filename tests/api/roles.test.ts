@@ -133,30 +133,41 @@ describe("Duty Roles API roles", () => {
 });
 
 describe("Rounds API roles", () => {
-  test("TM cannot POST (create) rounds", async () => {
+  // TM access on rounds is now scoped via TeamStaff.TEAM_MANAGER. The default
+  // prisma mock returns null for teamStaff.findFirst, so a TM with no staff
+  // row for the requested team gets 403. Positive cases (TM with a matching
+  // staff row) live in rounds-staff-auth.test.ts where hasStaffRole is mocked.
+  test("TM without staff row cannot POST rounds", async () => {
     setTestSession(sessions.teamManager);
     const res = await postRounds(createRequest("/api/rounds", { method: "POST", body: { teamId: "x", roundNumber: 1 } }));
     expect(res.status).toBe(403);
   });
 
-  test("TM can PUT (edit) a round", async () => {
+  test("TM without staff row cannot PUT a round", async () => {
     setTestSession(sessions.teamManager);
     const params = { params: { id: "nonexistent" } };
     const res = await putRound(createRequest("/api/rounds/x", { method: "PUT", body: { opponent: "Test" } }), params);
-    expect(res.status).not.toBe(403);
+    // 404 (round not found) is acceptable — but never 200 success
+    expect([403, 404]).toContain(res.status);
   });
 
-  test("TM cannot DELETE a round", async () => {
+  test("TM without staff row cannot DELETE a round", async () => {
     setTestSession(sessions.teamManager);
     const params = { params: { id: "nonexistent" } };
     const res = await deleteRound(createRequest("/api/rounds/x", { method: "DELETE" }), params);
-    expect(res.status).toBe(403);
+    expect([403, 404]).toContain(res.status);
   });
 
   test("ADMIN can POST rounds", async () => {
     setTestSession(sessions.admin);
     const res = await postRounds(createRequest("/api/rounds", { method: "POST", body: { teamId: "x", roundNumber: 1 } }));
     expect(res.status).not.toBe(403);
+  });
+
+  test("FAMILY cannot POST rounds", async () => {
+    setTestSession(sessions.family);
+    const res = await postRounds(createRequest("/api/rounds", { method: "POST", body: { teamId: "x", roundNumber: 1 } }));
+    expect(res.status).toBe(403);
   });
 });
 

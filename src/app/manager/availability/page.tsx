@@ -113,7 +113,7 @@ export default function ManagerAvailabilityPage() {
           </p>
           {token ? (
             <>
-              <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-800 rounded-md px-3 py-2 text-sm font-mono break-all">
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-md px-3 py-2 text-xs font-mono overflow-x-auto whitespace-nowrap">
                 {getAvailabilityUrl()}
               </div>
               <div className="flex gap-2">
