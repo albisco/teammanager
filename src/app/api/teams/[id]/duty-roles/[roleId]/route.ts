@@ -44,8 +44,8 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string; 
         include: { dutyRole: true },
       });
       if (existing && existing.dutyRole.roleName !== roleName) {
-        let dutyRole = await prisma.dutyRole.findUnique({
-          where: { clubId_roleName: { clubId, roleName } },
+        let dutyRole = await prisma.dutyRole.findFirst({
+          where: { clubId, teamId: null, roleName },
         });
         if (!dutyRole) {
           dutyRole = await prisma.dutyRole.create({ data: { roleName, clubId } });

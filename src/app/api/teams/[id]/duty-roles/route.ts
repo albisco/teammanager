@@ -9,8 +9,11 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const clubId = (session.user as Record<string, unknown>)?.clubId as string;
 
-  // Get all club-level roles
-  const allRoles = await prisma.dutyRole.findMany({ where: { clubId }, orderBy: [{ sortOrder: "asc" }, { roleName: "asc" }] });
+  // Get club-wide roles + any roles scoped to this team
+  const allRoles = await prisma.dutyRole.findMany({
+    where: { clubId, OR: [{ teamId: null }, { teamId: params.id }] },
+    orderBy: [{ sortOrder: "asc" }, { roleName: "asc" }],
+  });
 
   // Get team-specific configurations
   const teamConfigs = await prisma.teamDutyRole.findMany({
@@ -29,6 +32,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     return {
       dutyRoleId: role.id,
       roleName: role.roleName,
+      isTeamScoped: role.teamId !== null,
       teamDutyRoleId: config?.id || null,
       roleType: config?.roleType || "ROTATING",
       assignedPersonName: config?.assignedPersonName || null,

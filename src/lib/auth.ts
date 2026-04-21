@@ -89,14 +89,16 @@ export const authOptions: NextAuthOptions = {
         let isAdultClub = false;
         let enableAiChat = true;
         let enablePlayHq = true;
+        let allowTeamDutyRoles = false;
         if (user.clubId) {
           const club = await prisma.club.findUnique({
             where: { id: user.clubId },
-            select: { isAdultClub: true, enableAiChat: true, enablePlayHq: true },
+            select: { isAdultClub: true, enableAiChat: true, enablePlayHq: true, allowTeamDutyRoles: true },
           });
           isAdultClub = club?.isAdultClub ?? false;
           enableAiChat = club?.enableAiChat ?? true;
           enablePlayHq = club?.enablePlayHq ?? true;
+          allowTeamDutyRoles = club?.allowTeamDutyRoles ?? false;
         }
 
         return {
@@ -110,6 +112,7 @@ export const authOptions: NextAuthOptions = {
           isAdultClub,
           enableAiChat,
           enablePlayHq,
+          allowTeamDutyRoles,
           teamSelfManaged,
           teamEnableRoster,
           teamEnableAwards,
@@ -129,6 +132,7 @@ export const authOptions: NextAuthOptions = {
         token.isAdultClub = u.isAdultClub as boolean;
         token.enableAiChat = u.enableAiChat as boolean;
         token.enablePlayHq = u.enablePlayHq as boolean;
+        token.allowTeamDutyRoles = u.allowTeamDutyRoles as boolean;
         token.teamSelfManaged = u.teamSelfManaged as boolean;
         token.teamEnableRoster = u.teamEnableRoster as boolean;
         token.teamEnableAwards = u.teamEnableAwards as boolean;
@@ -146,6 +150,7 @@ export const authOptions: NextAuthOptions = {
         s.isAdultClub = token.isAdultClub;
         s.enableAiChat = token.enableAiChat;
         s.enablePlayHq = token.enablePlayHq;
+        s.allowTeamDutyRoles = token.allowTeamDutyRoles;
         s.teamSelfManaged = token.teamSelfManaged;
         s.teamEnableRoster = token.teamEnableRoster;
         s.teamEnableAwards = token.teamEnableAwards;

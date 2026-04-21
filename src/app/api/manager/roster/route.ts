@@ -36,7 +36,7 @@ export async function GET() {
       orderBy: { name: "asc" },
     }),
     prisma.dutyRole.findMany({
-      where: { clubId },
+      where: { clubId, OR: [{ teamId: null }, { teamId }] },
       orderBy: [{ sortOrder: "asc" }, { roleName: "asc" }],
     }),
     prisma.teamDutyRole.findMany({
@@ -97,6 +97,7 @@ export async function GET() {
     return {
       dutyRoleId: role.id,
       roleName: role.roleName,
+      isTeamScoped: role.teamId !== null,
       teamDutyRoleId: config?.id || null,
       roleType: config?.roleType || "ROTATING",
       assignedPersonName: config?.assignedPersonName || null,

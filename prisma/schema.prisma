@@ -13,6 +13,7 @@ model Club {
   name                       String
   slug                       String   @unique
   isAdultClub                Boolean  @default(false)
+  allowTeamDutyRoles         Boolean  @default(false)
   enforceFamilyVoteExclusion Boolean  @default(false)
   maxVotesPerRound           Int      @default(4)
   enableAiChat               Boolean  @default(true)
@@ -147,6 +148,7 @@ model Team {
   players         TeamPlayer[]
   rounds          Round[]
   teamDutyRoles   TeamDutyRole[]
+  dutyRoles       DutyRole[]
   awardTypes      AwardType[]
   staff           TeamStaff[]
 }
@@ -230,11 +232,14 @@ model DutyRole {
   sortOrder     Int     @default(0)
   clubId        String
   club          Club    @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  teamId        String?
+  team          Team?   @relation(fields: [teamId], references: [id], onDelete: Cascade)
   isVotingRole  Boolean @default(false)
 
   teamDutyRoles TeamDutyRole[]
 
-  @@unique([clubId, roleName])
+  @@unique([clubId, teamId, roleName])
+  @@index([teamId])
 }
 
 model TeamDutyRole {

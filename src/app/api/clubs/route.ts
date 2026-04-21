@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const { name, slug, adminName, adminEmail, adminPassword, isAdultClub, enableAiChat, enablePlayHq, enforceFamilyVoteExclusion, maxVotesPerRound } = await req.json();
+  const { name, slug, adminName, adminEmail, adminPassword, isAdultClub, enableAiChat, enablePlayHq, allowTeamDutyRoles, enforceFamilyVoteExclusion, maxVotesPerRound } = await req.json();
 
   if (!name || !slug) {
     return NextResponse.json({ error: "Club name and slug are required" }, { status: 400 });
@@ -66,6 +66,7 @@ export async function POST(req: NextRequest) {
         name,
         slug: slug.toLowerCase().replace(/\s+/g, "-"),
         isAdultClub: !!isAdultClub,
+        allowTeamDutyRoles: !!allowTeamDutyRoles,
         enforceFamilyVoteExclusion: !!enforceFamilyVoteExclusion,
         ...(maxVotes !== undefined ? { maxVotesPerRound: maxVotes } : {}),
         ...(enableAiChat !== undefined && { enableAiChat: !!enableAiChat }),
@@ -104,7 +105,7 @@ export async function PUT(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { id, name, slug, isAdultClub, enableAiChat, enablePlayHq, enforceFamilyVoteExclusion, maxVotesPerRound } = body;
+  const { id, name, slug, isAdultClub, enableAiChat, enablePlayHq, allowTeamDutyRoles, enforceFamilyVoteExclusion, maxVotesPerRound } = body;
   if (!id) return NextResponse.json({ error: "ID is required" }, { status: 400 });
 
   // ADMINs can only update their own club, and only a small allow-list of
@@ -114,7 +115,7 @@ export async function PUT(req: NextRequest) {
     if (!adminClubId || adminClubId !== id) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
-    if (name !== undefined || slug !== undefined || isAdultClub !== undefined || enableAiChat !== undefined || enablePlayHq !== undefined) {
+    if (name !== undefined || slug !== undefined || isAdultClub !== undefined || enableAiChat !== undefined || enablePlayHq !== undefined || allowTeamDutyRoles !== undefined) {
       return NextResponse.json(
         { error: "ADMINs may only update maxVotesPerRound or enforceFamilyVoteExclusion" },
         { status: 403 },
@@ -144,6 +145,7 @@ export async function PUT(req: NextRequest) {
         name: name || undefined,
         slug: slug ? slug.toLowerCase().replace(/\s+/g, "-") : undefined,
         isAdultClub: isAdultClub !== undefined ? !!isAdultClub : undefined,
+        allowTeamDutyRoles: allowTeamDutyRoles !== undefined ? !!allowTeamDutyRoles : undefined,
         enableAiChat: enableAiChat !== undefined ? !!enableAiChat : undefined,
         enablePlayHq: enablePlayHq !== undefined ? !!enablePlayHq : undefined,
         enforceFamilyVoteExclusion:

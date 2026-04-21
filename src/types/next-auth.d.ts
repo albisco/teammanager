@@ -14,6 +14,7 @@ declare module "next-auth" {
       teamId: string | null;
       teams: ManagerTeam[];
       isAdultClub: boolean;
+      allowTeamDutyRoles: boolean;
     };
   }
 }
@@ -26,5 +27,6 @@ declare module "next-auth/jwt" {
     teamId: string | null;
     teams: ManagerTeam[];
     isAdultClub: boolean;
+    allowTeamDutyRoles: boolean;
   }
 }

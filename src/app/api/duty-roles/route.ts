@@ -10,7 +10,7 @@ export async function GET() {
   const clubId = (session.user as Record<string, unknown>)?.clubId as string;
 
   const roles = await prisma.dutyRole.findMany({
-    where: { clubId },
+    where: { clubId, teamId: null },
     orderBy: [{ sortOrder: "asc" }, { roleName: "asc" }],
   });
 
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const maxRole = await prisma.dutyRole.findFirst({
-      where: { clubId },
+      where: { clubId, teamId: null },
       orderBy: { sortOrder: "desc" },
       select: { sortOrder: true },
     });
@@ -69,7 +69,7 @@ export async function PUT(req: NextRequest) {
   }
 
   const existingRole = await prisma.dutyRole.findUnique({ where: { id } });
-  if (!existingRole || existingRole.clubId !== clubId) {
+  if (!existingRole || existingRole.clubId !== clubId || existingRole.teamId !== null) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
@@ -105,9 +105,9 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "orderedIds array is required" }, { status: 400 });
   }
 
-  // Verify all IDs belong to this club
+  // Verify all IDs belong to this club (club-wide only)
   const roles = await prisma.dutyRole.findMany({
-    where: { clubId },
+    where: { clubId, teamId: null },
     select: { id: true },
   });
   const validIds = new Set(roles.map((r) => r.id));
@@ -139,7 +139,7 @@ export async function DELETE(req: NextRequest) {
   }
 
   const existingRole = await prisma.dutyRole.findUnique({ where: { id } });
-  if (!existingRole || existingRole.clubId !== clubId) {
+  if (!existingRole || existingRole.clubId !== clubId || existingRole.teamId !== null) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 

@@ -20,6 +20,7 @@ import ShareDutiesPanel from "./ShareDutiesPanel";
 interface GlobalDutyRole {
   id: string;
   roleName: string;
+  teamId?: string | null;
 }
 
 interface SpecialistEntry {
@@ -37,6 +38,7 @@ interface FamilyMember {
 interface TeamRoleConfig {
   dutyRoleId: string;
   roleName: string;
+  isTeamScoped?: boolean;
   teamDutyRoleId: string | null;
   roleType: "FIXED" | "SPECIALIST" | "ROTATING" | "FREQUENCY";
   assignedPersonName: string | null;
@@ -100,6 +102,7 @@ export default function ManagerRosterPage() {
   const user = session?.user as Record<string, unknown> | undefined;
   const teamId = user?.teamId as string | null;
   const rosterEnabled = user?.teamEnableRoster !== false;
+  const allowTeamDutyRoles = user?.allowTeamDutyRoles === true;
 
   const [teamRoles, setTeamRoles] = useState<TeamRoleConfig[]>([]);
   const [globalRoles, setGlobalRoles] = useState<GlobalDutyRole[]>([]);
@@ -232,23 +235,36 @@ export default function ManagerRosterPage() {
   }
 
   async function handleSaveClubRole() {
+    if (!teamId) return;
     setLoading(true);
-    const res = await fetch("/api/duty-roles", {
+    const res = await fetch(`/api/teams/${teamId}/duty-roles/custom`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ roleName: clubRoleName }),
     });
 
     if (res.ok) {
-      toast.success("Role created");
+      toast.success("Team role created");
       setClubRoleDialogOpen(false);
-      fetchGlobalRoles();
-      fetchTeamRoles();
+      fetchAll();
     } else {
       const data = await res.json();
       toast.error(data.error || "Failed to save");
     }
     setLoading(false);
+  }
+
+  async function handleDeleteTeamScopedRole(role: TeamRoleConfig) {
+    if (!teamId) return;
+    if (!confirm(`Delete team role "${role.roleName}"? All team configuration and roster assignments for this role will be removed.`)) return;
+    const res = await fetch(`/api/teams/${teamId}/duty-roles/custom/${role.dutyRoleId}`, { method: "DELETE" });
+    if (res.ok) {
+      toast.success("Role deleted");
+      fetchAll();
+    } else {
+      const data = await res.json();
+      toast.error(data.error || "Failed to delete");
+    }
   }
 
   // === Team Config ===
@@ -588,10 +604,14 @@ export default function ManagerRosterPage() {
       <div className="mb-8">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-xl font-semibold">Duty Roles</h2>
-          <Button onClick={openAddClubRole}>Add Role</Button>
+          {allowTeamDutyRoles && (
+            <Button onClick={openAddClubRole}>Add Team Role</Button>
+          )}
         </div>
         <p className="text-sm text-gray-500 mb-3">
-          Roles are shared across the club. Configure how your team fills each one below.
+          Club roles apply to every team. {allowTeamDutyRoles
+            ? "Add team-specific roles for anything unique to your team."
+            : "Configure how your team fills each one below."}
         </p>
         <div className="flex gap-2 flex-wrap">
           {globalRoles.length === 0 ? (
@@ -612,8 +632,8 @@ export default function ManagerRosterPage() {
                 ].join(" ")}
               >
                 <span className="cursor-grab text-gray-400 hover:text-gray-600 mr-1 select-none" title="Drag to reorder">⠿</span>
-                <Badge variant="outline" className="px-3 py-1.5 text-sm cursor-default">
-                  {role.roleName}
+                <Badge variant={role.teamId ? "secondary" : "outline"} className="px-3 py-1.5 text-sm cursor-default">
+                  {role.roleName}{role.teamId ? " · Team" : ""}
                 </Badge>
               </div>
             ))
@@ -639,7 +659,14 @@ export default function ManagerRosterPage() {
               <TableBody>
                 {teamRoles.map((role) => (
                   <TableRow key={role.dutyRoleId}>
-                    <TableCell className="font-medium">{role.roleName}</TableCell>
+                    <TableCell className="font-medium">
+                      <span className="flex items-center gap-2">
+                        {role.roleName}
+                        {role.isTeamScoped && (
+                          <Badge variant="secondary" className="text-[10px] uppercase">Team</Badge>
+                        )}
+                      </span>
+                    </TableCell>
                     <TableCell>
                       <Badge variant={ROLE_TYPE_VARIANTS[role.roleType]}>
                         {ROLE_TYPE_LABELS[role.roleType]}
@@ -661,6 +688,11 @@ export default function ManagerRosterPage() {
                         {role.configured && (
                           <Button variant="outline" size="sm" className="text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => handleDeleteRole(role)}>
                             Remove
+                          </Button>
+                        )}
+                        {role.isTeamScoped && allowTeamDutyRoles && (
+                          <Button variant="outline" size="sm" className="text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => handleDeleteTeamScopedRole(role)}>
+                            Delete
                           </Button>
                         )}
                       </div>
@@ -917,7 +949,7 @@ export default function ManagerRosterPage() {
       <Dialog open={clubRoleDialogOpen} onOpenChange={setClubRoleDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add Role</DialogTitle>
+            <DialogTitle>Add Team Role</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -925,8 +957,9 @@ export default function ManagerRosterPage() {
               <Input
                 value={clubRoleName}
                 onChange={(e) => setClubRoleName(e.target.value)}
-                placeholder="e.g. Goal Umpire, Canteen, Photographer"
+                placeholder="e.g. Boundary Umpire, Timekeeper"
               />
+              <p className="text-xs text-gray-500">This role will only appear for your team.</p>
             </div>
           </div>
           <DialogFooter>

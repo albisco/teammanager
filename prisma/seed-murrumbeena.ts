@@ -127,11 +127,13 @@ async function main() {
   ];
 
   for (const roleName of dutyRoleNames) {
-    await prisma.dutyRole.upsert({
-      where: { clubId_roleName: { clubId: club.id, roleName } },
-      update: {},
-      create: { roleName, clubId: club.id },
+    const existing = await prisma.dutyRole.findFirst({
+      where: { clubId: club.id, teamId: null, roleName },
+      select: { id: true },
     });
+    if (!existing) {
+      await prisma.dutyRole.create({ data: { roleName, clubId: club.id } });
+    }
   }
   console.log(`Duty roles: ${dutyRoleNames.join(", ")}`);
 
