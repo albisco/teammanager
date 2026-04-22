@@ -194,12 +194,6 @@ export default function ManagerRosterPage() {
     if (res.ok) setTeamRoles(await res.json());
   }, [teamId]);
 
-  const fetchRosterData = useCallback(async () => {
-    if (!teamId) return;
-    const res = await fetch(`/api/teams/${teamId}/roster`);
-    if (res.ok) setRosterData(await res.json());
-  }, [teamId]);
-
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
   // === Role Reordering ===
