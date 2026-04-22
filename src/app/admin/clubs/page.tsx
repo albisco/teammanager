@@ -21,6 +21,7 @@ interface Club {
   isAdultClub: boolean;
   enableAiChat: boolean;
   enablePlayHq: boolean;
+  allowTeamDutyRoles: boolean;
   enforceFamilyVoteExclusion: boolean;
   maxVotesPerRound: number;
   createdAt: string;
@@ -40,6 +41,7 @@ export default function ClubsPage() {
     isAdultClub: false,
     enableAiChat: true,
     enablePlayHq: true,
+    allowTeamDutyRoles: false,
     enforceFamilyVoteExclusion: false,
     maxVotesPerRound: 4,
     adminName: "",
@@ -73,13 +75,13 @@ export default function ClubsPage() {
 
   function openAdd() {
     setEditingClub(null);
-    setForm({ name: "", slug: "", isAdultClub: false, enableAiChat: true, enablePlayHq: true, enforceFamilyVoteExclusion: false, maxVotesPerRound: 4, adminName: "", adminEmail: "", adminPassword: "" });
+    setForm({ name: "", slug: "", isAdultClub: false, enableAiChat: true, enablePlayHq: true, allowTeamDutyRoles: false, enforceFamilyVoteExclusion: false, maxVotesPerRound: 4, adminName: "", adminEmail: "", adminPassword: "" });
     setDialogOpen(true);
   }
 
   function openEdit(club: Club) {
     setEditingClub(club);
-    setForm({ name: club.name, slug: club.slug, isAdultClub: club.isAdultClub, enableAiChat: club.enableAiChat, enablePlayHq: club.enablePlayHq, enforceFamilyVoteExclusion: club.enforceFamilyVoteExclusion, maxVotesPerRound: club.maxVotesPerRound, adminName: "", adminEmail: "", adminPassword: "" });
+    setForm({ name: club.name, slug: club.slug, isAdultClub: club.isAdultClub, enableAiChat: club.enableAiChat, enablePlayHq: club.enablePlayHq, allowTeamDutyRoles: club.allowTeamDutyRoles, enforceFamilyVoteExclusion: club.enforceFamilyVoteExclusion, maxVotesPerRound: club.maxVotesPerRound, adminName: "", adminEmail: "", adminPassword: "" });
     setDialogOpen(true);
   }
 
@@ -102,6 +104,7 @@ export default function ClubsPage() {
           isAdultClub: form.isAdultClub,
           enableAiChat: form.enableAiChat,
           enablePlayHq: form.enablePlayHq,
+          allowTeamDutyRoles: form.allowTeamDutyRoles,
           enforceFamilyVoteExclusion: form.enforceFamilyVoteExclusion,
           maxVotesPerRound: form.maxVotesPerRound,
         }),
@@ -269,6 +272,20 @@ export default function ClubsPage() {
               </button>
               <Label className="cursor-pointer" onClick={() => setForm({ ...form, enablePlayHq: !form.enablePlayHq })}>
                 Enable PlayHQ integration
+              </Label>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={form.allowTeamDutyRoles}
+                onClick={() => setForm({ ...form, allowTeamDutyRoles: !form.allowTeamDutyRoles })}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ${form.allowTeamDutyRoles ? "bg-primary" : "bg-gray-200"}`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${form.allowTeamDutyRoles ? "translate-x-6" : "translate-x-1"}`} />
+              </button>
+              <Label className="cursor-pointer" onClick={() => setForm({ ...form, allowTeamDutyRoles: !form.allowTeamDutyRoles })}>
+                Allow teams to manage their own duty roles
               </Label>
             </div>
             <div className="flex items-center gap-3">

@@ -125,8 +125,13 @@ function buildEvent(partial: ParsedFixtureEvent, start: Date | null): ParsedFixt
   let teamB: string | null = null;
   const isBye = /\bbye\b/i.test(summary);
 
+  // Strip a leading emoji/decoration before "A vs B" — ecal feeds prefix a
+  // rugby-ball emoji. We consume any non-ASCII-alphanumeric prefix (emoji,
+  // whitespace, punctuation) so the fallback regex can match the team names.
+  const stripped = summary.replace(/^[^A-Za-z0-9]+/, "").trim();
   const vsMatch = summary.match(/\bRound\s+\d+\s*[-–—:]\s*(.+?)\s+v(?:s)?\.?\s+(.+?)\s*$/i)
-    || summary.match(/-\s*([^-]+?)\s+v(?:s)?\.?\s+([^-]+?)\s*$/i);
+    || summary.match(/-\s*([^-]+?)\s+v(?:s)?\.?\s+([^-]+?)\s*$/i)
+    || stripped.match(/^(.+?)\s+v(?:s)?\.?\s+(.+?)\s*$/i);
   if (vsMatch) {
     teamA = vsMatch[1].trim();
     teamB = vsMatch[2].trim();
@@ -158,14 +163,25 @@ function buildEvent(partial: ParsedFixtureEvent, start: Date | null): ParsedFixt
   };
 }
 
+function tokenize(s: string): string[] {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, " ").split(/\s+/).filter(Boolean);
+}
+
+function sideMatches(side: string, teamTokens: string[]): boolean {
+  const sideTokens = new Set(tokenize(side));
+  return teamTokens.length > 0 && teamTokens.every((t) => sideTokens.has(t));
+}
+
 export function mapEventsForTeam(
   events: ParsedFixtureEvent[],
   teamName: string,
 ): FixtureMapped[] {
   const lcTeam = teamName.trim().toLowerCase();
+  const teamTokens = tokenize(teamName);
   const out: FixtureMapped[] = [];
   let fallbackRound = 0;
   for (const ev of events) {
+    if (!ev.teamA && !ev.teamB && !ev.isBye) continue;
     fallbackRound += 1;
     const roundNumber = ev.roundNumber ?? fallbackRound;
 
@@ -175,6 +191,8 @@ export function mapEventsForTeam(
       const b = ev.teamB.toLowerCase();
       if (a === lcTeam) opponent = ev.teamB;
       else if (b === lcTeam) opponent = ev.teamA;
+      else if (sideMatches(ev.teamA, teamTokens)) opponent = ev.teamB;
+      else if (sideMatches(ev.teamB, teamTokens)) opponent = ev.teamA;
       else opponent = `${ev.teamA} vs ${ev.teamB}`;
     }
 

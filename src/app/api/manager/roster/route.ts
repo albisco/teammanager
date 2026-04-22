@@ -28,6 +28,7 @@ export async function GET() {
     assignments,
     teamPlayers,
     unavailabilities,
+    exclusions,
   ] = await Promise.all([
     prisma.team.findUnique({ where: { id: teamId }, select: { availabilityToken: true, name: true, ageGroup: true } }),
     prisma.user.findMany({
@@ -36,7 +37,7 @@ export async function GET() {
       orderBy: { name: "asc" },
     }),
     prisma.dutyRole.findMany({
-      where: { clubId },
+      where: { clubId, OR: [{ teamId: null }, { teamId }] },
       orderBy: [{ sortOrder: "asc" }, { roleName: "asc" }],
     }),
     prisma.teamDutyRole.findMany({
@@ -64,7 +65,16 @@ export async function GET() {
       where: { round: { teamId } },
       select: { familyId: true, roundId: true },
     }),
+    prisma.teamDutyRoleExclusion.findMany({
+      where: { teamId },
+      select: { dutyRoleId: true },
+    }),
   ]);
+
+  const excludedIds = new Set(exclusions.map((e) => e.dutyRoleId));
+  const visibleGlobalRoles = globalRoles.filter(
+    (r) => r.teamId !== null || !excludedIds.has(r.id)
+  );
 
   const families = deriveFamilies(teamPlayers.map((tp) => tp.player)).sort((a, b) =>
     a.name.localeCompare(b.name)
@@ -92,11 +102,12 @@ export async function GET() {
 
   // Merge global roles with team config
   const configMap = new Map(teamDutyRoles.map((c) => [c.dutyRoleId, c]));
-  const teamRoles = globalRoles.map((role) => {
+  const teamRoles = visibleGlobalRoles.map((role) => {
     const config = configMap.get(role.id);
     return {
       dutyRoleId: role.id,
       roleName: role.roleName,
+      isTeamScoped: role.teamId !== null,
       teamDutyRoleId: config?.id || null,
       roleType: config?.roleType || "ROTATING",
       assignedPersonName: config?.assignedPersonName || null,
@@ -116,7 +127,7 @@ export async function GET() {
     availabilityToken: team?.availabilityToken ?? null,
     teamName: team ? `${team.ageGroup} ${team.name}`.trim() : "",
     users,
-    globalRoles,
+    globalRoles: visibleGlobalRoles,
     teamRoles,
     familyMembers,
     roster: {

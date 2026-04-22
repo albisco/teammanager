@@ -1,4 +1,4 @@
-import { TeamStaffRole } from "@prisma/client";
+import { Role, TeamStaffRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -42,6 +42,46 @@ export async function getStaffRoles(
  * Returns all (teamId, role) pairs a user has staff assignments for. Used by
  * auth to populate the JWT `teams` array.
  */
+/**
+ * Can this user create/edit/delete team-scoped DutyRole rows for `teamId`?
+ *
+ * - SUPER_ADMIN: always.
+ * - ADMIN of the club that owns the team: always (admin override — not gated by
+ *   club.allowTeamDutyRoles, since admins can always manage their club's data).
+ * - TEAM_MANAGER of the team: only if `club.allowTeamDutyRoles === true`.
+ */
+export async function canManageTeamDutyRoles(
+  user: { id: string; role: Role; clubId?: string | null },
+  teamId: string
+): Promise<{ ok: true; clubId: string } | { ok: false; status: number; error: string }> {
+  const team = await prisma.team.findUnique({
+    where: { id: teamId },
+    select: { season: { select: { clubId: true } } },
+  });
+  if (!team) return { ok: false, status: 404, error: "Team not found" };
+  const clubId = team.season.clubId;
+
+  if (user.role === Role.SUPER_ADMIN) return { ok: true, clubId };
+  if (user.role === Role.ADMIN && user.clubId === clubId) return { ok: true, clubId };
+
+  if (user.role === Role.TEAM_MANAGER) {
+    const [club, staff] = await Promise.all([
+      prisma.club.findUnique({ where: { id: clubId }, select: { allowTeamDutyRoles: true } }),
+      prisma.teamStaff.findFirst({
+        where: { userId: user.id, teamId, role: TeamStaffRole.TEAM_MANAGER },
+        select: { id: true },
+      }),
+    ]);
+    if (!staff) return { ok: false, status: 403, error: "Forbidden" };
+    if (!club?.allowTeamDutyRoles) {
+      return { ok: false, status: 403, error: "Club has not enabled team-managed duty roles" };
+    }
+    return { ok: true, clubId };
+  }
+
+  return { ok: false, status: 403, error: "Forbidden" };
+}
+
 export async function getUserTeamStaff(
   userId: string
 ): Promise<Array<{ teamId: string; role: TeamStaffRole }>> {

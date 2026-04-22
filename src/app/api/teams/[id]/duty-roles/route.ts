@@ -9,26 +9,38 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const clubId = (session.user as Record<string, unknown>)?.clubId as string;
 
-  // Get all club-level roles
-  const allRoles = await prisma.dutyRole.findMany({ where: { clubId }, orderBy: [{ sortOrder: "asc" }, { roleName: "asc" }] });
+  // Get club-wide roles + any roles scoped to this team, plus exclusions
+  const [allRoles, teamConfigs, exclusions] = await Promise.all([
+    prisma.dutyRole.findMany({
+      where: { clubId, OR: [{ teamId: null }, { teamId: params.id }] },
+      orderBy: [{ sortOrder: "asc" }, { roleName: "asc" }],
+    }),
+    prisma.teamDutyRole.findMany({
+      where: { teamId: params.id },
+      include: { dutyRole: true, specialists: true },
+    }),
+    prisma.teamDutyRoleExclusion.findMany({
+      where: { teamId: params.id },
+      select: { dutyRoleId: true },
+    }),
+  ]);
 
-  // Get team-specific configurations
-  const teamConfigs = await prisma.teamDutyRole.findMany({
-    where: { teamId: params.id },
-    include: {
-      dutyRole: true,
-      specialists: true,
-    },
-  });
+  const excludedIds = new Set(exclusions.map((e) => e.dutyRoleId));
 
   // Merge: every club role appears, with team config if it exists
   const configMap = new Map(teamConfigs.map((c) => [c.dutyRoleId, c]));
 
-  const merged = allRoles.map((role) => {
+  // Filter out club-level roles the team has explicitly excluded
+  const visibleRoles = allRoles.filter(
+    (role) => role.teamId !== null || !excludedIds.has(role.id)
+  );
+
+  const merged = visibleRoles.map((role) => {
     const config = configMap.get(role.id);
     return {
       dutyRoleId: role.id,
       roleName: role.roleName,
+      isTeamScoped: role.teamId !== null,
       teamDutyRoleId: config?.id || null,
       roleType: config?.roleType || "ROTATING",
       assignedPersonName: config?.assignedPersonName || null,
