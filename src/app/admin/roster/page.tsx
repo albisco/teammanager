@@ -199,9 +199,12 @@ export default function RosterPage() {
     });
 
     if (!res.ok) {
-      fetchGlobalRoles();
       toast.error("Failed to update order");
     }
+    // Always refetch so role-config table + badges reflect server truth
+    // (guards against stale IDs from prior deletes and keeps teamRoles in sync).
+    await fetchGlobalRoles();
+    if (selectedTeam) await fetchTeamRoles(selectedTeam.id);
   }
 
   // === Club Role CRUD ===
@@ -253,8 +256,8 @@ export default function RosterPage() {
     });
     if (res.ok) {
       toast.success("Role deleted");
-      fetchGlobalRoles();
-      if (selectedTeam) fetchTeamRoles(selectedTeam.id);
+      await fetchGlobalRoles();
+      if (selectedTeam) await fetchTeamRoles(selectedTeam.id);
     }
   }
 
