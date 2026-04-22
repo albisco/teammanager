@@ -82,6 +82,7 @@ interface RosterData {
   staffRoles?: Array<{ id: string; roleName: string; roleType: string; slots: number; assignedName: string | null; sortOrder?: number }>;
   allRoles?: Array<{ id: string; roleName: string; roleType: string; slots: number; sortOrder?: number; isStaffRole: boolean; assignedName?: string }>;
   assignments: Record<string, Array<{ familyId: string; familyName: string; slot: number }>>;
+  personAssignments?: Record<string, string>;
   families: RosterFamily[];
   dutyCounts: Record<string, Record<string, number>>;
 }
@@ -888,14 +889,17 @@ export default function ManagerRosterPage() {
                       </div>
                     </TableCell>
                     {activeRounds.map((round) => {
-                      // Staff roles show the assigned name directly (same for all rounds)
-                      if (role.isStaffRole && role.assignedName) {
+                      // Staff roles: show per-round override if any, else staff default.
+                      if (role.isStaffRole) {
                         const isLocked = round.isRosterLocked;
+                        const familyOverride = rosterData.assignments[`${round.id}:${role.id}`]?.find((x) => x.slot === 0);
+                        const personOverride = rosterData.personAssignments?.[`${round.id}:${role.id}:0`];
+                        const displayName = familyOverride?.familyName || personOverride || role.assignedName || "";
                         return (
                           <TableCell key={round.id} className="text-center text-sm align-top py-2">
                             <div className="flex flex-col gap-0.5">
                               <div className={`rounded px-1 ${isLocked ? "text-gray-500" : ""}`}>
-                                {role.assignedName}
+                                {displayName || <span className="text-gray-300">—</span>}
                               </div>
                               {!isLocked && (
                                 <button
