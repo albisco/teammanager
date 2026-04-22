@@ -274,3 +274,25 @@ describe("Season API roles", () => {
     expect(res.status).toBe(403);
   });
 });
+
+describe("Share Duties ordering", () => {
+  test("roster API includes sortOrder for both roles and staffRoles", async () => {
+    // This test verifies the API contract - sortOrder must be present
+    // so the frontend can sort share duties to match Admin → Roster order
+    setTestSession(sessions.teamManager);
+
+    const res = await getManagerRoster();
+    expect(res.status).toBe(200);
+
+    const data = await res.json();
+    // Roles should have sortOrder
+    expect(data.roster.roles).toBeDefined();
+    if (data.roster.roles.length > 0) {
+      expect(data.roster.roles[0]).toHaveProperty("sortOrder");
+    }
+    // Staff roles should have sortOrder
+    if (data.roster.staffRoles && data.roster.staffRoles.length > 0) {
+      expect(data.roster.staffRoles[0]).toHaveProperty("sortOrder");
+    }
+  });
+});
