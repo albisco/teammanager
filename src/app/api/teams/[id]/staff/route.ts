@@ -5,11 +5,14 @@ import bcrypt from "bcryptjs";
 import { randomBytes } from "crypto";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { teamStaffRoleLabel } from "@/lib/roles";
+import { matchTeamStaffRole, teamStaffRoleLabel } from "@/lib/roles";
 
 /**
  * Ensure a club-wide DutyRole is linked to this TeamStaffRole so it shows up
- * in the roster role config auto-populated from Team Staff. Idempotent.
+ * in the roster role config auto-populated from Team Staff. Idempotent —
+ * re-runs the alias matcher against existing unlinked roles before creating,
+ * so clubs with "Coach" / "Manager" / etc. get upgraded in place instead of
+ * ending up with a duplicate row.
  */
 async function ensureLinkedDutyRole(clubId: string, staffRole: TeamStaffRole) {
   const existing = await prisma.dutyRole.findFirst({
@@ -18,14 +21,18 @@ async function ensureLinkedDutyRole(clubId: string, staffRole: TeamStaffRole) {
   });
   if (existing) return;
 
-  const label = teamStaffRoleLabel(staffRole);
-  const byName = await prisma.dutyRole.findFirst({
-    where: { clubId, teamId: null, roleName: label },
-    select: { id: true },
+  // Look for an unlinked club role whose name matches this staff role
+  // (canonical label or alias).
+  const unlinkedClubRoles = await prisma.dutyRole.findMany({
+    where: { clubId, teamId: null, teamStaffRole: null },
+    select: { id: true, roleName: true },
   });
-  if (byName) {
+  const aliasMatch = unlinkedClubRoles.find(
+    (r) => matchTeamStaffRole(r.roleName) === staffRole
+  );
+  if (aliasMatch) {
     await prisma.dutyRole.update({
-      where: { id: byName.id },
+      where: { id: aliasMatch.id },
       data: { teamStaffRole: staffRole },
     });
     return;
@@ -38,7 +45,7 @@ async function ensureLinkedDutyRole(clubId: string, staffRole: TeamStaffRole) {
   });
   await prisma.dutyRole.create({
     data: {
-      roleName: label,
+      roleName: teamStaffRoleLabel(staffRole),
       clubId,
       sortOrder: (max?.sortOrder ?? -1) + 1,
       teamStaffRole: staffRole,
