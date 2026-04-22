@@ -100,16 +100,18 @@ export async function GET() {
     teamPlayers.map((tp) => tp.player)
   );
 
-  // Build assignment map and duty counts
+  // Build assignment map and duty counts (supports both family and person assignments)
   const assignmentMap: Record<string, Array<{ familyId: string; familyName: string; slot: number }>> = {};
   const dutyCounts: Record<string, Record<string, number>> = {};
   for (const a of assignments) {
     const key = `${a.roundId}:${a.teamDutyRoleId}`;
     if (!assignmentMap[key]) assignmentMap[key] = [];
-    assignmentMap[key].push({ familyId: a.assignedFamilyId, familyName: a.assignedFamilyName, slot: a.slot });
-    const fId = a.assignedFamilyId;
-    if (!dutyCounts[fId]) dutyCounts[fId] = {};
-    dutyCounts[fId][a.teamDutyRoleId] = (dutyCounts[fId][a.teamDutyRoleId] || 0) + 1;
+    // Skip person assignments in the family-based assignment map
+    if (a.assignedPersonName) continue;
+    assignmentMap[key].push({ familyId: a.assignedFamilyId ?? "", familyName: a.assignedFamilyName ?? "", slot: a.slot });
+    const fId = a.assignedFamilyId ?? "";
+    if (fId && !dutyCounts[fId]) dutyCounts[fId] = {};
+    if (fId) dutyCounts[fId][a.teamDutyRoleId] = (dutyCounts[fId][a.teamDutyRoleId] || 0) + 1;
   }
   for (const key of Object.keys(assignmentMap)) {
     assignmentMap[key].sort((a, b) => a.slot - b.slot);
@@ -206,6 +208,16 @@ export async function GET() {
         }))]
         .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)),
       assignments: assignmentMap,
+      // Person assignments for staff roles (roleId → assignedPersonName per round)
+      personAssignments: (() => {
+        const map: Record<string, string> = {};
+        for (const a of assignments) {
+          if (a.assignedPersonName) {
+            map[`${a.roundId}:${a.teamDutyRoleId}:${a.slot}`] = a.assignedPersonName;
+          }
+        }
+        return map;
+      })(),
       families,
       dutyCounts,
     },

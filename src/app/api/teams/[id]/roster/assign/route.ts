@@ -19,11 +19,14 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     }
   }
 
-  const { roundId, teamDutyRoleId, assignedFamilyId, assignedFamilyName, slot = 0 } = await req.json();
+  const { roundId, teamDutyRoleId, assignedFamilyId, assignedFamilyName, assignedPersonName, slot = 0 } = await req.json();
 
   if (!roundId || !teamDutyRoleId) {
     return NextResponse.json({ error: "roundId and teamDutyRoleId are required" }, { status: 400 });
   }
+
+  // Person assignment: just name, no family
+  const isPersonAssignment = !!assignedPersonName && !assignedFamilyId;
 
   // Reject changes to locked rounds
   const round = await prisma.round.findUnique({ where: { id: roundId }, select: { isRosterLocked: true } });
@@ -32,7 +35,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   }
 
   // Clear a specific slot
-  if (!assignedFamilyId) {
+  if (!assignedFamilyId && !assignedPersonName) {
     await prisma.rosterAssignment.deleteMany({
       where: { roundId, teamDutyRoleId, slot },
     });
@@ -40,11 +43,24 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   }
 
   // Upsert assignment for this slot
-  const assignment = await prisma.rosterAssignment.upsert({
+  const existing = await prisma.rosterAssignment.findUnique({
     where: { roundId_teamDutyRoleId_slot: { roundId, teamDutyRoleId, slot } },
-    create: { roundId, teamDutyRoleId, assignedFamilyId, assignedFamilyName: assignedFamilyName || assignedFamilyId, slot },
-    update: { assignedFamilyId, assignedFamilyName: assignedFamilyName || assignedFamilyId },
   });
 
-  return NextResponse.json(assignment);
+  if (existing) {
+    await prisma.rosterAssignment.update({
+      where: { id: existing.id },
+      data: isPersonAssignment
+        ? { assignedFamilyId: null, assignedFamilyName: null, assignedPersonName }
+        : { assignedFamilyId, assignedFamilyName: assignedFamilyName || assignedFamilyId, assignedPersonName: null },
+    });
+  } else {
+    await prisma.rosterAssignment.create({
+      data: isPersonAssignment
+        ? { roundId, teamDutyRoleId, slot, assignedPersonName }
+        : { roundId, teamDutyRoleId, assignedFamilyId, assignedFamilyName: assignedFamilyName || assignedFamilyId, slot },
+    });
+  }
+
+  return NextResponse.json({ success: true });
 }

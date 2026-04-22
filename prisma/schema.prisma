@@ -274,14 +274,15 @@ model TeamDutyRoleSpecialist {
 }
 
 model RosterAssignment {
-  id               String       @id @default(cuid())
-  roundId          String
-  round            Round        @relation(fields: [roundId], references: [id], onDelete: Cascade)
-  teamDutyRoleId   String
-  teamDutyRole     TeamDutyRole @relation(fields: [teamDutyRoleId], references: [id], onDelete: Cascade)
-  assignedFamilyId   String
-  assignedFamilyName String     @default("")
-  slot               Int          @default(0)
+  id                   String       @id @default(cuid())
+  roundId              String
+  round                Round        @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  teamDutyRoleId       String
+  teamDutyRole         TeamDutyRole @relation(fields: [teamDutyRoleId], references: [id], onDelete: Cascade)
+  assignedFamilyId     String?
+  assignedFamilyName   String?
+  assignedPersonName   String?
+  slot                 Int          @default(0)
 
   @@unique([roundId, teamDutyRoleId, slot])
 }
