@@ -184,6 +184,26 @@ export async function GET() {
           assignedName: r.assignedPersonName,
           sortOrder: r.roleSortOrder,
         })),
+      // Combined all roles sorted by sortOrder - for displays that need merged+sorted list
+      allRoles: [...teamDutyRoles.map((r) => ({
+        id: r.id,
+        roleName: r.dutyRole.roleName,
+        roleType: r.roleType,
+        slots: r.slots,
+        sortOrder: r.dutyRole.sortOrder,
+        isStaffRole: false,
+      })), ...teamRoles
+        .filter((r) => r.autoFromTeamStaff && r.configured)
+        .map((r) => ({
+          id: r.teamDutyRoleId ?? r.dutyRoleId,
+          roleName: r.roleName,
+          roleType: "FIXED" as const,
+          slots: 1,
+          sortOrder: r.roleSortOrder,
+          isStaffRole: true,
+          assignedName: r.assignedPersonName,
+        }))]
+        .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)),
       assignments: assignmentMap,
       families,
       dutyCounts,

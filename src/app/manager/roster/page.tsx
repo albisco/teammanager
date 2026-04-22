@@ -78,6 +78,7 @@ interface RosterData {
   rounds: RosterRound[];
   roles: RosterRole[];
   staffRoles?: Array<{ id: string; roleName: string; roleType: string; slots: number; assignedName: string | null; sortOrder?: number }>;
+  allRoles?: Array<{ id: string; roleName: string; roleType: string; slots: number; sortOrder?: number; isStaffRole: boolean; assignedName?: string }>;
   assignments: Record<string, Array<{ familyId: string; familyName: string; slot: number }>>;
   families: RosterFamily[];
   dutyCounts: Record<string, Record<string, number>>;
@@ -567,20 +568,18 @@ export default function ManagerRosterPage() {
 
   function getDutiesForRound(roundId: string) {
     if (!rosterData) return [];
-    // Build duties from team roles
-    const duties = rosterData.roles
+    // Use combined allRoles from API (already sorted by sortOrder)
+    return (rosterData.allRoles ?? [])
       .map((role) => {
+        // Staff roles have assignedName directly, team roles need assignment lookup
+        if (role.isStaffRole && role.assignedName) {
+          return { roleName: role.roleName, names: [role.assignedName] };
+        }
         const key = `${roundId}:${role.id}`;
         const assignments = rosterData.assignments[key] ?? [];
-        return { roleName: role.roleName, sortOrder: role.sortOrder ?? 0, names: assignments.map((a) => resolveAssignName(role.id, a.familyId)) };
+        return { roleName: role.roleName, names: assignments.map((a) => resolveAssignName(role.id, a.familyId)) };
       })
       .filter((d) => d.names.length > 0);
-    // Add Team Staff linked roles (Head Coach, Team Manager, Assistant Coach) - sorted by sortOrder
-    const staffDuties = (rosterData.staffRoles ?? [])
-      .filter((r) => r.assignedName)
-      .map((r) => ({ roleName: r.roleName, sortOrder: r.sortOrder ?? 0, names: [r.assignedName!] }));
-    // Combine and sort by sortOrder to match Admin → Roster order
-    return [...duties, ...staffDuties].sort((a, b) => a.sortOrder - b.sortOrder);
   }
 
   const activeRounds = rosterData?.rounds.filter((r) => !r.isBye) || [];
@@ -601,12 +600,6 @@ export default function ManagerRosterPage() {
 
   if (!rosterEnabled) return <p className="text-gray-500">Duty roster is disabled for this team.</p>;
   if (pageLoading) return <p className="text-gray-500">Loading...</p>;
-
-  // Sort all roles (team + staff) by sortOrder to match Admin → Roster
-  const allRoles = [
-    ...(rosterData?.roles ?? []),
-    ...(rosterData?.staffRoles ?? []).filter((r) => r.assignedName),
-  ].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
 
   return (
     <div>
