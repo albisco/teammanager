@@ -602,6 +602,12 @@ export default function ManagerRosterPage() {
   if (!rosterEnabled) return <p className="text-gray-500">Duty roster is disabled for this team.</p>;
   if (pageLoading) return <p className="text-gray-500">Loading...</p>;
 
+  // Sort all roles (team + staff) by sortOrder to match Admin → Roster
+  const allRoles = [
+    ...(rosterData?.roles ?? []),
+    ...(rosterData?.staffRoles ?? []).filter((r) => r.assignedName),
+  ].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+
   return (
     <div>
       <h1 className="text-3xl font-bold mb-6">Duty Roster</h1>
