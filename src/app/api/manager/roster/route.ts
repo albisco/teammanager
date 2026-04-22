@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { Role } from "@prisma/client";
+import { Role, TeamStaffRole } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -29,6 +29,7 @@ export async function GET() {
     teamPlayers,
     unavailabilities,
     exclusions,
+    staff,
   ] = await Promise.all([
     prisma.team.findUnique({ where: { id: teamId }, select: { availabilityToken: true, name: true, ageGroup: true } }),
     prisma.user.findMany({
@@ -69,7 +70,20 @@ export async function GET() {
       where: { teamId },
       select: { dutyRoleId: true },
     }),
+    prisma.teamStaff.findMany({
+      where: { teamId },
+      include: { user: { select: { id: true, name: true } } },
+      orderBy: [{ role: "asc" }, { createdAt: "asc" }],
+    }),
   ]);
+
+  const staffByRole = new Map<TeamStaffRole, { id: string; name: string }[]>();
+  for (const s of staff) {
+    if (!s.user) continue;
+    const arr = staffByRole.get(s.role) ?? [];
+    arr.push({ id: s.user.id, name: s.user.name });
+    staffByRole.set(s.role, arr);
+  }
 
   const excludedIds = new Set(exclusions.map((e) => e.dutyRoleId));
   const visibleGlobalRoles = globalRoles.filter(
@@ -100,17 +114,24 @@ export async function GET() {
     assignmentMap[key].sort((a, b) => a.slot - b.slot);
   }
 
-  // Merge global roles with team config
+  // Merge global roles with team config + auto-fill from TeamStaff for linked roles
   const configMap = new Map(teamDutyRoles.map((c) => [c.dutyRoleId, c]));
   const teamRoles = visibleGlobalRoles.map((role) => {
     const config = configMap.get(role.id);
+    const staffLink = role.teamStaffRole;
+    const linkedStaff = staffLink ? staffByRole.get(staffLink) ?? [] : [];
+    const autoFromTeamStaff = !!staffLink;
+    const staffNames = linkedStaff.map((s) => s.name).join(", ");
+
     return {
       dutyRoleId: role.id,
       roleName: role.roleName,
       isTeamScoped: role.teamId !== null,
       teamDutyRoleId: config?.id || null,
-      roleType: config?.roleType || "ROTATING",
-      assignedPersonName: config?.assignedPersonName || null,
+      roleType: autoFromTeamStaff ? "FIXED" : (config?.roleType || "ROTATING"),
+      assignedPersonName: autoFromTeamStaff
+        ? (staffNames || null)
+        : (config?.assignedPersonName || null),
       assignedFamilyId: config?.assignedFamilyId || null,
       frequencyWeeks: config?.frequencyWeeks || 1,
       slots: config?.slots || 1,
@@ -119,7 +140,9 @@ export async function GET() {
         personName: s.personName,
         familyId: s.familyId,
       })),
-      configured: !!config,
+      configured: autoFromTeamStaff ? linkedStaff.length > 0 : !!config,
+      autoFromTeamStaff,
+      teamStaffRole: staffLink ?? null,
     };
   });
 
