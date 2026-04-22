@@ -67,6 +67,8 @@ interface RosterRole {
   roleType: string;
   slots: number;
   sortOrder?: number;
+  isStaffRole?: boolean;
+  assignedName?: string;
 }
 
 interface RosterFamily {
@@ -601,6 +603,9 @@ export default function ManagerRosterPage() {
   if (!rosterEnabled) return <p className="text-gray-500">Duty roster is disabled for this team.</p>;
   if (pageLoading) return <p className="text-gray-500">Loading...</p>;
 
+  // Combine and sort roles for display (team roles + staff roles sorted by sortOrder)
+  const displayRoles = rosterData?.allRoles ?? rosterData?.roles ?? [];
+
   return (
     <div>
       <h1 className="text-3xl font-bold mb-6">Duty Roster</h1>
@@ -868,14 +873,18 @@ export default function ManagerRosterPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rosterData.roles.map((role) => (
+                {displayRoles.map((role) => (
                   <TableRow key={role.id}>
                     <TableCell className="sticky left-0 bg-card z-10 font-medium">
                       <div className="flex items-center gap-2">
                         {role.roleName}
-                        <Badge variant={ROLE_TYPE_VARIANTS[role.roleType] || "outline"} className="text-xs">
-                          {ROLE_TYPE_LABELS[role.roleType] || role.roleType}
-                        </Badge>
+                        {role.isStaffRole ? (
+                          <Badge variant="default" className="text-xs">From Staff</Badge>
+                        ) : (
+                          <Badge variant={ROLE_TYPE_VARIANTS[role.roleType] || "outline"} className="text-xs">
+                            {ROLE_TYPE_LABELS[role.roleType] || role.roleType}
+                          </Badge>
+                        )}
                       </div>
                     </TableCell>
                     {activeRounds.map((round) => {
