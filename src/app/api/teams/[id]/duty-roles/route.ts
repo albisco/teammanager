@@ -3,6 +3,7 @@ import { Role, TeamStaffRole } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { matchTeamStaffRole } from "@/lib/roles";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
@@ -48,9 +49,23 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     (role) => role.teamId !== null || !excludedIds.has(role.id)
   );
 
+  // Build set of staff roles already covered by a truly linked DutyRole so we
+  // don't double-link an aliased duplicate (e.g. both "Coach" and "Head Coach").
+  const explicitlyLinkedStaffRoles = new Set<TeamStaffRole>(
+    allRoles.map((r) => r.teamStaffRole).filter((x): x is TeamStaffRole => !!x)
+  );
+
   const merged = visibleRoles.map((role) => {
     const config = configMap.get(role.id);
-    const staffLink = role.teamStaffRole;
+    // Effective link: explicit column OR alias matcher on the name when no
+    // other role in this club has already claimed that staff role.
+    let staffLink: TeamStaffRole | null = role.teamStaffRole;
+    if (!staffLink) {
+      const aliased = matchTeamStaffRole(role.roleName) as TeamStaffRole | null;
+      if (aliased && !explicitlyLinkedStaffRoles.has(aliased)) {
+        staffLink = aliased;
+      }
+    }
     const linkedStaff = staffLink ? staffByRole.get(staffLink) ?? [] : [];
     const autoFromTeamStaff = !!staffLink;
     const staffNames = linkedStaff.map((s) => s.name).join(", ");

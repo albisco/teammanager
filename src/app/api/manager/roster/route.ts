@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { deriveFamilyMembers, deriveFamilies } from "@/lib/roster-algorithm";
+import { matchTeamStaffRole } from "@/lib/roles";
 
 // Returns all data needed to render the manager roster page in a single request
 export async function GET() {
@@ -116,9 +117,18 @@ export async function GET() {
 
   // Merge global roles with team config + auto-fill from TeamStaff for linked roles
   const configMap = new Map(teamDutyRoles.map((c) => [c.dutyRoleId, c]));
+  const explicitlyLinkedStaffRoles = new Set<TeamStaffRole>(
+    globalRoles.map((r) => r.teamStaffRole).filter((x): x is TeamStaffRole => !!x)
+  );
   const teamRoles = visibleGlobalRoles.map((role) => {
     const config = configMap.get(role.id);
-    const staffLink = role.teamStaffRole;
+    let staffLink: TeamStaffRole | null = role.teamStaffRole;
+    if (!staffLink) {
+      const aliased = matchTeamStaffRole(role.roleName) as TeamStaffRole | null;
+      if (aliased && !explicitlyLinkedStaffRoles.has(aliased)) {
+        staffLink = aliased;
+      }
+    }
     const linkedStaff = staffLink ? staffByRole.get(staffLink) ?? [] : [];
     const autoFromTeamStaff = !!staffLink;
     const staffNames = linkedStaff.map((s) => s.name).join(", ");
