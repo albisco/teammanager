@@ -210,9 +210,9 @@ export async function GET() {
         .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)),
       assignments: assignmentMap,
       // Person assignments for staff roles (roleId → assignedPersonName per round)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       personAssignments: (() => {
         const map: Record<string, string> = {};
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         for (const a of assignments as any[]) {
           if (a.assignedPersonName) {
             map[`${a.roundId}:${a.teamDutyRoleId}:${a.slot}`] = a.assignedPersonName;
