@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import QRCode from "qrcode";
 import Image from "next/image";
 import ShareDutiesPanel from "./ShareDutiesPanel";
+import type { TeamStaffRoleName } from "@/lib/roles";
 
 interface GlobalDutyRole {
   id: string;
@@ -48,7 +49,7 @@ interface TeamRoleConfig {
   specialists: SpecialistEntry[];
   configured: boolean;
   autoFromTeamStaff?: boolean;
-  teamStaffRole?: "HEAD_COACH" | "TEAM_MANAGER" | "ASSISTANT_COACH" | null;
+  teamStaffRole?: TeamStaffRoleName | null;
 }
 
 interface RosterRound {

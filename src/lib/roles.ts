@@ -39,17 +39,28 @@ export function teamStaffRoleLabel(role: TeamStaffRoleName): string {
 }
 
 /**
+ * Aliases for duty-role names that should auto-link to a team-staff role.
+ * Canonical label (from teamStaffRoleLabel) is always matched; aliases
+ * cover common UI variations clubs type into the duty role name.
+ */
+const TEAM_STAFF_ROLE_ALIASES: Record<TeamStaffRoleName, string[]> = {
+  [TEAM_STAFF_ROLE.HEAD_COACH]: ["coach"],
+  [TEAM_STAFF_ROLE.TEAM_MANAGER]: ["manager"],
+  [TEAM_STAFF_ROLE.ASSISTANT_COACH]: ["assistant coaches", "asst coach", "assistant"],
+};
+
+/**
  * Match a duty-role name to a team-staff role. Used when admins create
- * club duty roles named "Head Coach" / "Team Manager" / "Assistant Coach" —
- * these are auto-linked so the roster pulls from Team Staff instead of
- * requiring separate FIXED configuration.
+ * club duty roles named like team staff positions — these are auto-linked
+ * so the roster pulls from Team Staff instead of requiring separate FIXED
+ * configuration.
  */
 export function matchTeamStaffRole(roleName: string): TeamStaffRoleName | null {
   const n = roleName.trim().toLowerCase();
-  if (n === "head coach") return TEAM_STAFF_ROLE.HEAD_COACH;
-  if (n === "team manager") return TEAM_STAFF_ROLE.TEAM_MANAGER;
-  if (n === "assistant coach" || n === "assistant coaches") {
-    return TEAM_STAFF_ROLE.ASSISTANT_COACH;
+  if (!n) return null;
+  for (const role of Object.values(TEAM_STAFF_ROLE)) {
+    if (teamStaffRoleLabel(role).toLowerCase() === n) return role;
+    if (TEAM_STAFF_ROLE_ALIASES[role].includes(n)) return role;
   }
   return null;
 }

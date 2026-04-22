@@ -13,8 +13,11 @@ describe("matchTeamStaffRole", () => {
     expect(matchTeamStaffRole("TEAM MANAGER")).toBe(TEAM_STAFF_ROLE.TEAM_MANAGER);
   });
 
-  test("plural assistant coaches matches", () => {
+  test("aliases match", () => {
     expect(matchTeamStaffRole("Assistant Coaches")).toBe(TEAM_STAFF_ROLE.ASSISTANT_COACH);
+    expect(matchTeamStaffRole("Coach")).toBe(TEAM_STAFF_ROLE.HEAD_COACH);
+    expect(matchTeamStaffRole("Manager")).toBe(TEAM_STAFF_ROLE.TEAM_MANAGER);
+    expect(matchTeamStaffRole("Asst Coach")).toBe(TEAM_STAFF_ROLE.ASSISTANT_COACH);
   });
 
   test("unrelated role returns null", () => {

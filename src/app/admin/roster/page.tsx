@@ -13,6 +13,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import type { TeamStaffRoleName } from "@/lib/roles";
 
 interface TeamSummary {
   id: string;
@@ -52,7 +53,7 @@ interface TeamRoleConfig {
   specialists: SpecialistEntry[];
   configured: boolean;
   autoFromTeamStaff?: boolean;
-  teamStaffRole?: "HEAD_COACH" | "TEAM_MANAGER" | "ASSISTANT_COACH" | null;
+  teamStaffRole?: TeamStaffRoleName | null;
 }
 
 interface RosterRound {
