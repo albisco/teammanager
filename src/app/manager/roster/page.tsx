@@ -513,7 +513,7 @@ export default function ManagerRosterPage() {
         assignedFamilyId: overrideFamilyId || null,
         assignedFamilyName: overrideFamilyId
           ? (overridePersonName
-            ? `${overridePersonName} ${rosterData?.families.find((f) => f.id === overrideFamilyId)?.name || ""}`.trim()
+            ? overridePersonName
             : resolveAssignName(overrideCell.roleId, overrideFamilyId))
           : null,
         slot: overrideCell.slot,
@@ -1212,7 +1212,7 @@ export default function ManagerRosterPage() {
                       <option value="">— Unassigned —</option>
                       {familyMembers.map((fm) => (
                         <option key={`${fm.familyId}:${fm.personName}`} value={`${fm.familyId}:${fm.personName}`}>
-                          {fm.personName} {rosterData?.families.find((f) => f.id === fm.familyId)?.name || ""}
+                          {fm.personName}
                         </option>
                       ))}
                     </select>

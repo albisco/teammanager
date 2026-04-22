@@ -201,6 +201,14 @@ export async function GET() {
     };
   });
 
+  // Set of dutyRoleIds linked to a staff role. These show as staff rows in the
+  // grid (assignedName from TeamStaff), not as generic family-rotation rows.
+  // Exclude them from the plain roles/allRoles lists to avoid duplicates once
+  // a TeamDutyRole row has been lazy-created for them.
+  const staffLinkedDutyRoleIds = new Set(
+    teamRoles.filter((r) => r.autoFromTeamStaff).map((r) => r.dutyRoleId)
+  );
+
   return NextResponse.json({
     availabilityToken: team?.availabilityToken ?? null,
     teamName: team ? `${team.ageGroup} ${team.name}`.trim() : "",
@@ -210,13 +218,15 @@ export async function GET() {
     familyMembers,
     roster: {
       rounds,
-      roles: teamDutyRoles.map((r) => ({
-        id: r.id,
-        roleName: r.dutyRole.roleName,
-        roleType: r.roleType,
-        slots: r.slots,
-        sortOrder: r.dutyRole.sortOrder,
-      })),
+      roles: teamDutyRoles
+        .filter((r) => !staffLinkedDutyRoleIds.has(r.dutyRoleId))
+        .map((r) => ({
+          id: r.id,
+          roleName: r.dutyRole.roleName,
+          roleType: r.roleType,
+          slots: r.slots,
+          sortOrder: r.dutyRole.sortOrder,
+        })),
       // Also include global club roles auto-linked to Team Staff (so they show in Share Duties)
       staffRoles: teamRoles
         .filter((r) => r.autoFromTeamStaff && r.configured)
@@ -229,15 +239,17 @@ export async function GET() {
           sortOrder: r.roleSortOrder,
         })),
       // Combined all roles sorted by sortOrder - for displays that need merged+sorted list
-      allRoles: [...teamDutyRoles.map((r) => ({
-        id: r.id,
-        roleName: r.dutyRole.roleName,
-        roleType: r.roleType,
-        slots: r.slots,
-        sortOrder: r.dutyRole.sortOrder,
-        isStaffRole: false,
-        assignedName: r.assignedPersonName,
-      })), ...teamRoles
+      allRoles: [...teamDutyRoles
+        .filter((r) => !staffLinkedDutyRoleIds.has(r.dutyRoleId))
+        .map((r) => ({
+          id: r.id,
+          roleName: r.dutyRole.roleName,
+          roleType: r.roleType,
+          slots: r.slots,
+          sortOrder: r.dutyRole.sortOrder,
+          isStaffRole: false,
+          assignedName: r.assignedPersonName,
+        })), ...teamRoles
         .filter((r) => r.autoFromTeamStaff && r.configured)
         .map((r) => ({
           id: r.teamDutyRoleId ?? r.dutyRoleId,
