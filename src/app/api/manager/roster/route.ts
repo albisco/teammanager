@@ -106,7 +106,8 @@ export async function GET() {
   for (const a of assignments) {
     const key = `${a.roundId}:${a.teamDutyRoleId}`;
     if (!assignmentMap[key]) assignmentMap[key] = [];
-    // Skip person assignments in the family-based assignment map (check via any cast until prisma regens)
+    // Skip person assignments in the family-based assignment map
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if ((a as any).assignedPersonName) continue;
     assignmentMap[key].push({ familyId: a.assignedFamilyId ?? "", familyName: a.assignedFamilyName ?? "", slot: a.slot });
     const fId = a.assignedFamilyId ?? "";
@@ -209,6 +210,7 @@ export async function GET() {
         .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)),
       assignments: assignmentMap,
       // Person assignments for staff roles (roleId → assignedPersonName per round)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       personAssignments: (() => {
         const map: Record<string, string> = {};
         for (const a of assignments as any[]) {
