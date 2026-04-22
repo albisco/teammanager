@@ -890,12 +890,21 @@ export default function ManagerRosterPage() {
                     {activeRounds.map((round) => {
                       // Staff roles show the assigned name directly (same for all rounds)
                       if (role.isStaffRole && role.assignedName) {
+                        const isLocked = round.isRosterLocked;
                         return (
-                          <TableCell key={round.id} className="text-center text-sm align-top py-2 bg-gray-50">
+                          <TableCell key={round.id} className="text-center text-sm align-top py-2">
                             <div className="flex flex-col gap-0.5">
-                              <div className="rounded px-1 text-gray-500">
+                              <div className={`rounded px-1 ${isLocked ? "text-gray-500" : ""}`}>
                                 {role.assignedName}
                               </div>
+                              {!isLocked && (
+                                <button
+                                  onClick={() => openOverrideDialog(round.id, role.id, role.roleName, round.roundNumber, 0)}
+                                  className="text-xs text-blue-600 hover:underline"
+                                >
+                                  Override
+                                </button>
+                              )}
                             </div>
                           </TableCell>
                         );
