@@ -37,3 +37,19 @@ export function teamStaffRoleLabel(role: TeamStaffRoleName): string {
       return "Assistant Coach";
   }
 }
+
+/**
+ * Match a duty-role name to a team-staff role. Used when admins create
+ * club duty roles named "Head Coach" / "Team Manager" / "Assistant Coach" —
+ * these are auto-linked so the roster pulls from Team Staff instead of
+ * requiring separate FIXED configuration.
+ */
+export function matchTeamStaffRole(roleName: string): TeamStaffRoleName | null {
+  const n = roleName.trim().toLowerCase();
+  if (n === "head coach") return TEAM_STAFF_ROLE.HEAD_COACH;
+  if (n === "team manager") return TEAM_STAFF_ROLE.TEAM_MANAGER;
+  if (n === "assistant coach" || n === "assistant coaches") {
+    return TEAM_STAFF_ROLE.ASSISTANT_COACH;
+  }
+  return null;
+}

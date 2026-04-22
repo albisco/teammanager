@@ -47,6 +47,8 @@ interface TeamRoleConfig {
   slots: number;
   specialists: SpecialistEntry[];
   configured: boolean;
+  autoFromTeamStaff?: boolean;
+  teamStaffRole?: "HEAD_COACH" | "TEAM_MANAGER" | "ASSISTANT_COACH" | null;
 }
 
 interface RosterRound {
@@ -689,33 +691,39 @@ export default function ManagerRosterPage() {
                     </TableCell>
                     <TableCell className="text-sm text-gray-600">{roleDetail(role)}</TableCell>
                     <TableCell>
-                      {role.configured ? (
+                      {role.autoFromTeamStaff ? (
+                        <Badge className="bg-blue-600">From Team Staff</Badge>
+                      ) : role.configured ? (
                         <Badge className="bg-green-600">Configured</Badge>
                       ) : (
                         <Badge variant="outline">Default</Badge>
                       )}
                     </TableCell>
                     <TableCell>
-                      <div className="flex gap-1">
-                        <Button variant="outline" size="sm" onClick={() => openConfigDialog(role)}>
-                          Configure
-                        </Button>
-                        {role.configured && !role.isTeamScoped && (
-                          <Button variant="outline" size="sm" className="text-amber-600 hover:text-amber-800 hover:bg-amber-50" onClick={() => handleDeleteRole(role)}>
-                            Reset
+                      {role.autoFromTeamStaff ? (
+                        <span className="text-xs text-gray-500">Manage via Team Staff</span>
+                      ) : (
+                        <div className="flex gap-1">
+                          <Button variant="outline" size="sm" onClick={() => openConfigDialog(role)}>
+                            Configure
                           </Button>
-                        )}
-                        {!role.isTeamScoped && (
-                          <Button variant="outline" size="sm" className="text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => handleExcludeClubRole(role)}>
-                            Delete
-                          </Button>
-                        )}
-                        {role.isTeamScoped && allowTeamDutyRoles && (
-                          <Button variant="outline" size="sm" className="text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => handleDeleteTeamScopedRole(role)}>
-                            Delete
-                          </Button>
-                        )}
-                      </div>
+                          {role.configured && !role.isTeamScoped && (
+                            <Button variant="outline" size="sm" className="text-amber-600 hover:text-amber-800 hover:bg-amber-50" onClick={() => handleDeleteRole(role)}>
+                              Reset
+                            </Button>
+                          )}
+                          {!role.isTeamScoped && (
+                            <Button variant="outline" size="sm" className="text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => handleExcludeClubRole(role)}>
+                              Delete
+                            </Button>
+                          )}
+                          {role.isTeamScoped && allowTeamDutyRoles && (
+                            <Button variant="outline" size="sm" className="text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => handleDeleteTeamScopedRole(role)}>
+                              Delete
+                            </Button>
+                          )}
+                        </div>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}

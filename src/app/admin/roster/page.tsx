@@ -51,6 +51,8 @@ interface TeamRoleConfig {
   slots: number;
   specialists: SpecialistEntry[];
   configured: boolean;
+  autoFromTeamStaff?: boolean;
+  teamStaffRole?: "HEAD_COACH" | "TEAM_MANAGER" | "ASSISTANT_COACH" | null;
 }
 
 interface RosterRound {
@@ -558,16 +560,22 @@ export default function RosterPage() {
                       </TableCell>
                       <TableCell className="text-sm text-gray-600">{roleDetail(role)}</TableCell>
                       <TableCell>
-                        {role.configured ? (
+                        {role.autoFromTeamStaff ? (
+                          <Badge className="bg-blue-600">From Team Staff</Badge>
+                        ) : role.configured ? (
                           <Badge className="bg-green-600">Configured</Badge>
                         ) : (
                           <Badge variant="outline">Default</Badge>
                         )}
                       </TableCell>
                       <TableCell>
-                        <Button variant="outline" size="sm" onClick={() => openConfigDialog(role)}>
-                          Configure
-                        </Button>
+                        {role.autoFromTeamStaff ? (
+                          <span className="text-xs text-gray-500">Manage via Team Staff</span>
+                        ) : (
+                          <Button variant="outline" size="sm" onClick={() => openConfigDialog(role)}>
+                            Configure
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}

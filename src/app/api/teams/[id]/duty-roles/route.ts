@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Role } from "@prisma/client";
+import { Role, TeamStaffRole } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -9,8 +9,8 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const clubId = (session.user as Record<string, unknown>)?.clubId as string;
 
-  // Get club-wide roles + any roles scoped to this team, plus exclusions
-  const [allRoles, teamConfigs, exclusions] = await Promise.all([
+  // Get club-wide roles + any roles scoped to this team, plus exclusions + team staff
+  const [allRoles, teamConfigs, exclusions, staff] = await Promise.all([
     prisma.dutyRole.findMany({
       where: { clubId, OR: [{ teamId: null }, { teamId: params.id }] },
       orderBy: [{ sortOrder: "asc" }, { roleName: "asc" }],
@@ -23,7 +23,20 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       where: { teamId: params.id },
       select: { dutyRoleId: true },
     }),
+    prisma.teamStaff.findMany({
+      where: { teamId: params.id },
+      include: { user: { select: { id: true, name: true } } },
+      orderBy: [{ role: "asc" }, { createdAt: "asc" }],
+    }),
   ]);
+
+  const staffByRole = new Map<TeamStaffRole, { id: string; name: string }[]>();
+  for (const s of staff) {
+    if (!s.user) continue;
+    const arr = staffByRole.get(s.role) ?? [];
+    arr.push({ id: s.user.id, name: s.user.name });
+    staffByRole.set(s.role, arr);
+  }
 
   const excludedIds = new Set(exclusions.map((e) => e.dutyRoleId));
 
@@ -37,13 +50,20 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 
   const merged = visibleRoles.map((role) => {
     const config = configMap.get(role.id);
+    const staffLink = role.teamStaffRole;
+    const linkedStaff = staffLink ? staffByRole.get(staffLink) ?? [] : [];
+    const autoFromTeamStaff = !!staffLink;
+    const staffNames = linkedStaff.map((s) => s.name).join(", ");
+
     return {
       dutyRoleId: role.id,
       roleName: role.roleName,
       isTeamScoped: role.teamId !== null,
       teamDutyRoleId: config?.id || null,
-      roleType: config?.roleType || "ROTATING",
-      assignedPersonName: config?.assignedPersonName || null,
+      roleType: autoFromTeamStaff ? "FIXED" : (config?.roleType || "ROTATING"),
+      assignedPersonName: autoFromTeamStaff
+        ? (staffNames || null)
+        : (config?.assignedPersonName || null),
       assignedFamilyId: config?.assignedFamilyId || null,
       frequencyWeeks: config?.frequencyWeeks || 1,
       slots: config?.slots || 1,
@@ -52,7 +72,9 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
         personName: s.personName,
         familyId: s.familyId,
       })),
-      configured: !!config,
+      configured: autoFromTeamStaff ? linkedStaff.length > 0 : !!config,
+      autoFromTeamStaff,
+      teamStaffRole: staffLink ?? null,
     };
   });
 

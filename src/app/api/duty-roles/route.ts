@@ -3,6 +3,7 @@ import { Role } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { matchTeamStaffRole } from "@/lib/roles";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -39,12 +40,14 @@ export async function POST(req: NextRequest) {
     });
     const nextSortOrder = (maxRole?.sortOrder ?? -1) + 1;
 
+    const trimmedName = roleName.trim();
     const role = await prisma.dutyRole.create({
       data: {
-        roleName: roleName.trim(),
+        roleName: trimmedName,
         clubId,
         sortOrder: nextSortOrder,
         isVotingRole: !!isVotingRole,
+        teamStaffRole: matchTeamStaffRole(trimmedName),
       },
     });
     return NextResponse.json(role, { status: 201 });
@@ -74,11 +77,13 @@ export async function PUT(req: NextRequest) {
   }
 
   try {
+    const trimmedName = roleName.trim();
     const role = await prisma.dutyRole.update({
       where: { id },
       data: {
-        roleName: roleName.trim(),
+        roleName: trimmedName,
         isVotingRole: isVotingRole !== undefined ? !!isVotingRole : undefined,
+        teamStaffRole: matchTeamStaffRole(trimmedName),
       },
     });
     return NextResponse.json(role);

@@ -9,7 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { ROLE, TEAM_STAFF_ROLE, TeamStaffRoleName, teamStaffRoleLabel } from "@/lib/roles";
+import { ROLE, TEAM_STAFF_ROLE, TeamStaffRoleName } from "@/lib/roles";
+import { TeamStaffPanel } from "@/components/team-staff-panel";
 
 interface UserData {
   id: string;
@@ -310,25 +311,8 @@ export default function UsersPage() {
 
                       {expanded && (
                         <div className="border-t px-4 py-3 space-y-3">
-                          {/* Team Staff */}
-                          <div>
-                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Team Staff</p>
-                            {team.staff.length === 0 ? (
-                              <p className="text-sm text-muted-foreground italic">No staff assigned</p>
-                            ) : (
-                              <div className="space-y-1">
-                                {team.staff.map((s) => (
-                                  <UserRow
-                                    key={s.id}
-                                    user={s.user}
-                                    badgeOverride={teamStaffRoleLabel(s.role)}
-                                    onEdit={() => openEdit(s.user, club.id)}
-                                    onDelete={() => handleDelete(s.user)}
-                                  />
-                                ))}
-                              </div>
-                            )}
-                          </div>
+                          {/* Team Staff — full CRUD panel */}
+                          <TeamStaffPanel teamId={team.id} onChange={fetchData} />
 
                           {/* Family Users */}
                           <div>

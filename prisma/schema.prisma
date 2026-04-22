@@ -228,14 +228,15 @@ model Vote {
 }
 
 model DutyRole {
-  id            String  @id @default(cuid())
+  id            String         @id @default(cuid())
   roleName      String
-  sortOrder     Int     @default(0)
+  sortOrder     Int            @default(0)
   clubId        String
-  club          Club    @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  club          Club           @relation(fields: [clubId], references: [id], onDelete: Cascade)
   teamId        String?
-  team          Team?   @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  isVotingRole  Boolean @default(false)
+  team          Team?          @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  isVotingRole  Boolean        @default(false)
+  teamStaffRole TeamStaffRole?
 
   teamDutyRoles TeamDutyRole[]
 
