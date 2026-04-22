@@ -123,6 +123,47 @@ export async function GET() {
   const explicitlyLinkedStaffRoles = new Set<TeamStaffRole>(
     globalRoles.map((r) => r.teamStaffRole).filter((x): x is TeamStaffRole => !!x)
   );
+
+  // Lazy-create TeamDutyRole rows for staff-linked roles that don't have one
+  // yet. Without this, override assignments fall back to DutyRole.id which
+  // fails the RosterAssignment → TeamDutyRole foreign key.
+  const resolveStaffLink = (role: (typeof visibleGlobalRoles)[number]): TeamStaffRole | null => {
+    if (role.teamStaffRole) return role.teamStaffRole;
+    const aliased = matchTeamStaffRole(role.roleName) as TeamStaffRole | null;
+    if (aliased && !explicitlyLinkedStaffRoles.has(aliased)) return aliased;
+    return null;
+  };
+  const rolesNeedingConfig = visibleGlobalRoles.filter((role) => {
+    if (configMap.has(role.id)) return false;
+    const link = resolveStaffLink(role);
+    if (!link) return false;
+    return (staffByRole.get(link)?.length ?? 0) > 0;
+  });
+  if (rolesNeedingConfig.length > 0) {
+    await Promise.all(
+      rolesNeedingConfig.map((role) =>
+        prisma.teamDutyRole
+          .create({
+            data: { teamId, dutyRoleId: role.id, roleType: "FIXED", slots: 1 },
+            include: { dutyRole: true, specialists: true },
+          })
+          .then((created) => {
+            configMap.set(role.id, created);
+          })
+          .catch(() => {
+            // Race: another request created it. Fetch and use that row.
+            return prisma.teamDutyRole
+              .findUnique({
+                where: { teamId_dutyRoleId: { teamId, dutyRoleId: role.id } },
+                include: { dutyRole: true, specialists: true },
+              })
+              .then((row) => {
+                if (row) configMap.set(role.id, row);
+              });
+          })
+      )
+    );
+  }
   const teamRoles = visibleGlobalRoles.map((role) => {
     const config = configMap.get(role.id);
     let staffLink: TeamStaffRole | null = role.teamStaffRole;
