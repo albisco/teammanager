@@ -5,6 +5,46 @@ import bcrypt from "bcryptjs";
 import { randomBytes } from "crypto";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { teamStaffRoleLabel } from "@/lib/roles";
+
+/**
+ * Ensure a club-wide DutyRole is linked to this TeamStaffRole so it shows up
+ * in the roster role config auto-populated from Team Staff. Idempotent.
+ */
+async function ensureLinkedDutyRole(clubId: string, staffRole: TeamStaffRole) {
+  const existing = await prisma.dutyRole.findFirst({
+    where: { clubId, teamId: null, teamStaffRole: staffRole },
+    select: { id: true },
+  });
+  if (existing) return;
+
+  const label = teamStaffRoleLabel(staffRole);
+  const byName = await prisma.dutyRole.findFirst({
+    where: { clubId, teamId: null, roleName: label },
+    select: { id: true },
+  });
+  if (byName) {
+    await prisma.dutyRole.update({
+      where: { id: byName.id },
+      data: { teamStaffRole: staffRole },
+    });
+    return;
+  }
+
+  const max = await prisma.dutyRole.findFirst({
+    where: { clubId, teamId: null },
+    orderBy: { sortOrder: "desc" },
+    select: { sortOrder: true },
+  });
+  await prisma.dutyRole.create({
+    data: {
+      roleName: label,
+      clubId,
+      sortOrder: (max?.sortOrder ?? -1) + 1,
+      teamStaffRole: staffRole,
+    },
+  });
+}
 
 /**
  * Team Staff CRUD. Only club-scoped ADMIN and SUPER_ADMIN can manage staff —
@@ -122,6 +162,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         user: { select: { id: true, name: true, email: true, role: true } },
       },
     });
+
+    await ensureLinkedDutyRole(clubId, role);
 
     return NextResponse.json({ staff: staffRow, tempPassword }, { status: 201 });
   } catch (err: unknown) {
