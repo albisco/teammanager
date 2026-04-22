@@ -171,6 +171,16 @@ export async function GET() {
         roleType: r.roleType,
         slots: r.slots,
       })),
+      // Also include global club roles auto-linked to Team Staff (so they show in Share Duties)
+      staffRoles: teamRoles
+        .filter((r) => r.autoFromTeamStaff && r.configured)
+        .map((r) => ({
+          id: r.teamDutyRoleId ?? r.dutyRoleId,
+          roleName: r.roleName,
+          roleType: "FIXED" as const,
+          slots: 1,
+          assignedName: r.assignedPersonName,
+        })),
       assignments: assignmentMap,
       families,
       dutyCounts,

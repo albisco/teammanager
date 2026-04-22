@@ -76,6 +76,7 @@ interface RosterFamily {
 interface RosterData {
   rounds: RosterRound[];
   roles: RosterRole[];
+  staffRoles?: Array<{ id: string; roleName: string; roleType: string; slots: number; assignedName: string | null }>;
   assignments: Record<string, Array<{ familyId: string; familyName: string; slot: number }>>;
   families: RosterFamily[];
   dutyCounts: Record<string, Record<string, number>>;
@@ -565,13 +566,18 @@ export default function ManagerRosterPage() {
 
   function getDutiesForRound(roundId: string) {
     if (!rosterData) return [];
-    return rosterData.roles
+    const duties = rosterData.roles
       .map((role) => {
         const key = `${roundId}:${role.id}`;
         const assignments = rosterData.assignments[key] ?? [];
         return { roleName: role.roleName, names: assignments.map((a) => resolveAssignName(role.id, a.familyId)) };
       })
       .filter((d) => d.names.length > 0);
+    // Add Team Staff linked roles (Head Coach, Team Manager, Assistant Coach) - these are FIXED to staff
+    const staffDuties = (rosterData.staffRoles ?? [])
+      .filter((r) => r.assignedName)
+      .map((r) => ({ roleName: r.roleName, names: [r.assignedName!] }));
+    return [...duties, ...staffDuties];
   }
 
   const activeRounds = rosterData?.rounds.filter((r) => !r.isBye) || [];
