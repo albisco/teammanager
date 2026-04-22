@@ -888,6 +888,18 @@ export default function ManagerRosterPage() {
                       </div>
                     </TableCell>
                     {activeRounds.map((round) => {
+                      // Staff roles show the assigned name directly (same for all rounds)
+                      if (role.isStaffRole && role.assignedName) {
+                        return (
+                          <TableCell key={round.id} className="text-center text-sm align-top py-2 bg-gray-50">
+                            <div className="flex flex-col gap-0.5">
+                              <div className="rounded px-1 text-gray-500">
+                                {role.assignedName}
+                              </div>
+                            </div>
+                          </TableCell>
+                        );
+                      }
                       const slotAssignments = rosterData.assignments[`${round.id}:${role.id}`] || [];
                       const totalSlots = role.slots ?? 1;
                       const isLocked = round.isRosterLocked;
@@ -934,39 +946,7 @@ export default function ManagerRosterPage() {
                     })}
                   </TableRow>
                 ))}
-                {/* Staff-linked roles (Head Coach, Team Manager, Assistant Coach) - can be overridden per round */}
-                {(rosterData.staffRoles ?? [])
-                  .filter((r) => r.assignedName)
-                  .map((role) => (
-                    <TableRow key={role.id}>
-                      <TableCell className="sticky left-0 bg-card z-10 font-medium">
-                        <div className="flex items-center gap-2">
-                          {role.roleName}
-                          <Badge variant="default" className="text-xs">From Staff</Badge>
-                        </div>
-                      </TableCell>
-                      {activeRounds.map((round) => {
-                        const slotAssignments = rosterData.assignments[`${round.id}:${role.id}`] || [];
-                        const assigned = slotAssignments[0]?.familyId || null;
-                        const isLocked = round.isRosterLocked;
-                        return (
-                          <TableCell key={round.id} className={`text-center text-sm align-top py-2${isLocked ? " bg-gray-50" : ""}`}>
-                            {assigned ? (
-                              <span className="text-gray-500 line-through">{role.assignedName}</span>
-                            ) : null}
-                            <button
-                              disabled={isLocked}
-                              onClick={() => openOverrideDialog(round.id, role.id, role.roleName, round.roundNumber, 0)}
-                              className={`text-xs ${isLocked ? "text-gray-300 cursor-not-allowed" : "text-blue-600 hover:underline"}`}
-                            >
-                              {assigned ? "Override" : "Assign"}
-                            </button>
-                          </TableCell>
-                        );
-                      })}
-                    </TableRow>
-                  ))}
-              </TableBody>
+                </TableBody>
             </Table>
           </div>
           <p className="text-xs text-gray-400 mt-2">Click a cell to reassign. Drag a name to swap with another round. Click 🔓 on a round to lock it — locked rounds are preserved during regeneration.</p>

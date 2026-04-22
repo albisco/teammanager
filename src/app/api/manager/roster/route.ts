@@ -192,6 +192,7 @@ export async function GET() {
         slots: r.slots,
         sortOrder: r.dutyRole.sortOrder,
         isStaffRole: false,
+        assignedName: r.assignedPersonName,
       })), ...teamRoles
         .filter((r) => r.autoFromTeamStaff && r.configured)
         .map((r) => ({
