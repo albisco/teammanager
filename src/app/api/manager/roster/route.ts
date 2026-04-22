@@ -136,6 +136,7 @@ export async function GET() {
     return {
       dutyRoleId: role.id,
       roleName: role.roleName,
+      roleSortOrder: role.sortOrder,
       isTeamScoped: role.teamId !== null,
       teamDutyRoleId: config?.id || null,
       roleType: autoFromTeamStaff ? "FIXED" : (config?.roleType || "ROTATING"),
@@ -170,6 +171,7 @@ export async function GET() {
         roleName: r.dutyRole.roleName,
         roleType: r.roleType,
         slots: r.slots,
+        sortOrder: r.dutyRole.sortOrder,
       })),
       // Also include global club roles auto-linked to Team Staff (so they show in Share Duties)
       staffRoles: teamRoles
@@ -180,6 +182,7 @@ export async function GET() {
           roleType: "FIXED" as const,
           slots: 1,
           assignedName: r.assignedPersonName,
+          sortOrder: r.roleSortOrder,
         })),
       assignments: assignmentMap,
       families,

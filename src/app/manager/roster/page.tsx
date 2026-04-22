@@ -66,6 +66,7 @@ interface RosterRole {
   roleName: string;
   roleType: string;
   slots: number;
+  sortOrder?: number;
 }
 
 interface RosterFamily {
@@ -76,7 +77,7 @@ interface RosterFamily {
 interface RosterData {
   rounds: RosterRound[];
   roles: RosterRole[];
-  staffRoles?: Array<{ id: string; roleName: string; roleType: string; slots: number; assignedName: string | null }>;
+  staffRoles?: Array<{ id: string; roleName: string; roleType: string; slots: number; assignedName: string | null; sortOrder?: number }>;
   assignments: Record<string, Array<{ familyId: string; familyName: string; slot: number }>>;
   families: RosterFamily[];
   dutyCounts: Record<string, Record<string, number>>;
@@ -566,18 +567,20 @@ export default function ManagerRosterPage() {
 
   function getDutiesForRound(roundId: string) {
     if (!rosterData) return [];
+    // Build duties from team roles
     const duties = rosterData.roles
       .map((role) => {
         const key = `${roundId}:${role.id}`;
         const assignments = rosterData.assignments[key] ?? [];
-        return { roleName: role.roleName, names: assignments.map((a) => resolveAssignName(role.id, a.familyId)) };
+        return { roleName: role.roleName, sortOrder: role.sortOrder ?? 0, names: assignments.map((a) => resolveAssignName(role.id, a.familyId)) };
       })
       .filter((d) => d.names.length > 0);
-    // Add Team Staff linked roles (Head Coach, Team Manager, Assistant Coach) - these are FIXED to staff
+    // Add Team Staff linked roles (Head Coach, Team Manager, Assistant Coach) - sorted by sortOrder
     const staffDuties = (rosterData.staffRoles ?? [])
       .filter((r) => r.assignedName)
-      .map((r) => ({ roleName: r.roleName, names: [r.assignedName!] }));
-    return [...duties, ...staffDuties];
+      .map((r) => ({ roleName: r.roleName, sortOrder: r.sortOrder ?? 0, names: [r.assignedName!] }));
+    // Combine and sort by sortOrder to match Admin → Roster order
+    return [...duties, ...staffDuties].sort((a, b) => a.sortOrder - b.sortOrder);
   }
 
   const activeRounds = rosterData?.rounds.filter((r) => !r.isBye) || [];
