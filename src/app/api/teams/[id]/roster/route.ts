@@ -44,11 +44,13 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   const assignmentMap: Record<string, Array<{ familyId: string; familyName: string; slot: number }>> = {};
   const dutyCounts: Record<string, Record<string, number>> = {};
   for (const a of assignments) {
+    // Skip person assignments (they have null familyId)
+    if (!a.assignedFamilyId) continue;
     const key = `${a.roundId}:${a.teamDutyRoleId}`;
     if (!assignmentMap[key]) assignmentMap[key] = [];
     assignmentMap[key].push({
       familyId: a.assignedFamilyId,
-      familyName: a.assignedFamilyName,
+      familyName: a.assignedFamilyName ?? a.assignedFamilyId,
       slot: a.slot,
     });
     if (!dutyCounts[a.assignedFamilyId]) dutyCounts[a.assignedFamilyId] = {};

@@ -79,6 +79,7 @@ export async function GET(req: NextRequest) {
   const rosteredFamilyCountByRound: Record<string, number> = {};
   const perRoundIds = new Map<string, Set<string>>();
   for (const r of rosterRows) {
+    if (!r.assignedFamilyId) continue; // Skip person assignments
     if (!perRoundIds.has(r.roundId)) perRoundIds.set(r.roundId, new Set());
     perRoundIds.get(r.roundId)!.add(r.assignedFamilyId);
   }
