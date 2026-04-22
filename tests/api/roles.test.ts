@@ -276,23 +276,32 @@ describe("Season API roles", () => {
 });
 
 describe("Share Duties ordering", () => {
-  test("roster API includes sortOrder for both roles and staffRoles", async () => {
-    // This test verifies the API contract - sortOrder must be present
-    // so the frontend can sort share duties to match Admin → Roster order
+  test("roster API includes sortOrder and returns roles in sorted order", async () => {
+    // This test verifies:
+    // 1. sortOrder is present in the API response
+    // 2. roles are returned in sortOrder order (not just having the field)
     setTestSession(sessions.teamManager);
 
     const res = await getManagerRoster();
     expect(res.status).toBe(200);
 
     const data = await res.json();
-    // Roles should have sortOrder
+
+    // Verify sortOrder field exists
     expect(data.roster.roles).toBeDefined();
     if (data.roster.roles.length > 0) {
       expect(data.roster.roles[0]).toHaveProperty("sortOrder");
     }
-    // Staff roles should have sortOrder
     if (data.roster.staffRoles && data.roster.staffRoles.length > 0) {
       expect(data.roster.staffRoles[0]).toHaveProperty("sortOrder");
+    }
+
+    // Verify roles are actually sorted by sortOrder (not just containing the field)
+    const roles = data.roster.roles;
+    for (let i = 1; i < roles.length; i++) {
+      const prev = roles[i - 1].sortOrder ?? 0;
+      const curr = roles[i].sortOrder ?? 0;
+      expect(prev).toBeLessThanOrEqual(curr);
     }
   });
 });

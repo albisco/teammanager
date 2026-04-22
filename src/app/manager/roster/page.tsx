@@ -602,9 +602,6 @@ export default function ManagerRosterPage() {
   if (!rosterEnabled) return <p className="text-gray-500">Duty roster is disabled for this team.</p>;
   if (pageLoading) return <p className="text-gray-500">Loading...</p>;
 
-  // Sort roles by sortOrder to match Admin → Roster order
-  const sortedRosterRoles = rosterData ? [...rosterData.roles].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)) : [];
-
   return (
     <div>
       <h1 className="text-3xl font-bold mb-6">Duty Roster</h1>
@@ -872,7 +869,7 @@ export default function ManagerRosterPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sortedRosterRoles.map((role) => (
+                {rosterData.roles.map((role) => (
                   <TableRow key={role.id}>
                     <TableCell className="sticky left-0 bg-card z-10 font-medium">
                       <div className="flex items-center gap-2">
@@ -945,7 +942,7 @@ export default function ManagerRosterPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="sticky left-0 bg-card z-10 min-w-[150px]">Family</TableHead>
-                  {sortedRosterRoles.filter((r) => r.roleType !== "FIXED").map((role) => (
+                  {rosterData.roles.filter((r) => r.roleType !== "FIXED").map((role) => (
                     <TableHead key={role.id} className="text-center min-w-[100px] text-xs">
                       {role.roleName}
                     </TableHead>
@@ -956,7 +953,7 @@ export default function ManagerRosterPage() {
               <TableBody>
                 {rosterData.families.map((family) => {
                   const counts = rosterData.dutyCounts[family.id] || {};
-                  const rotatingRoles = sortedRosterRoles.filter((r) => r.roleType !== "FIXED");
+                  const rotatingRoles = rosterData.roles.filter((r) => r.roleType !== "FIXED");
                   const total = rotatingRoles.reduce((sum, role) => sum + (counts[role.id] || 0), 0);
                   return (
                     <TableRow key={family.id}>
