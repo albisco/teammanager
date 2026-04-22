@@ -439,7 +439,7 @@ export default function ManagerRosterPage() {
     });
     if (res.ok) {
       toast.success(newLocked ? `Round ${round.roundNumber} locked` : `Round ${round.roundNumber} unlocked`);
-      fetchRosterData();
+      fetchAll();
     } else {
       toast.error("Failed to update lock");
     }
@@ -455,7 +455,7 @@ export default function ManagerRosterPage() {
       const data = await res.json();
       const lockedNote = data.skippedLockedRounds > 0 ? `, ${data.skippedLockedRounds} locked round${data.skippedLockedRounds !== 1 ? "s" : ""} preserved` : "";
       toast.success(`Roster generated — ${data.count} assignments created${lockedNote}`);
-      fetchRosterData();
+      fetchAll();
     } else {
       const data = await res.json();
       toast.error(data.error || "Failed to generate roster");
@@ -524,7 +524,7 @@ export default function ManagerRosterPage() {
     if (res.ok) {
       toast.success("Assignment updated");
       setOverrideDialogOpen(false);
-      fetchRosterData();
+      fetchAll();
     } else {
       toast.error("Failed to update");
     }
@@ -554,7 +554,7 @@ export default function ManagerRosterPage() {
 
     if (r1.ok && r2.ok) {
       toast.success("Assignments swapped");
-      fetchRosterData();
+      fetchAll();
     } else {
       toast.error("Swap failed");
     }
