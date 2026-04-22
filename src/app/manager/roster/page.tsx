@@ -181,11 +181,6 @@ export default function ManagerRosterPage() {
   }, []);
 
   // Lightweight refreshes after mutations
-  const fetchGlobalRoles = useCallback(async () => {
-    const res = await fetch("/api/duty-roles");
-    if (res.ok) setGlobalRoles(await res.json());
-  }, []);
-
   const fetchTeamRoles = useCallback(async () => {
     if (!teamId) return;
     const res = await fetch(`/api/teams/${teamId}/duty-roles`);
@@ -223,11 +218,10 @@ export default function ManagerRosterPage() {
     });
 
     if (!res.ok) {
-      fetchGlobalRoles();
       toast.error("Failed to update order");
-    } else {
-      fetchAll(); // Refresh all data to get updated role order in teamRoles
     }
+    // Always refetch full page data so exclusions + team-scoped roles stay correct.
+    fetchAll();
   }
 
   // === Club Role CRUD ===

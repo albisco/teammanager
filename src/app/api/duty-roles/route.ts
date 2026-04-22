@@ -104,15 +104,28 @@ export async function PATCH(req: NextRequest) {
   }
 
   const clubId = (session.user as Record<string, unknown>)?.clubId as string;
+  const sessionTeamId = (session.user as Record<string, unknown>)?.teamId as string | null | undefined;
   const { orderedIds } = await req.json();
 
   if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
     return NextResponse.json({ error: "orderedIds array is required" }, { status: 400 });
   }
 
-  // Verify all IDs belong to this club (club-wide only)
+  // Team managers can reorder club-wide roles + their own team's scoped roles;
+  // admins can reorder club-wide + any team-scoped role in the club.
+  const teamScopeFilter =
+    role === Role.TEAM_MANAGER
+      ? sessionTeamId
+        ? { teamId: sessionTeamId }
+        : null
+      : { NOT: { teamId: null } };
+
+  const roleScope = teamScopeFilter
+    ? { clubId, OR: [{ teamId: null }, teamScopeFilter] }
+    : { clubId, teamId: null };
+
   const roles = await prisma.dutyRole.findMany({
-    where: { clubId, teamId: null },
+    where: roleScope,
     select: { id: true },
   });
   const validIds = new Set(roles.map((r) => r.id));
