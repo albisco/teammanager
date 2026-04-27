@@ -87,7 +87,16 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
         personName: s.personName,
         familyId: s.familyId,
       })),
-      configured: autoFromTeamStaff ? linkedStaff.length > 0 : !!config,
+      configured: autoFromTeamStaff
+        ? linkedStaff.length > 0
+        : !!config && (
+            config.roleType !== "ROTATING" ||
+            (config.slots ?? 1) > 1 ||
+            (config.frequencyWeeks ?? 1) > 1 ||
+            !!config.assignedPersonName ||
+            !!config.assignedFamilyId ||
+            (config.specialists?.length ?? 0) > 0
+          ),
       autoFromTeamStaff,
       teamStaffRole: staffLink ?? null,
     };

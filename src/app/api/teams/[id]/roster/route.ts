@@ -14,7 +14,13 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   if (!team) return NextResponse.json({ error: "Team not found" }, { status: 404 });
   if (!team.enableRoster) return NextResponse.json({ error: "Duty roster disabled for this team" }, { status: 403 });
 
-  const [rounds, teamDutyRoles, assignments, families] = await Promise.all([
+  const teamRow = await prisma.team.findUnique({
+    where: { id: teamId },
+    select: { season: { select: { clubId: true } } },
+  });
+  const clubId = teamRow?.season?.clubId;
+
+  const [rounds, teamDutyRolesRaw, assignments, families, clubRoles, exclusions] = await Promise.all([
     prisma.round.findMany({
       where: { teamId },
       orderBy: { roundNumber: "asc" },
@@ -28,14 +34,49 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     prisma.rosterAssignment.findMany({
       where: { round: { teamId } },
     }),
-    // Get families: derive from player data
     prisma.teamPlayer.findMany({
       where: { teamId },
       include: {
         player: { select: { surname: true, firstName: true, parent1: true } },
       },
     }),
+    clubId
+      ? prisma.dutyRole.findMany({
+          where: { clubId, OR: [{ teamId: null }, { teamId }] },
+          orderBy: [{ sortOrder: "asc" }, { roleName: "asc" }],
+        })
+      : Promise.resolve([]),
+    prisma.teamDutyRoleExclusion.findMany({
+      where: { teamId },
+      select: { dutyRoleId: true },
+    }),
   ]);
+
+  // Lazy-create TeamDutyRole rows for any visible global role missing one so
+  // newly added club roles show up in the grid without needing a Configure or
+  // page refresh.
+  const excludedIds = new Set(exclusions.map((e) => e.dutyRoleId));
+  const visibleClubRoles = clubRoles.filter(
+    (r) => r.teamId !== null || !excludedIds.has(r.id)
+  );
+  const existingDutyRoleIds = new Set(teamDutyRolesRaw.map((r) => r.dutyRoleId));
+  const missing = visibleClubRoles.filter((r) => !existingDutyRoleIds.has(r.id));
+  if (missing.length > 0) {
+    await Promise.all(
+      missing.map((role) =>
+        prisma.teamDutyRole
+          .create({ data: { teamId, dutyRoleId: role.id, roleType: "ROTATING", slots: 1 } })
+          .catch(() => undefined)
+      )
+    );
+  }
+  const teamDutyRoles = missing.length > 0
+    ? await prisma.teamDutyRole.findMany({
+        where: { teamId },
+        include: { dutyRole: true },
+        orderBy: [{ dutyRole: { sortOrder: "asc" } }, { dutyRole: { roleName: "asc" } }],
+      })
+    : teamDutyRolesRaw;
 
   const familyList = deriveFamilies(families.map((tp) => tp.player));
   const familyMap = new Map(familyList.map((f) => [f.id, f]));

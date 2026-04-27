@@ -124,34 +124,37 @@ export async function GET() {
     globalRoles.map((r) => r.teamStaffRole).filter((x): x is TeamStaffRole => !!x)
   );
 
-  // Lazy-create TeamDutyRole rows for staff-linked roles that don't have one
-  // yet. Without this, override assignments fall back to DutyRole.id which
-  // fails the RosterAssignment → TeamDutyRole foreign key.
+  // Lazy-create TeamDutyRole rows for any visible global role that doesn't
+  // have one yet — staff-linked roles get FIXED defaults, the rest ROTATING.
+  // Without a TeamDutyRole, the role can't appear in the roster grid (which
+  // keys assignments by teamDutyRoleId), so newly added roles wouldn't show
+  // up until something else triggered creation.
   const resolveStaffLink = (role: (typeof visibleGlobalRoles)[number]): TeamStaffRole | null => {
     if (role.teamStaffRole) return role.teamStaffRole;
     const aliased = matchTeamStaffRole(role.roleName) as TeamStaffRole | null;
     if (aliased && !explicitlyLinkedStaffRoles.has(aliased)) return aliased;
     return null;
   };
-  const rolesNeedingConfig = visibleGlobalRoles.filter((role) => {
-    if (configMap.has(role.id)) return false;
-    const link = resolveStaffLink(role);
-    if (!link) return false;
-    return (staffByRole.get(link)?.length ?? 0) > 0;
-  });
+  const rolesNeedingConfig = visibleGlobalRoles.filter((role) => !configMap.has(role.id));
   if (rolesNeedingConfig.length > 0) {
     await Promise.all(
-      rolesNeedingConfig.map((role) =>
-        prisma.teamDutyRole
+      rolesNeedingConfig.map((role) => {
+        const link = resolveStaffLink(role);
+        const isStaffLinked = !!link && (staffByRole.get(link)?.length ?? 0) > 0;
+        return prisma.teamDutyRole
           .create({
-            data: { teamId, dutyRoleId: role.id, roleType: "FIXED", slots: 1 },
+            data: {
+              teamId,
+              dutyRoleId: role.id,
+              roleType: isStaffLinked ? "FIXED" : "ROTATING",
+              slots: 1,
+            },
             include: { dutyRole: true, specialists: true },
           })
           .then((created) => {
             configMap.set(role.id, created);
           })
           .catch(() => {
-            // Race: another request created it. Fetch and use that row.
             return prisma.teamDutyRole
               .findUnique({
                 where: { teamId_dutyRoleId: { teamId, dutyRoleId: role.id } },
@@ -160,10 +163,22 @@ export async function GET() {
               .then((row) => {
                 if (row) configMap.set(role.id, row);
               });
-          })
-      )
+          });
+      })
     );
   }
+  const hasCustomConfig = (config: ReturnType<typeof configMap.get> | undefined) => {
+    if (!config) return false;
+    return (
+      config.roleType !== "ROTATING" ||
+      (config.slots ?? 1) > 1 ||
+      (config.frequencyWeeks ?? 1) > 1 ||
+      !!config.assignedPersonName ||
+      !!config.assignedFamilyId ||
+      (config.specialists?.length ?? 0) > 0
+    );
+  };
+
   const teamRoles = visibleGlobalRoles.map((role) => {
     const config = configMap.get(role.id);
     let staffLink: TeamStaffRole | null = role.teamStaffRole;
@@ -195,7 +210,7 @@ export async function GET() {
         personName: s.personName,
         familyId: s.familyId,
       })),
-      configured: autoFromTeamStaff ? linkedStaff.length > 0 : !!config,
+      configured: autoFromTeamStaff ? linkedStaff.length > 0 : hasCustomConfig(config),
       autoFromTeamStaff,
       teamStaffRole: staffLink ?? null,
     };
@@ -209,6 +224,15 @@ export async function GET() {
     teamRoles.filter((r) => r.autoFromTeamStaff).map((r) => r.dutyRoleId)
   );
 
+  // All TeamDutyRole rows for this team after lazy-create, sorted by the
+  // global role sortOrder so the grid matches the Duty Roles list.
+  const allTeamDutyRoles = Array.from(configMap.values()).sort((a, b) => {
+    const ao = a.dutyRole.sortOrder ?? 0;
+    const bo = b.dutyRole.sortOrder ?? 0;
+    if (ao !== bo) return ao - bo;
+    return a.dutyRole.roleName.localeCompare(b.dutyRole.roleName);
+  });
+
   return NextResponse.json({
     availabilityToken: team?.availabilityToken ?? null,
     teamName: team ? `${team.ageGroup} ${team.name}`.trim() : "",
@@ -218,7 +242,7 @@ export async function GET() {
     familyMembers,
     roster: {
       rounds,
-      roles: teamDutyRoles
+      roles: allTeamDutyRoles
         .filter((r) => !staffLinkedDutyRoleIds.has(r.dutyRoleId))
         .map((r) => ({
           id: r.id,
@@ -239,7 +263,7 @@ export async function GET() {
           sortOrder: r.roleSortOrder,
         })),
       // Combined all roles sorted by sortOrder - for displays that need merged+sorted list
-      allRoles: [...teamDutyRoles
+      allRoles: [...allTeamDutyRoles
         .filter((r) => !staffLinkedDutyRoleIds.has(r.dutyRoleId))
         .map((r) => ({
           id: r.id,
