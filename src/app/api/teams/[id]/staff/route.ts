@@ -5,6 +5,53 @@ import bcrypt from "bcryptjs";
 import { randomBytes } from "crypto";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { matchTeamStaffRole, teamStaffRoleLabel } from "@/lib/roles";
+
+/**
+ * Ensure a club-wide DutyRole is linked to this TeamStaffRole so it shows up
+ * in the roster role config auto-populated from Team Staff. Idempotent —
+ * re-runs the alias matcher against existing unlinked roles before creating,
+ * so clubs with "Coach" / "Manager" / etc. get upgraded in place instead of
+ * ending up with a duplicate row.
+ */
+async function ensureLinkedDutyRole(clubId: string, staffRole: TeamStaffRole) {
+  const existing = await prisma.dutyRole.findFirst({
+    where: { clubId, teamId: null, teamStaffRole: staffRole },
+    select: { id: true },
+  });
+  if (existing) return;
+
+  // Look for an unlinked club role whose name matches this staff role
+  // (canonical label or alias).
+  const unlinkedClubRoles = await prisma.dutyRole.findMany({
+    where: { clubId, teamId: null, teamStaffRole: null },
+    select: { id: true, roleName: true },
+  });
+  const aliasMatch = unlinkedClubRoles.find(
+    (r) => matchTeamStaffRole(r.roleName) === staffRole
+  );
+  if (aliasMatch) {
+    await prisma.dutyRole.update({
+      where: { id: aliasMatch.id },
+      data: { teamStaffRole: staffRole },
+    });
+    return;
+  }
+
+  const max = await prisma.dutyRole.findFirst({
+    where: { clubId, teamId: null },
+    orderBy: { sortOrder: "desc" },
+    select: { sortOrder: true },
+  });
+  await prisma.dutyRole.create({
+    data: {
+      roleName: teamStaffRoleLabel(staffRole),
+      clubId,
+      sortOrder: (max?.sortOrder ?? -1) + 1,
+      teamStaffRole: staffRole,
+    },
+  });
+}
 
 /**
  * Team Staff CRUD. Only club-scoped ADMIN and SUPER_ADMIN can manage staff —
@@ -122,6 +169,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         user: { select: { id: true, name: true, email: true, role: true } },
       },
     });
+
+    await ensureLinkedDutyRole(clubId, role);
 
     return NextResponse.json({ staff: staffRow, tempPassword }, { status: 201 });
   } catch (err: unknown) {

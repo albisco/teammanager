@@ -228,14 +228,15 @@ model Vote {
 }
 
 model DutyRole {
-  id            String  @id @default(cuid())
+  id            String         @id @default(cuid())
   roleName      String
-  sortOrder     Int     @default(0)
+  sortOrder     Int            @default(0)
   clubId        String
-  club          Club    @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  club          Club           @relation(fields: [clubId], references: [id], onDelete: Cascade)
   teamId        String?
-  team          Team?   @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  isVotingRole  Boolean @default(false)
+  team          Team?          @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  isVotingRole  Boolean        @default(false)
+  teamStaffRole TeamStaffRole?
 
   teamDutyRoles TeamDutyRole[]
 
@@ -273,14 +274,15 @@ model TeamDutyRoleSpecialist {
 }
 
 model RosterAssignment {
-  id               String       @id @default(cuid())
-  roundId          String
-  round            Round        @relation(fields: [roundId], references: [id], onDelete: Cascade)
-  teamDutyRoleId   String
-  teamDutyRole     TeamDutyRole @relation(fields: [teamDutyRoleId], references: [id], onDelete: Cascade)
-  assignedFamilyId   String
-  assignedFamilyName String     @default("")
-  slot               Int          @default(0)
+  id                   String       @id @default(cuid())
+  roundId              String
+  round                Round        @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  teamDutyRoleId       String
+  teamDutyRole         TeamDutyRole @relation(fields: [teamDutyRoleId], references: [id], onDelete: Cascade)
+  assignedFamilyId     String?
+  assignedFamilyName   String?
+  assignedPersonName   String?
+  slot                 Int          @default(0)
 
   @@unique([roundId, teamDutyRoleId, slot])
 }

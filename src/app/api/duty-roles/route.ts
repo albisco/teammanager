@@ -3,6 +3,7 @@ import { Role } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { matchTeamStaffRole } from "@/lib/roles";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -39,12 +40,14 @@ export async function POST(req: NextRequest) {
     });
     const nextSortOrder = (maxRole?.sortOrder ?? -1) + 1;
 
+    const trimmedName = roleName.trim();
     const role = await prisma.dutyRole.create({
       data: {
-        roleName: roleName.trim(),
+        roleName: trimmedName,
         clubId,
         sortOrder: nextSortOrder,
         isVotingRole: !!isVotingRole,
+        teamStaffRole: matchTeamStaffRole(trimmedName),
       },
     });
     return NextResponse.json(role, { status: 201 });
@@ -74,11 +77,13 @@ export async function PUT(req: NextRequest) {
   }
 
   try {
+    const trimmedName = roleName.trim();
     const role = await prisma.dutyRole.update({
       where: { id },
       data: {
-        roleName: roleName.trim(),
+        roleName: trimmedName,
         isVotingRole: isVotingRole !== undefined ? !!isVotingRole : undefined,
+        teamStaffRole: matchTeamStaffRole(trimmedName),
       },
     });
     return NextResponse.json(role);
@@ -99,15 +104,28 @@ export async function PATCH(req: NextRequest) {
   }
 
   const clubId = (session.user as Record<string, unknown>)?.clubId as string;
+  const sessionTeamId = (session.user as Record<string, unknown>)?.teamId as string | null | undefined;
   const { orderedIds } = await req.json();
 
   if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
     return NextResponse.json({ error: "orderedIds array is required" }, { status: 400 });
   }
 
-  // Verify all IDs belong to this club (club-wide only)
+  // Team managers can reorder club-wide roles + their own team's scoped roles;
+  // admins can reorder club-wide + any team-scoped role in the club.
+  const teamScopeFilter =
+    role === Role.TEAM_MANAGER
+      ? sessionTeamId
+        ? { teamId: sessionTeamId }
+        : null
+      : { NOT: { teamId: null } };
+
+  const roleScope = teamScopeFilter
+    ? { clubId, OR: [{ teamId: null }, teamScopeFilter] }
+    : { clubId, teamId: null };
+
   const roles = await prisma.dutyRole.findMany({
-    where: { clubId, teamId: null },
+    where: roleScope,
     select: { id: true },
   });
   const validIds = new Set(roles.map((r) => r.id));

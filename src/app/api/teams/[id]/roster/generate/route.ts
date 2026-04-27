@@ -106,7 +106,7 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
   // Fetch existing assignments for locked future rounds to seed fairness counters
   const lockedAssignmentRows = lockedFutureRoundIds.size > 0
     ? await prisma.rosterAssignment.findMany({
-        where: { roundId: { in: Array.from(lockedFutureRoundIds) } },
+        where: { roundId: { in: Array.from(lockedFutureRoundIds) }, assignedFamilyId: { not: null } },
         select: { teamDutyRoleId: true, assignedFamilyId: true },
       })
     : [];
@@ -137,7 +137,7 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
       familyId: u.familyId,
       roundId: u.roundId,
     })),
-    lockedAssignments: lockedAssignmentRows,
+    lockedAssignments: lockedAssignmentRows.filter((a): a is { teamDutyRoleId: string; assignedFamilyId: string } => !!a.assignedFamilyId),
   };
 
   const assignments = generateRoster(input);

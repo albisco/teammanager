@@ -88,11 +88,13 @@ const getTeamRoster: ToolDefinition = {
     const assignmentMap: Record<string, Array<{ familyId: string; familyName: string; slot: number }>> = {};
     const dutyCounts: Record<string, Record<string, number>> = {};
     for (const a of assignments) {
+      // Skip person assignments (they have null familyId)
+      if (!a.assignedFamilyId) continue;
       const key = `${a.roundId}:${a.teamDutyRoleId}`;
       if (!assignmentMap[key]) assignmentMap[key] = [];
       assignmentMap[key].push({
         familyId: a.assignedFamilyId,
-        familyName: a.assignedFamilyName,
+        familyName: a.assignedFamilyName ?? a.assignedFamilyId,
         slot: a.slot,
       });
       if (!dutyCounts[a.assignedFamilyId]) dutyCounts[a.assignedFamilyId] = {};
@@ -163,9 +165,11 @@ const getNextRoundDuties: ToolDefinition = {
 
     const roleMap = new Map<string, string[]>();
     for (const a of assignments) {
+      // Skip person assignments - they're tracked differently
+      if (!a.assignedFamilyId) continue;
       const roleName = a.teamDutyRole.dutyRole.roleName;
       if (!roleMap.has(roleName)) roleMap.set(roleName, []);
-      roleMap.get(roleName)!.push(a.assignedFamilyName);
+      roleMap.get(roleName)!.push(a.assignedFamilyName ?? a.assignedFamilyId);
     }
 
     return {
@@ -279,6 +283,8 @@ const getFamilyDutyHistory: ToolDefinition = {
     const stats: Record<string, FamilyStats> = {};
 
     for (const a of assignments) {
+      // Skip person assignments
+      if (!a.assignedFamilyId) continue;
       const role = teamDutyRoles.find((r) => r.id === a.teamDutyRoleId);
       const roleName = role?.dutyRole.roleName ?? "Unknown";
       if (!stats[a.assignedFamilyId]) {
@@ -466,12 +472,14 @@ const explainAssignment: ToolDefinition = {
         slots: tdr.slots,
         frequencyWeeks: tdr.frequencyWeeks,
       },
-      currentAssignments: assignments.map((a) => ({
-        slot: a.slot,
-        familyId: a.assignedFamilyId,
-        displayName: a.assignedFamilyName,
-        familyName: familyMap.get(a.assignedFamilyId) ?? a.assignedFamilyName,
-      })),
+      currentAssignments: assignments
+        .filter((a) => a.assignedFamilyId)
+        .map((a) => ({
+          slot: a.slot,
+          familyId: a.assignedFamilyId,
+          displayName: a.assignedFamilyName,
+          familyName: familyMap.get(a.assignedFamilyId!) ?? a.assignedFamilyName,
+        })),
       eligiblePool,
       excludedFamilies: Array.from(excludedSet),
       familiesUnavailableThisRound: Array.from(unavailableSet),

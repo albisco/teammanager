@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import QRCode from "qrcode";
 import Image from "next/image";
 import ShareDutiesPanel from "./ShareDutiesPanel";
+import type { TeamStaffRoleName } from "@/lib/roles";
 
 interface GlobalDutyRole {
   id: string;
@@ -47,6 +48,8 @@ interface TeamRoleConfig {
   slots: number;
   specialists: SpecialistEntry[];
   configured: boolean;
+  autoFromTeamStaff?: boolean;
+  teamStaffRole?: TeamStaffRoleName | null;
 }
 
 interface RosterRound {
@@ -63,6 +66,9 @@ interface RosterRole {
   roleName: string;
   roleType: string;
   slots: number;
+  sortOrder?: number;
+  isStaffRole?: boolean;
+  assignedName?: string;
 }
 
 interface RosterFamily {
@@ -73,7 +79,10 @@ interface RosterFamily {
 interface RosterData {
   rounds: RosterRound[];
   roles: RosterRole[];
+  staffRoles?: Array<{ id: string; roleName: string; roleType: string; slots: number; assignedName: string | null; sortOrder?: number }>;
+  allRoles?: Array<{ id: string; roleName: string; roleType: string; slots: number; sortOrder?: number; isStaffRole: boolean; assignedName?: string }>;
   assignments: Record<string, Array<{ familyId: string; familyName: string; slot: number }>>;
+  personAssignments?: Record<string, string>;
   families: RosterFamily[];
   dutyCounts: Record<string, Record<string, number>>;
 }
@@ -179,21 +188,10 @@ export default function ManagerRosterPage() {
   }, []);
 
   // Lightweight refreshes after mutations
-  const fetchGlobalRoles = useCallback(async () => {
-    const res = await fetch("/api/duty-roles");
-    if (res.ok) setGlobalRoles(await res.json());
-  }, []);
-
   const fetchTeamRoles = useCallback(async () => {
     if (!teamId) return;
     const res = await fetch(`/api/teams/${teamId}/duty-roles`);
     if (res.ok) setTeamRoles(await res.json());
-  }, [teamId]);
-
-  const fetchRosterData = useCallback(async () => {
-    if (!teamId) return;
-    const res = await fetch(`/api/teams/${teamId}/roster`);
-    if (res.ok) setRosterData(await res.json());
   }, [teamId]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
@@ -221,11 +219,10 @@ export default function ManagerRosterPage() {
     });
 
     if (!res.ok) {
-      fetchGlobalRoles();
       toast.error("Failed to update order");
-    } else {
-      fetchAll(); // Refresh all data to get updated role order in teamRoles
     }
+    // Always refetch full page data so exclusions + team-scoped roles stay correct.
+    fetchAll();
   }
 
   // === Club Role CRUD ===
@@ -436,7 +433,7 @@ export default function ManagerRosterPage() {
     });
     if (res.ok) {
       toast.success(newLocked ? `Round ${round.roundNumber} locked` : `Round ${round.roundNumber} unlocked`);
-      fetchRosterData();
+      fetchAll();
     } else {
       toast.error("Failed to update lock");
     }
@@ -452,7 +449,7 @@ export default function ManagerRosterPage() {
       const data = await res.json();
       const lockedNote = data.skippedLockedRounds > 0 ? `, ${data.skippedLockedRounds} locked round${data.skippedLockedRounds !== 1 ? "s" : ""} preserved` : "";
       toast.success(`Roster generated — ${data.count} assignments created${lockedNote}`);
-      fetchRosterData();
+      fetchAll();
     } else {
       const data = await res.json();
       toast.error(data.error || "Failed to generate roster");
@@ -521,7 +518,7 @@ export default function ManagerRosterPage() {
     if (res.ok) {
       toast.success("Assignment updated");
       setOverrideDialogOpen(false);
-      fetchRosterData();
+      fetchAll();
     } else {
       toast.error("Failed to update");
     }
@@ -551,7 +548,7 @@ export default function ManagerRosterPage() {
 
     if (r1.ok && r2.ok) {
       toast.success("Assignments swapped");
-      fetchRosterData();
+      fetchAll();
     } else {
       toast.error("Swap failed");
     }
@@ -568,8 +565,13 @@ export default function ManagerRosterPage() {
 
   function getDutiesForRound(roundId: string) {
     if (!rosterData) return [];
-    return rosterData.roles
+    // Use combined allRoles from API (already sorted by sortOrder)
+    return (rosterData.allRoles ?? [])
       .map((role) => {
+        // Staff roles have assignedName directly, team roles need assignment lookup
+        if (role.isStaffRole && role.assignedName) {
+          return { roleName: role.roleName, names: [role.assignedName] };
+        }
         const key = `${roundId}:${role.id}`;
         const assignments = rosterData.assignments[key] ?? [];
         return { roleName: role.roleName, names: assignments.map((a) => resolveAssignName(role.id, a.familyId)) };
@@ -595,6 +597,9 @@ export default function ManagerRosterPage() {
 
   if (!rosterEnabled) return <p className="text-gray-500">Duty roster is disabled for this team.</p>;
   if (pageLoading) return <p className="text-gray-500">Loading...</p>;
+
+  // Combine and sort roles for display (team roles + staff roles sorted by sortOrder)
+  const displayRoles = rosterData?.allRoles ?? rosterData?.roles ?? [];
 
   return (
     <div>
@@ -689,33 +694,39 @@ export default function ManagerRosterPage() {
                     </TableCell>
                     <TableCell className="text-sm text-gray-600">{roleDetail(role)}</TableCell>
                     <TableCell>
-                      {role.configured ? (
+                      {role.autoFromTeamStaff ? (
+                        <Badge className="bg-blue-600">From Team Staff</Badge>
+                      ) : role.configured ? (
                         <Badge className="bg-green-600">Configured</Badge>
                       ) : (
                         <Badge variant="outline">Default</Badge>
                       )}
                     </TableCell>
                     <TableCell>
-                      <div className="flex gap-1">
-                        <Button variant="outline" size="sm" onClick={() => openConfigDialog(role)}>
-                          Configure
-                        </Button>
-                        {role.configured && !role.isTeamScoped && (
-                          <Button variant="outline" size="sm" className="text-amber-600 hover:text-amber-800 hover:bg-amber-50" onClick={() => handleDeleteRole(role)}>
-                            Reset
+                      {role.autoFromTeamStaff ? (
+                        <span className="text-xs text-gray-500">Manage via Team Staff</span>
+                      ) : (
+                        <div className="flex gap-1">
+                          <Button variant="outline" size="sm" onClick={() => openConfigDialog(role)}>
+                            Configure
                           </Button>
-                        )}
-                        {!role.isTeamScoped && (
-                          <Button variant="outline" size="sm" className="text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => handleExcludeClubRole(role)}>
-                            Delete
-                          </Button>
-                        )}
-                        {role.isTeamScoped && allowTeamDutyRoles && (
-                          <Button variant="outline" size="sm" className="text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => handleDeleteTeamScopedRole(role)}>
-                            Delete
-                          </Button>
-                        )}
-                      </div>
+                          {role.configured && !role.isTeamScoped && (
+                            <Button variant="outline" size="sm" className="text-amber-600 hover:text-amber-800 hover:bg-amber-50" onClick={() => handleDeleteRole(role)}>
+                              Reset
+                            </Button>
+                          )}
+                          {!role.isTeamScoped && (
+                            <Button variant="outline" size="sm" className="text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => handleExcludeClubRole(role)}>
+                              Delete
+                            </Button>
+                          )}
+                          {role.isTeamScoped && allowTeamDutyRoles && (
+                            <Button variant="outline" size="sm" className="text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => handleDeleteTeamScopedRole(role)}>
+                              Delete
+                            </Button>
+                          )}
+                        </div>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -823,7 +834,7 @@ export default function ManagerRosterPage() {
         </div>
       )}
 
-      {/* Roster Grid */}
+      {/* Roster Grid - sort roles by sortOrder to match Admin → Roster */}
       {hasAssignments && rosterData && rosterData.roles.length > 0 && (
         <div className="mb-6">
           <h2 className="text-xl font-semibold mb-4">Roster</h2>
@@ -857,17 +868,45 @@ export default function ManagerRosterPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rosterData.roles.map((role) => (
+                {displayRoles.map((role) => (
                   <TableRow key={role.id}>
                     <TableCell className="sticky left-0 bg-card z-10 font-medium">
                       <div className="flex items-center gap-2">
                         {role.roleName}
-                        <Badge variant={ROLE_TYPE_VARIANTS[role.roleType] || "outline"} className="text-xs">
-                          {ROLE_TYPE_LABELS[role.roleType] || role.roleType}
-                        </Badge>
+                        {role.isStaffRole ? (
+                          <Badge variant="default" className="text-xs">From Staff</Badge>
+                        ) : (
+                          <Badge variant={ROLE_TYPE_VARIANTS[role.roleType] || "outline"} className="text-xs">
+                            {ROLE_TYPE_LABELS[role.roleType] || role.roleType}
+                          </Badge>
+                        )}
                       </div>
                     </TableCell>
                     {activeRounds.map((round) => {
+                      // Staff roles: show per-round override if any, else staff default.
+                      if (role.isStaffRole) {
+                        const isLocked = round.isRosterLocked;
+                        const familyOverride = rosterData.assignments[`${round.id}:${role.id}`]?.find((x) => x.slot === 0);
+                        const personOverride = rosterData.personAssignments?.[`${round.id}:${role.id}:0`];
+                        const displayName = familyOverride?.familyName || personOverride || role.assignedName || "";
+                        return (
+                          <TableCell key={round.id} className="text-center text-sm align-top py-2">
+                            <div className="flex flex-col gap-0.5">
+                              <div className={`rounded px-1 ${isLocked ? "text-gray-500" : ""}`}>
+                                {displayName || <span className="text-gray-300">—</span>}
+                              </div>
+                              {!isLocked && (
+                                <button
+                                  onClick={() => openOverrideDialog(round.id, role.id, role.roleName, round.roundNumber, 0)}
+                                  className="text-xs text-blue-600 hover:underline"
+                                >
+                                  Override
+                                </button>
+                              )}
+                            </div>
+                          </TableCell>
+                        );
+                      }
                       const slotAssignments = rosterData.assignments[`${round.id}:${role.id}`] || [];
                       const totalSlots = role.slots ?? 1;
                       const isLocked = round.isRosterLocked;
@@ -914,7 +953,7 @@ export default function ManagerRosterPage() {
                     })}
                   </TableRow>
                 ))}
-              </TableBody>
+                </TableBody>
             </Table>
           </div>
           <p className="text-xs text-gray-400 mt-2">Click a cell to reassign. Drag a name to swap with another round. Click 🔓 on a round to lock it — locked rounds are preserved during regeneration.</p>

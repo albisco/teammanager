@@ -285,3 +285,111 @@ describe("Season API roles", () => {
     expect(res.status).toBe(403);
   });
 });
+
+describe("Share Duties ordering", () => {
+  test("roster API includes sortOrder and returns roles in sorted order", async () => {
+    // This test verifies:
+    // 1. sortOrder is present in the API response
+    // 2. roles are returned in sortOrder order (not just having the field)
+    setTestSession(sessions.teamManager);
+
+    const res = await getManagerRoster();
+    expect(res.status).toBe(200);
+
+    const data = await res.json();
+
+    // Verify sortOrder field exists
+    expect(data.roster.roles).toBeDefined();
+    if (data.roster.roles.length > 0) {
+      expect(data.roster.roles[0]).toHaveProperty("sortOrder");
+    }
+    if (data.roster.staffRoles && data.roster.staffRoles.length > 0) {
+      expect(data.roster.staffRoles[0]).toHaveProperty("sortOrder");
+    }
+
+    // Verify roles are actually sorted by sortOrder (not just containing the field)
+    const roles = data.roster.roles;
+    for (let i = 1; i < roles.length; i++) {
+      const prev = roles[i - 1].sortOrder ?? 0;
+      const curr = roles[i].sortOrder ?? 0;
+      expect(prev).toBeLessThanOrEqual(curr);
+    }
+  });
+
+  test("roster API returns combined allRoles sorted by sortOrder", async () => {
+    // This test verifies:
+    // 1. allRoles field exists
+    // 2. Contains both team roles and staff roles
+    // 3. Is sorted by sortOrder
+    setTestSession(sessions.teamManager);
+
+    const res = await getManagerRoster();
+    expect(res.status).toBe(200);
+
+    const data = await res.json();
+
+    // Verify allRoles exists
+    expect(data.roster.allRoles).toBeDefined();
+
+    // If we have any roles, verify they're sorted
+    const allRoles = data.roster.allRoles;
+    if (allRoles && allRoles.length > 1) {
+      for (let i = 1; i < allRoles.length; i++) {
+        const prev = allRoles[i - 1].sortOrder ?? 0;
+        const curr = allRoles[i].sortOrder ?? 0;
+        expect(prev).toBeLessThanOrEqual(curr);
+      }
+    }
+
+    // Verify each role has required fields
+    for (const role of allRoles ?? []) {
+      expect(role).toHaveProperty("id");
+      expect(role).toHaveProperty("roleName");
+      expect(role).toHaveProperty("roleType");
+      expect(role).toHaveProperty("sortOrder");
+      expect(role).toHaveProperty("isStaffRole");
+    }
+  });
+
+  test("reordering roles in Admin persists and reflects in roster API", async () => {
+    // This test verifies that when roles are reordered via the API,
+    // the new order is reflected in subsequent roster API calls
+    setTestSession(sessions.admin);
+
+    // Get initial roles
+    const initialRes = await getDutyRoles();
+    expect(initialRes.status).toBe(200);
+    const initialData = await initialRes.json();
+    const roles = initialData.roles ?? [];
+
+    if (roles.length >= 2) {
+      // Capture original order
+      const originalOrder = roles.map((r: { id: string }) => r.id);
+
+      // Swap first two roles
+      const swappedOrder = [originalOrder[1], originalOrder[0], ...originalOrder.slice(2)];
+
+      // Update order via API
+      const putRes = await putDutyRoles(createRequest("/api/duty-roles", {
+        method: "PUT",
+        body: { orderedIds: swappedOrder },
+      }));
+      expect(putRes.status).toBe(200);
+
+      // Verify order changed
+      const afterRes = await getDutyRoles();
+      const afterData = await afterRes.json();
+      const afterOrder = afterData.roles.map((r: { id: string }) => r.id);
+
+      // Verify the swap happened
+      expect(afterOrder[0]).toBe(originalOrder[1]);
+      expect(afterOrder[1]).toBe(originalOrder[0]);
+
+      // Restore original order
+      await putDutyRoles(createRequest("/api/duty-roles", {
+        method: "PUT",
+        body: { orderedIds: originalOrder },
+      }));
+    }
+  });
+});

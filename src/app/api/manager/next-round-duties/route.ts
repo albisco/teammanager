@@ -83,7 +83,7 @@ export async function GET() {
     }
     const displayName = resolveDisplayName(displayNameInput, {
       teamDutyRoleId: a.teamDutyRoleId,
-      assignedFamilyId: a.assignedFamilyId,
+      assignedFamilyId: a.assignedFamilyId ?? "",
     });
     roleMap.get(roleId)!.names.push(displayName);
   }

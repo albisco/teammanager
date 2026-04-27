@@ -37,3 +37,17 @@ export function teamStaffRoleLabel(role: TeamStaffRoleName): string {
       return "Assistant Coach";
   }
 }
+
+/**
+ * Match a duty-role name to a team-staff role. Only exact matches are linked.
+ * Use club-level roles named "Head Coach", "Team Manager", or "Assistant Coach"
+ * to auto-link to the corresponding Team Staff member.
+ */
+export function matchTeamStaffRole(roleName: string): TeamStaffRoleName | null {
+  const n = roleName.trim().toLowerCase();
+  if (!n) return null;
+  for (const role of Object.values(TEAM_STAFF_ROLE)) {
+    if (teamStaffRoleLabel(role).toLowerCase() === n) return role;
+  }
+  return null;
+}

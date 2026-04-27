@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Role } from "@prisma/client";
+import { Role, TeamStaffRole } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { matchTeamStaffRole } from "@/lib/roles";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const clubId = (session.user as Record<string, unknown>)?.clubId as string;
 
-  // Get club-wide roles + any roles scoped to this team, plus exclusions
-  const [allRoles, teamConfigs, exclusions] = await Promise.all([
+  // Get club-wide roles + any roles scoped to this team, plus exclusions + team staff
+  const [allRoles, teamConfigs, exclusions, staff] = await Promise.all([
     prisma.dutyRole.findMany({
       where: { clubId, OR: [{ teamId: null }, { teamId: params.id }] },
       orderBy: [{ sortOrder: "asc" }, { roleName: "asc" }],
@@ -23,7 +24,20 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       where: { teamId: params.id },
       select: { dutyRoleId: true },
     }),
+    prisma.teamStaff.findMany({
+      where: { teamId: params.id },
+      include: { user: { select: { id: true, name: true } } },
+      orderBy: [{ role: "asc" }, { createdAt: "asc" }],
+    }),
   ]);
+
+  const staffByRole = new Map<TeamStaffRole, { id: string; name: string }[]>();
+  for (const s of staff) {
+    if (!s.user) continue;
+    const arr = staffByRole.get(s.role) ?? [];
+    arr.push({ id: s.user.id, name: s.user.name });
+    staffByRole.set(s.role, arr);
+  }
 
   const excludedIds = new Set(exclusions.map((e) => e.dutyRoleId));
 
@@ -35,15 +49,36 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     (role) => role.teamId !== null || !excludedIds.has(role.id)
   );
 
+  // Build set of staff roles already covered by a truly linked DutyRole so we
+  // don't double-link an aliased duplicate (e.g. both "Coach" and "Head Coach").
+  const explicitlyLinkedStaffRoles = new Set<TeamStaffRole>(
+    allRoles.map((r) => r.teamStaffRole).filter((x): x is TeamStaffRole => !!x)
+  );
+
   const merged = visibleRoles.map((role) => {
     const config = configMap.get(role.id);
+    // Effective link: explicit column OR alias matcher on the name when no
+    // other role in this club has already claimed that staff role.
+    let staffLink: TeamStaffRole | null = role.teamStaffRole;
+    if (!staffLink) {
+      const aliased = matchTeamStaffRole(role.roleName) as TeamStaffRole | null;
+      if (aliased && !explicitlyLinkedStaffRoles.has(aliased)) {
+        staffLink = aliased;
+      }
+    }
+    const linkedStaff = staffLink ? staffByRole.get(staffLink) ?? [] : [];
+    const autoFromTeamStaff = !!staffLink;
+    const staffNames = linkedStaff.map((s) => s.name).join(", ");
+
     return {
       dutyRoleId: role.id,
       roleName: role.roleName,
       isTeamScoped: role.teamId !== null,
       teamDutyRoleId: config?.id || null,
-      roleType: config?.roleType || "ROTATING",
-      assignedPersonName: config?.assignedPersonName || null,
+      roleType: autoFromTeamStaff ? "FIXED" : (config?.roleType || "ROTATING"),
+      assignedPersonName: autoFromTeamStaff
+        ? (staffNames || null)
+        : (config?.assignedPersonName || null),
       assignedFamilyId: config?.assignedFamilyId || null,
       frequencyWeeks: config?.frequencyWeeks || 1,
       slots: config?.slots || 1,
@@ -52,7 +87,18 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
         personName: s.personName,
         familyId: s.familyId,
       })),
-      configured: !!config,
+      configured: autoFromTeamStaff
+        ? linkedStaff.length > 0
+        : !!config && (
+            config.roleType !== "ROTATING" ||
+            (config.slots ?? 1) > 1 ||
+            (config.frequencyWeeks ?? 1) > 1 ||
+            !!config.assignedPersonName ||
+            !!config.assignedFamilyId ||
+            (config.specialists?.length ?? 0) > 0
+          ),
+      autoFromTeamStaff,
+      teamStaffRole: staffLink ?? null,
     };
   });
 

@@ -13,6 +13,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import type { TeamStaffRoleName } from "@/lib/roles";
 
 interface TeamSummary {
   id: string;
@@ -51,6 +52,8 @@ interface TeamRoleConfig {
   slots: number;
   specialists: SpecialistEntry[];
   configured: boolean;
+  autoFromTeamStaff?: boolean;
+  teamStaffRole?: TeamStaffRoleName | null;
 }
 
 interface RosterRound {
@@ -197,9 +200,12 @@ export default function RosterPage() {
     });
 
     if (!res.ok) {
-      fetchGlobalRoles();
       toast.error("Failed to update order");
     }
+    // Always refetch so role-config table + badges reflect server truth
+    // (guards against stale IDs from prior deletes and keeps teamRoles in sync).
+    await fetchGlobalRoles();
+    if (selectedTeam) await fetchTeamRoles(selectedTeam.id);
   }
 
   // === Club Role CRUD ===
@@ -233,8 +239,12 @@ export default function RosterPage() {
     if (res.ok) {
       toast.success(editingClubRole ? "Role renamed" : "Role created");
       setClubRoleDialogOpen(false);
-      fetchGlobalRoles();
-      if (selectedTeam) fetchTeamRoles(selectedTeam.id);
+      await Promise.all([
+        fetchGlobalRoles(),
+        ...(selectedTeam
+          ? [fetchTeamRoles(selectedTeam.id), fetchRosterData(selectedTeam.id)]
+          : []),
+      ]);
     } else {
       const data = await res.json();
       toast.error(data.error || "Failed to save");
@@ -251,8 +261,12 @@ export default function RosterPage() {
     });
     if (res.ok) {
       toast.success("Role deleted");
-      fetchGlobalRoles();
-      if (selectedTeam) fetchTeamRoles(selectedTeam.id);
+      await Promise.all([
+        fetchGlobalRoles(),
+        ...(selectedTeam
+          ? [fetchTeamRoles(selectedTeam.id), fetchRosterData(selectedTeam.id)]
+          : []),
+      ]);
     }
   }
 
@@ -558,16 +572,22 @@ export default function RosterPage() {
                       </TableCell>
                       <TableCell className="text-sm text-gray-600">{roleDetail(role)}</TableCell>
                       <TableCell>
-                        {role.configured ? (
+                        {role.autoFromTeamStaff ? (
+                          <Badge className="bg-blue-600">From Team Staff</Badge>
+                        ) : role.configured ? (
                           <Badge className="bg-green-600">Configured</Badge>
                         ) : (
                           <Badge variant="outline">Default</Badge>
                         )}
                       </TableCell>
                       <TableCell>
-                        <Button variant="outline" size="sm" onClick={() => openConfigDialog(role)}>
-                          Configure
-                        </Button>
+                        {role.autoFromTeamStaff ? (
+                          <span className="text-xs text-gray-500">Manage via Team Staff</span>
+                        ) : (
+                          <Button variant="outline" size="sm" onClick={() => openConfigDialog(role)}>
+                            Configure
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}

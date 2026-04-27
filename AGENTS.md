@@ -13,11 +13,14 @@ npm run test:e2e     # playwright e2e (auto-starts dev server)
 
 **Database:**
 ```bash
-npx prisma db push           # Push schema (non-interactive, preferred over migrate dev)
+npm run build        # Runs prisma db push automatically as first step
+npx prisma db push           # Push schema (non-interactive)
 npx prisma db push --accept-data-loss  # Required for breaking schema changes
 npx prisma generate          # Regenerate Prisma client after schema changes
 npx prisma db seed           # Seed default club + admin (admin@teammanager.com / admin123)
 ```
+
+> **Note:** `npm run build` runs `prisma db push` first, so Vercel deploys automatically add new schema columns.
 
 > `migrate dev` does NOT work in non-interactive terminals — use `db push` instead.
 
