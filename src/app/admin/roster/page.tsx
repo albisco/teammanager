@@ -239,11 +239,12 @@ export default function RosterPage() {
     if (res.ok) {
       toast.success(editingClubRole ? "Role renamed" : "Role created");
       setClubRoleDialogOpen(false);
-      fetchGlobalRoles();
-      if (selectedTeam) {
-        fetchTeamRoles(selectedTeam.id);
-        fetchRosterData(selectedTeam.id);
-      }
+      await Promise.all([
+        fetchGlobalRoles(),
+        ...(selectedTeam
+          ? [fetchTeamRoles(selectedTeam.id), fetchRosterData(selectedTeam.id)]
+          : []),
+      ]);
     } else {
       const data = await res.json();
       toast.error(data.error || "Failed to save");
@@ -260,11 +261,12 @@ export default function RosterPage() {
     });
     if (res.ok) {
       toast.success("Role deleted");
-      await fetchGlobalRoles();
-      if (selectedTeam) {
-        await fetchTeamRoles(selectedTeam.id);
-        await fetchRosterData(selectedTeam.id);
-      }
+      await Promise.all([
+        fetchGlobalRoles(),
+        ...(selectedTeam
+          ? [fetchTeamRoles(selectedTeam.id), fetchRosterData(selectedTeam.id)]
+          : []),
+      ]);
     }
   }
 
