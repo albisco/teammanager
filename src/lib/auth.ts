@@ -2,6 +2,7 @@ import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { Role, TeamStaffRole } from "@prisma/client";
+import { getFamilyAccessibleTeams } from "./family-access";
 
 export type ManagerTeam = { teamId: string; role: TeamStaffRole };
 
@@ -31,9 +32,13 @@ export const authOptions: NextAuthOptions = {
         if (!isValid) return null;
 
         let teams: ManagerTeam[] = [];
+        let familyTeams: string[] = [];
         let teamSelfManaged = false;
         let teamEnableRoster = true;
         let teamEnableAwards = true;
+        if (user.role === Role.FAMILY && user.clubId) {
+          familyTeams = await getFamilyAccessibleTeams(user.id, user.clubId);
+        }
         if (user.role === Role.TEAM_MANAGER) {
           // Self-heal backfill: if a legacy Team.managerId exists with no
           // matching TeamStaff row, create the TEAM_MANAGER row now. This keeps
@@ -109,6 +114,7 @@ export const authOptions: NextAuthOptions = {
           clubId: user.clubId,
           teamId: teams[0]?.teamId ?? null,
           teams,
+          familyTeams,
           isAdultClub,
           enableAiChat,
           enablePlayHq,
@@ -129,6 +135,7 @@ export const authOptions: NextAuthOptions = {
         token.clubId = u.clubId as string;
         token.teamId = u.teamId as string | null;
         token.teams = u.teams as ManagerTeam[];
+        token.familyTeams = u.familyTeams as string[];
         token.isAdultClub = u.isAdultClub as boolean;
         token.enableAiChat = u.enableAiChat as boolean;
         token.enablePlayHq = u.enablePlayHq as boolean;
@@ -147,6 +154,7 @@ export const authOptions: NextAuthOptions = {
         s.clubId = token.clubId;
         s.teamId = token.teamId;
         s.teams = token.teams ?? [];
+        s.familyTeams = token.familyTeams ?? [];
         s.isAdultClub = token.isAdultClub;
         s.enableAiChat = token.enableAiChat;
         s.enablePlayHq = token.enablePlayHq;
