@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
+import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { ClubLogo } from "@/components/club-logo";
 import { validateLogoFile } from "@/lib/logo-validation";
@@ -14,6 +15,7 @@ interface LogoDropzoneProps {
 }
 
 export function LogoDropzone({ clubId, clubName, logoUrl, onLogoChange }: LogoDropzoneProps) {
+  const { update } = useSession();
   const [uploading, setUploading] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -41,6 +43,7 @@ export function LogoDropzone({ clubId, clubName, logoUrl, onLogoChange }: LogoDr
       }
       const data = await res.json();
       onLogoChange(data.logoUrl);
+      await update();
       toast.success("Logo uploaded");
     } catch {
       toast.error("Upload failed — check your connection");
@@ -59,6 +62,7 @@ export function LogoDropzone({ clubId, clubName, logoUrl, onLogoChange }: LogoDr
         return;
       }
       onLogoChange(null);
+      await update();
       toast.success("Logo removed");
     } catch {
       toast.error("Failed to remove logo — check your connection");

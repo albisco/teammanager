@@ -127,7 +127,7 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
       if (user) {
         const u = user as unknown as Record<string, unknown>;
         token.role = u.role as string;
@@ -145,6 +145,19 @@ export const authOptions: NextAuthOptions = {
         token.teamEnableRoster = u.teamEnableRoster as boolean;
         token.teamEnableAwards = u.teamEnableAwards as boolean;
       }
+
+      if (trigger === "update" && token.clubId) {
+        const { prisma } = await import("./prisma");
+        const club = await prisma.club.findUnique({
+          where: { id: token.clubId as string },
+          select: { name: true, logoUrl: true },
+        });
+        if (club) {
+          token.clubName = club.name;
+          token.clubLogoUrl = club.logoUrl;
+        }
+      }
+
       return token;
     },
     async session({ session, token }) {
