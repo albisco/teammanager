@@ -53,3 +53,6 @@ test-results/
 U10*.csv
 U10 *.csv
 .env.preview
+.sandcastle/logs/
+.dumps
+
