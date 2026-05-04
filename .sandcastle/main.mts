@@ -43,6 +43,12 @@ const hooks = {
 // platform-specific binaries and any packages added since the last copy.
 const copyToWorktree = ["node_modules"];
 
+// Mount host Claude OAuth creds into sandbox so claude-code uses subscription
+// auth instead of ANTHROPIC_API_KEY (avoids API credit billing).
+const dockerOpts = {
+  mounts: [{ hostPath: "~/.claude", sandboxPath: "~/.claude" }],
+};
+
 // ---------------------------------------------------------------------------
 // Main loop
 // ---------------------------------------------------------------------------
@@ -61,7 +67,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
   // -------------------------------------------------------------------------
   const plan = await sandcastle.run({
     hooks,
-    sandbox: docker(),
+    sandbox: docker(dockerOpts),
     name: "planner",
     // One iteration is enough: the planner just needs to read and reason,
     // not write code.
@@ -111,7 +117,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     issues.map(async (issue) => {
       const sandbox = await sandcastle.createSandbox({
         branch: issue.branch,
-        sandbox: docker(),
+        sandbox: docker(dockerOpts),
         hooks,
         copyToWorktree,
       });
@@ -203,7 +209,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
   // -------------------------------------------------------------------------
   await sandcastle.run({
     hooks,
-    sandbox: docker(),
+    sandbox: docker(dockerOpts),
     name: "merger",
     maxIterations: 1,
     agent: sandcastle.claudeCode("claude-opus-4-6"),
