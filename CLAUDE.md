@@ -109,7 +109,8 @@ Club, User, Player, Season, Team, TeamPlayer, Round, VotingSession, Vote, DutyRo
 ### Key Lib Files
 - `src/lib/prisma.ts` — Prisma singleton using `@prisma/adapter-neon` (HTTP driver, no TCP cold starts)
 - `src/lib/auth.ts` — NextAuth config (JWT includes id, role, clubId, clubName, clubLogoUrl)
-- `src/lib/club-logo.ts` — getInitials + getColorFromName utilities for `<ClubLogo>` component; uploadClubLogo + deleteClubLogo wrapping @vercel/blob with mime/size validation
+- `src/lib/club-logo.ts` — getInitials + getColorFromName utilities for `<ClubLogo>` component; shared logo constants (ALLOWED_MIME_TYPES, MAX_FILE_SIZE)
+- `src/lib/club-logo-storage.ts` — uploadClubLogo + deleteClubLogo wrapping @vercel/blob with mime/size validation (server-only)
 - `src/lib/roster-algorithm.ts` — fair duty allocation algorithm (supports all 4 role types)
 - `src/lib/playhq.ts` — PlayHQ API stub (read-only — no write endpoints exist)
 

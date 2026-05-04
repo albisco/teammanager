@@ -3,12 +3,8 @@ import { Role } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import {
-  uploadClubLogo,
-  deleteClubLogo,
-  ALLOWED_MIME_TYPES,
-  MAX_FILE_SIZE,
-} from "@/lib/club-logo";
+import { ALLOWED_MIME_TYPES, MAX_FILE_SIZE } from "@/lib/club-logo";
+import { uploadClubLogo, deleteClubLogo } from "@/lib/club-logo-storage";
 
 type RouteContext = { params: { id: string } };
 

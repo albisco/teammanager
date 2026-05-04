@@ -8,14 +8,10 @@ const { mockUploadClubLogo, mockDeleteClubLogo, mockFindUnique, mockUpdate } = v
   mockUpdate: vi.fn(),
 }));
 
-vi.mock("@/lib/club-logo", async () => {
-  const actual = await vi.importActual("@/lib/club-logo");
-  return {
-    ...actual,
-    uploadClubLogo: mockUploadClubLogo,
-    deleteClubLogo: mockDeleteClubLogo,
-  };
-});
+vi.mock("@/lib/club-logo-storage", () => ({
+  uploadClubLogo: mockUploadClubLogo,
+  deleteClubLogo: mockDeleteClubLogo,
+}));
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {

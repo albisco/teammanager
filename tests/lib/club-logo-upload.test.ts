@@ -10,12 +10,8 @@ vi.mock("@vercel/blob", () => ({
   del: mockDel,
 }));
 
-import {
-  uploadClubLogo,
-  deleteClubLogo,
-  ALLOWED_MIME_TYPES,
-  MAX_FILE_SIZE,
-} from "@/lib/club-logo";
+import { ALLOWED_MIME_TYPES, MAX_FILE_SIZE } from "@/lib/club-logo";
+import { uploadClubLogo, deleteClubLogo } from "@/lib/club-logo-storage";
 
 beforeEach(() => {
   mockPut.mockReset();
