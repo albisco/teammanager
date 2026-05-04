@@ -13,7 +13,7 @@ export async function GET(_req: NextRequest, { params }: { params: { token: stri
             include: {
               season: {
                 include: {
-                  club: { select: { isAdultClub: true, enforceFamilyVoteExclusion: true } },
+                  club: { select: { name: true, logoUrl: true, isAdultClub: true, enforceFamilyVoteExclusion: true } },
                 },
               },
               players: {
@@ -104,6 +104,7 @@ export async function GET(_req: NextRequest, { params }: { params: { token: stri
   return NextResponse.json({
     id: votingSession.id,
     status: votingSession.status,
+    club: { name: team.season.club.name, logoUrl: team.season.club.logoUrl },
     isAdultClub: team.season.club.isAdultClub,
     enforceFamilyVoteExclusion,
     round: {
