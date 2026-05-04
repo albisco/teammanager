@@ -25,7 +25,6 @@ Team Manager — Multi-tenant sport team management web app. Manage multiple clu
 - `.env` has `DATABASE_URL` (Neon pooler endpoint) — **never commit this file**
 - `.env.local` has `NEXTAUTH_SECRET` and `NEXTAUTH_URL` — also gitignored
 - `ANTHROPIC_API_KEY` — required for in-app AI chat (`/admin/ask`, `/manager/ask`). Set in Vercel env vars or `.env.local`. Without it chat returns 503. Optional override: `CHAT_MODEL` (defaults to `claude-haiku-4-5-20251001`)
-- `BLOB_READ_WRITE_TOKEN` — required for club logo upload via Vercel Blob. Set in Vercel env vars (production + preview) and `.env.local` for local dev. Without it logo upload/delete returns 500.
 - Use `npx prisma db push --accept-data-loss` for schema changes (migrate dev fails in non-interactive terminals)
 - Neon DB in `aws-ap-southeast-2` (Sydney), Vercel functions in `syd1` — co-located for low latency
 
@@ -45,7 +44,7 @@ Club → Season(s) → Team(s) → Round(s). Players club-level, linked to teams
 ### Key Models (21 total)
 Club, User, Player, Season, Team, TeamPlayer, Round, VotingSession, Vote, DutyRole, TeamDutyRole, TeamDutyRoleSpecialist, RosterAssignment, FamilyExclusion, FamilyUnavailability, PlayerUnavailability, PlayerAvailability
 
-- **Club.logoUrl** (String?, nullable) — URL to club logo image. Null for clubs without a logo (renders initials fallback via `<ClubLogo>` component).
+- **Club.logoUrl** (String?, nullable) — base64 data URL (`data:<mime>;base64,...`) of club logo image, stored inline. Null for clubs without a logo (renders initials fallback via `<ClubLogo>` component). 2MB upload cap.
 - **Club.isAdultClub** (Boolean, default false) — gates adult-team features: player availability polling + PLAYER voter type. Set by SUPER_ADMIN in club management.
 - **AvailabilityStatus enum** — AVAILABLE | MAYBE | UNAVAILABLE (used by PlayerAvailability)
 - **VoterType enum** — PARENT | COACH | PLAYER (PLAYER shown on vote page only when club.isAdultClub)
@@ -110,7 +109,7 @@ Club, User, Player, Season, Team, TeamPlayer, Round, VotingSession, Vote, DutyRo
 - `src/lib/prisma.ts` — Prisma singleton using `@prisma/adapter-neon` (HTTP driver, no TCP cold starts)
 - `src/lib/auth.ts` — NextAuth config (JWT includes id, role, clubId, clubName, clubLogoUrl)
 - `src/lib/club-logo.ts` — getInitials + getColorFromName utilities for `<ClubLogo>` component; shared logo constants (ALLOWED_MIME_TYPES, MAX_FILE_SIZE)
-- `src/lib/club-logo-storage.ts` — uploadClubLogo + deleteClubLogo wrapping @vercel/blob with mime/size validation (server-only)
+- `src/lib/club-logo-storage.ts` — uploadClubLogo encodes file to base64 data URL with mime/size validation (server-only); deleteClubLogo is a no-op (overwritten on next upload)
 - `src/lib/roster-algorithm.ts` — fair duty allocation algorithm (supports all 4 role types)
 - `src/lib/playhq.ts` — PlayHQ API stub (read-only — no write endpoints exist)
 
