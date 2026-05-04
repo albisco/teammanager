@@ -18,6 +18,7 @@ const navItems = [
   { href: "/admin/voting", label: "Voting", clubAdminOnly: true },
   { href: "/admin/availability", label: "Availability", clubAdminOnly: true, adultOnly: true },
   { href: "/admin/roster", label: "Roster", clubAdminOnly: true },
+  { href: "/admin/club", label: "Club", clubAdminOnly: true },
   { href: "/admin/users", label: "Users" },
   { href: "/admin/playhq", label: "PlayHQ", clubAdminOnly: true, requiresPlayHq: true },
   { href: "/admin/ask", label: "Ask AI", clubAdminOnly: true, requiresAiChat: true },
