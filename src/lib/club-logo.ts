@@ -25,12 +25,12 @@ export function getColorFromName(name: string): string {
 }
 
 function hslToHex(h: number, s: number, l: number): string {
-  s /= 100;
-  l /= 100;
-  const a = s * Math.min(l, 1 - l);
+  const sNorm = s / 100;
+  const lNorm = l / 100;
+  const a = sNorm * Math.min(lNorm, 1 - lNorm);
   const f = (n: number) => {
     const k = (n + h / 30) % 12;
-    const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+    const color = lNorm - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
     return Math.round(255 * color)
       .toString(16)
       .padStart(2, "0");

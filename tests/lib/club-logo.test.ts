@@ -22,7 +22,7 @@ describe("getInitials", () => {
     expect(getInitials("   ")).toBe("??");
   });
 
-  test("single character returns that char doubled", () => {
+  test("single character returns just that character", () => {
     expect(getInitials("X")).toBe("X");
   });
 });
