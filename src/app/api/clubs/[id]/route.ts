@@ -28,10 +28,11 @@ export async function PATCH(
   }
 
   const body = await req.json();
-  const { name, slug, isAdultClub, enableAiChat, enablePlayHq, allowTeamDutyRoles } = body;
+  const { name, slug } = body;
 
   if (role === Role.ADMIN) {
-    if (slug !== undefined || isAdultClub !== undefined || enableAiChat !== undefined || enablePlayHq !== undefined || allowTeamDutyRoles !== undefined) {
+    const superAdminOnlyFields = ["slug", "isAdultClub", "enableAiChat", "enablePlayHq", "allowTeamDutyRoles"];
+    if (superAdminOnlyFields.some((f) => body[f] !== undefined)) {
       return NextResponse.json({ error: "ADMINs may only update name" }, { status: 403 });
     }
     if (!name || typeof name !== "string" || !name.trim()) {
@@ -43,12 +44,13 @@ export async function PATCH(
     return NextResponse.json({ error: "name is required" }, { status: 400 });
   }
 
+  const data: Record<string, string> = {};
+  if (name) data.name = name.trim();
+  if (slug && role === Role.SUPER_ADMIN) data.slug = slug.toLowerCase().replace(/\s+/g, "-");
+
   const club = await prisma.club.update({
     where: { id: clubId },
-    data: {
-      ...(name ? { name: name.trim() } : {}),
-      ...(slug && role === Role.SUPER_ADMIN ? { slug: slug.toLowerCase().replace(/\s+/g, "-") } : {}),
-    },
+    data,
   });
 
   return NextResponse.json(club);

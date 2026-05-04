@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,7 +15,6 @@ interface Club {
 }
 
 export default function ClubSettingsPage() {
-  const { data: session } = useSession();
   const [club, setClub] = useState<Club | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -94,9 +92,6 @@ export default function ClubSettingsPage() {
     );
   }
 
-  const user = session?.user as Record<string, unknown> | undefined;
-  const clubName = (user?.clubName as string) || club.name;
-
   return (
     <div className="max-w-xl">
       <h1 className="text-2xl font-bold mb-6">Club Settings</h1>
@@ -129,7 +124,7 @@ export default function ClubSettingsPage() {
           <Label>Club Logo</Label>
           <LogoDropzone
             clubId={club.id}
-            clubName={name || clubName}
+            clubName={name || club.name}
             logoUrl={logoUrl}
             onLogoChange={setLogoUrl}
           />
