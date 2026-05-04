@@ -7,6 +7,7 @@ import { useSession, signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { ClubLogo } from "@/components/club-logo";
 
 const navItems = [
   { href: "/family/dashboard", label: "Dashboard" },
@@ -21,6 +22,7 @@ export default function FamilyLayout({
 }) {
   const pathname = usePathname();
   const { data: session } = useSession();
+  const user = session?.user as Record<string, unknown> | undefined;
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const asideRef = useRef<HTMLElement>(null);
 
@@ -78,9 +80,18 @@ export default function FamilyLayout({
         )}
       >
         <div className="p-4 border-b border-blue-700 flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-bold">Team Manager</h1>
-            <p className="text-sm text-blue-300">Family Portal</p>
+          <div className="flex items-center gap-2 min-w-0">
+            {(user?.clubName as string) && (
+              <ClubLogo
+                name={user?.clubName as string}
+                logoUrl={user?.clubLogoUrl as string | undefined}
+                size="sm"
+              />
+            )}
+            <div className="min-w-0">
+              <h1 className="text-lg font-bold truncate">{(user?.clubName as string) || "Team Manager"}</h1>
+              <p className="text-sm text-blue-300">Family Portal</p>
+            </div>
           </div>
           <div className="flex items-center gap-1">
             <ThemeToggle />

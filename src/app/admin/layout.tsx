@@ -7,6 +7,7 @@ import { useSession, signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { ClubLogo } from "@/components/club-logo";
 import { ROLE } from "@/lib/roles";
 
 const navItems = [
@@ -51,8 +52,9 @@ export default function AdminLayout({
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  const user = session?.user as Record<string, unknown> | undefined;
+
   const filteredNavItems = navItems.filter((item) => {
-    const user = session?.user as Record<string, unknown> | undefined;
     const role = user?.role;
     if (item.superAdminOnly && role !== ROLE.SUPER_ADMIN) return false;
     if (item.clubAdminOnly && role === ROLE.SUPER_ADMIN) return false;
@@ -97,9 +99,18 @@ export default function AdminLayout({
         )}
       >
         <div className="p-4 border-b border-gray-700 flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-bold">Team Manager</h1>
-            <p className="text-sm text-gray-400">Admin Panel</p>
+          <div className="flex items-center gap-2 min-w-0">
+            {(user?.clubName as string) && (
+              <ClubLogo
+                name={user?.clubName as string}
+                logoUrl={user?.clubLogoUrl as string | undefined}
+                size="sm"
+              />
+            )}
+            <div className="min-w-0">
+              <h1 className="text-lg font-bold truncate">{(user?.clubName as string) || "Team Manager"}</h1>
+              <p className="text-sm text-gray-400">Admin Panel</p>
+            </div>
           </div>
           <div className="flex items-center gap-1">
             <ThemeToggle />

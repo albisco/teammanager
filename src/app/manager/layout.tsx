@@ -7,6 +7,7 @@ import { useSession, signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { ClubLogo } from "@/components/club-logo";
 import { TeamSwitcher } from "@/components/ui/team-switcher";
 import { useActiveTeam } from "@/hooks/use-active-team";
 import { TEAM_STAFF_ROLE } from "@/lib/roles";
@@ -106,9 +107,18 @@ export default function ManagerLayout({ children }: { children: React.ReactNode 
         )}
       >
         <div className="p-4 border-b border-gray-700 flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-bold">Team Manager</h1>
-            <p className="text-sm text-gray-400 truncate">{session?.user?.name}</p>
+          <div className="flex items-center gap-2 min-w-0">
+            {(user?.clubName as string) && (
+              <ClubLogo
+                name={user?.clubName as string}
+                logoUrl={user?.clubLogoUrl as string | undefined}
+                size="sm"
+              />
+            )}
+            <div className="min-w-0">
+              <h1 className="text-lg font-bold truncate">{(user?.clubName as string) || "Team Manager"}</h1>
+              <p className="text-sm text-gray-400 truncate">{session?.user?.name}</p>
+            </div>
           </div>
           <div className="flex items-center gap-1">
             <ThemeToggle />

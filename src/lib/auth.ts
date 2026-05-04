@@ -90,11 +90,15 @@ export const authOptions: NextAuthOptions = {
         let enableAiChat = true;
         let enablePlayHq = true;
         let allowTeamDutyRoles = false;
+        let clubName: string | null = null;
+        let clubLogoUrl: string | null = null;
         if (user.clubId) {
           const club = await prisma.club.findUnique({
             where: { id: user.clubId },
-            select: { isAdultClub: true, enableAiChat: true, enablePlayHq: true, allowTeamDutyRoles: true },
+            select: { name: true, logoUrl: true, isAdultClub: true, enableAiChat: true, enablePlayHq: true, allowTeamDutyRoles: true },
           });
+          clubName = club?.name ?? null;
+          clubLogoUrl = club?.logoUrl ?? null;
           isAdultClub = club?.isAdultClub ?? false;
           enableAiChat = club?.enableAiChat ?? true;
           enablePlayHq = club?.enablePlayHq ?? true;
@@ -107,6 +111,8 @@ export const authOptions: NextAuthOptions = {
           name: user.name,
           role: user.role,
           clubId: user.clubId,
+          clubName,
+          clubLogoUrl,
           teamId: teams[0]?.teamId ?? null,
           teams,
           isAdultClub,
@@ -127,6 +133,8 @@ export const authOptions: NextAuthOptions = {
         token.role = u.role as string;
         token.id = user.id;
         token.clubId = u.clubId as string;
+        token.clubName = u.clubName as string | null;
+        token.clubLogoUrl = u.clubLogoUrl as string | null;
         token.teamId = u.teamId as string | null;
         token.teams = u.teams as ManagerTeam[];
         token.isAdultClub = u.isAdultClub as boolean;
@@ -145,6 +153,8 @@ export const authOptions: NextAuthOptions = {
         s.role = token.role;
         s.id = token.id;
         s.clubId = token.clubId;
+        s.clubName = token.clubName;
+        s.clubLogoUrl = token.clubLogoUrl;
         s.teamId = token.teamId;
         s.teams = token.teams ?? [];
         s.isAdultClub = token.isAdultClub;

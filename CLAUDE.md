@@ -44,10 +44,11 @@ Club → Season(s) → Team(s) → Round(s). Players club-level, linked to teams
 ### Key Models (21 total)
 Club, User, Player, Season, Team, TeamPlayer, Round, VotingSession, Vote, DutyRole, TeamDutyRole, TeamDutyRoleSpecialist, RosterAssignment, FamilyExclusion, FamilyUnavailability, PlayerUnavailability, PlayerAvailability
 
+- **Club.logoUrl** (String?, nullable) — URL to club logo image. Null for clubs without a logo (renders initials fallback via `<ClubLogo>` component).
 - **Club.isAdultClub** (Boolean, default false) — gates adult-team features: player availability polling + PLAYER voter type. Set by SUPER_ADMIN in club management.
 - **AvailabilityStatus enum** — AVAILABLE | MAYBE | UNAVAILABLE (used by PlayerAvailability)
 - **VoterType enum** — PARENT | COACH | PLAYER (PLAYER shown on vote page only when club.isAdultClub)
-- **JWT/session** includes `isAdultClub` alongside `clubId` and `role` for client-side feature gating
+- **JWT/session** includes `clubId`, `clubName`, `clubLogoUrl`, `role`, `isAdultClub` for client-side feature gating and branding
 
 ### Duty Role Types (DutyRoleType enum)
 - **FIXED** — same person every round (e.g. coach, team manager)
@@ -105,7 +106,8 @@ Club, User, Player, Season, Team, TeamPlayer, Round, VotingSession, Vote, DutyRo
 
 ### Key Lib Files
 - `src/lib/prisma.ts` — Prisma singleton using `@prisma/adapter-neon` (HTTP driver, no TCP cold starts)
-- `src/lib/auth.ts` — NextAuth config (JWT includes id, role, clubId)
+- `src/lib/auth.ts` — NextAuth config (JWT includes id, role, clubId, clubName, clubLogoUrl)
+- `src/lib/club-logo.ts` — getInitials + getColorFromName utilities for `<ClubLogo>` component
 - `src/lib/roster-algorithm.ts` — fair duty allocation algorithm (supports all 4 role types)
 - `src/lib/playhq.ts` — PlayHQ API stub (read-only — no write endpoints exist)
 
@@ -120,7 +122,8 @@ Club, User, Player, Season, Team, TeamPlayer, Round, VotingSession, Vote, DutyRo
 - Voting: admin open/close, QR generation, public vote page, results/leaderboard, vote audit trail
 - Duty Roster: club-level role definitions, per-team configuration, roster generation, grid view, manual overrides, family unavailability
 - Share Round Duties: manager roster page + dashboard have ShareDutiesPanel — copy formatted duty message or open WhatsApp one tap; auto-selects next upcoming round
-- UI components: Button, Input, Label, Card, Badge, Table, Select, Textarea, Dialog, Sonner
+- Club branding: `<ClubLogo>` component in admin/manager/family sidebar headers — renders club logo image or initials fallback with hash-based color
+- UI components: Button, Input, Label, Card, Badge, Table, Select, Textarea, Dialog, Sonner, ClubLogo
 
 ## What's NOT Built Yet
 - Duty roster: family exclusions UI (model exists, no UI yet)

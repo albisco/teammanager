@@ -12,6 +12,7 @@ model Club {
   id                         String   @id @default(cuid())
   name                       String
   slug                       String   @unique
+  logoUrl                    String?
   isAdultClub                Boolean  @default(false)
   allowTeamDutyRoles         Boolean  @default(false)
   enforceFamilyVoteExclusion Boolean  @default(false)
