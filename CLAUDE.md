@@ -25,6 +25,7 @@ Team Manager — Multi-tenant sport team management web app. Manage multiple clu
 - `.env` has `DATABASE_URL` (Neon pooler endpoint) — **never commit this file**
 - `.env.local` has `NEXTAUTH_SECRET` and `NEXTAUTH_URL` — also gitignored
 - `ANTHROPIC_API_KEY` — required for in-app AI chat (`/admin/ask`, `/manager/ask`). Set in Vercel env vars or `.env.local`. Without it chat returns 503. Optional override: `CHAT_MODEL` (defaults to `claude-haiku-4-5-20251001`)
+- `BLOB_READ_WRITE_TOKEN` — required for club logo upload via Vercel Blob. Set in Vercel env vars (production + preview) and `.env.local` for local dev. Without it logo upload/delete returns 500.
 - Use `npx prisma db push --accept-data-loss` for schema changes (migrate dev fails in non-interactive terminals)
 - Neon DB in `aws-ap-southeast-2` (Sydney), Vercel functions in `syd1` — co-located for low latency
 
@@ -85,6 +86,7 @@ Club, User, Player, Season, Team, TeamPlayer, Round, VotingSession, Vote, DutyRo
 /api/teams/[id]/duty-roles/[roleId]      — single team duty role CRUD
 /api/rounds, /api/rounds/[id]            — round CRUD (scoped to team)
 /api/clubs                               — club CRUD (SUPER_ADMIN only, POST optionally creates admin user)
+/api/clubs/[id]/logo                     — POST multipart upload, DELETE remove (SUPER_ADMIN any, ADMIN own club)
 /api/teams/[id]/roster                   — GET roster grid data (rounds, roles, assignments, families)
 /api/teams/[id]/roster/generate          — POST run algorithm, save assignments
 /api/teams/[id]/roster/assign            — PUT manual override of single cell
@@ -107,7 +109,7 @@ Club, User, Player, Season, Team, TeamPlayer, Round, VotingSession, Vote, DutyRo
 ### Key Lib Files
 - `src/lib/prisma.ts` — Prisma singleton using `@prisma/adapter-neon` (HTTP driver, no TCP cold starts)
 - `src/lib/auth.ts` — NextAuth config (JWT includes id, role, clubId, clubName, clubLogoUrl)
-- `src/lib/club-logo.ts` — getInitials + getColorFromName utilities for `<ClubLogo>` component
+- `src/lib/club-logo.ts` — getInitials + getColorFromName utilities for `<ClubLogo>` component; uploadClubLogo + deleteClubLogo wrapping @vercel/blob with mime/size validation
 - `src/lib/roster-algorithm.ts` — fair duty allocation algorithm (supports all 4 role types)
 - `src/lib/playhq.ts` — PlayHQ API stub (read-only — no write endpoints exist)
 
