@@ -47,10 +47,7 @@ export default function ClubSettingsPage() {
       toast.error("Club name cannot be empty");
       return;
     }
-    if (trimmed === club.name) {
-      toast("No changes to save");
-      return;
-    }
+    if (trimmed === club.name) return;
     setSaving(true);
     try {
       const res = await fetch(`/api/clubs/${club.id}`, {
@@ -130,9 +127,15 @@ export default function ClubSettingsPage() {
           />
         </div>
 
-        <Button onClick={handleSave} disabled={saving}>
+        <Button
+          onClick={handleSave}
+          disabled={saving || name.trim() === club.name || !name.trim()}
+        >
           {saving ? "Saving…" : "Save Changes"}
         </Button>
+        <p className="text-xs text-muted-foreground -mt-4">
+          Logo changes save automatically when you upload or remove.
+        </p>
       </div>
     </div>
   );
