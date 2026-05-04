@@ -23,6 +23,8 @@ export default function FamilyLayout({
   const pathname = usePathname();
   const { data: session } = useSession();
   const user = session?.user as Record<string, unknown> | undefined;
+  const clubName = user?.clubName as string | undefined;
+  const clubLogoUrl = user?.clubLogoUrl as string | undefined;
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const asideRef = useRef<HTMLElement>(null);
 
@@ -81,15 +83,11 @@ export default function FamilyLayout({
       >
         <div className="p-4 border-b border-blue-700 flex items-center justify-between">
           <div className="flex items-center gap-2 min-w-0">
-            {(user?.clubName as string) && (
-              <ClubLogo
-                name={user?.clubName as string}
-                logoUrl={user?.clubLogoUrl as string | undefined}
-                size="sm"
-              />
+            {clubName && (
+              <ClubLogo name={clubName} logoUrl={clubLogoUrl} size="sm" />
             )}
             <div className="min-w-0">
-              <h1 className="text-lg font-bold truncate">{(user?.clubName as string) || "Team Manager"}</h1>
+              <h1 className="text-lg font-bold truncate">{clubName || "Team Manager"}</h1>
               <p className="text-sm text-blue-300">Family Portal</p>
             </div>
           </div>

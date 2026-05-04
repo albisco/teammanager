@@ -41,6 +41,8 @@ export default function ManagerLayout({ children }: { children: React.ReactNode 
   const asideRef = useRef<HTMLElement>(null);
 
   const user = session?.user as Record<string, unknown> | undefined;
+  const clubName = user?.clubName as string | undefined;
+  const clubLogoUrl = user?.clubLogoUrl as string | undefined;
   const sessionLoaded = !!user;
   const visibleNavItems = navItems.filter((item) => {
     // While session loads, hide feature-gated items to avoid flashing links the user can't access.
@@ -108,15 +110,11 @@ export default function ManagerLayout({ children }: { children: React.ReactNode 
       >
         <div className="p-4 border-b border-gray-700 flex items-center justify-between">
           <div className="flex items-center gap-2 min-w-0">
-            {(user?.clubName as string) && (
-              <ClubLogo
-                name={user?.clubName as string}
-                logoUrl={user?.clubLogoUrl as string | undefined}
-                size="sm"
-              />
+            {clubName && (
+              <ClubLogo name={clubName} logoUrl={clubLogoUrl} size="sm" />
             )}
             <div className="min-w-0">
-              <h1 className="text-lg font-bold truncate">{(user?.clubName as string) || "Team Manager"}</h1>
+              <h1 className="text-lg font-bold truncate">{clubName || "Team Manager"}</h1>
               <p className="text-sm text-gray-400 truncate">{session?.user?.name}</p>
             </div>
           </div>
