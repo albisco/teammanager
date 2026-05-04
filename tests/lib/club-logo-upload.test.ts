@@ -1,66 +1,41 @@
-import { describe, test, expect, vi, beforeEach } from "vitest";
-
-const { mockPut, mockDel } = vi.hoisted(() => ({
-  mockPut: vi.fn(),
-  mockDel: vi.fn(),
-}));
-
-vi.mock("@vercel/blob", () => ({
-  put: mockPut,
-  del: mockDel,
-}));
+import { describe, test, expect } from "vitest";
 
 import { ALLOWED_MIME_TYPES, MAX_FILE_SIZE } from "@/lib/club-logo";
 import { uploadClubLogo, deleteClubLogo } from "@/lib/club-logo-storage";
 
-beforeEach(() => {
-  mockPut.mockReset();
-  mockDel.mockReset();
-});
-
-function fakeFile(
-  name: string,
-  type: string,
-  sizeBytes: number
-): File {
+function fakeFile(name: string, type: string, sizeBytes: number): File {
   const buf = new ArrayBuffer(sizeBytes);
   return new File([buf], name, { type });
 }
 
 describe("uploadClubLogo", () => {
-  test("accepts image/png", async () => {
-    mockPut.mockResolvedValue({ url: "https://blob.vercel-storage.com/clubs/c1/logo-abc.png" });
+  test("accepts image/png and returns data URL", async () => {
     const file = fakeFile("logo.png", "image/png", 1000);
     const result = await uploadClubLogo("club-1", file);
-    expect(result.url).toContain("blob.vercel-storage.com");
-    expect(mockPut).toHaveBeenCalledOnce();
+    expect(result.url.startsWith("data:image/png;base64,")).toBe(true);
   });
 
   test("accepts image/jpeg", async () => {
-    mockPut.mockResolvedValue({ url: "https://blob.vercel-storage.com/clubs/c1/logo-abc.jpg" });
     const file = fakeFile("logo.jpg", "image/jpeg", 1000);
     const result = await uploadClubLogo("club-1", file);
-    expect(result.url).toBeDefined();
+    expect(result.url.startsWith("data:image/jpeg;base64,")).toBe(true);
   });
 
   test("accepts image/webp", async () => {
-    mockPut.mockResolvedValue({ url: "https://blob.vercel-storage.com/clubs/c1/logo-abc.webp" });
     const file = fakeFile("logo.webp", "image/webp", 1000);
     const result = await uploadClubLogo("club-1", file);
-    expect(result.url).toBeDefined();
+    expect(result.url.startsWith("data:image/webp;base64,")).toBe(true);
   });
 
   test("accepts image/svg+xml", async () => {
-    mockPut.mockResolvedValue({ url: "https://blob.vercel-storage.com/clubs/c1/logo-abc.svg" });
     const file = fakeFile("logo.svg", "image/svg+xml", 500);
     const result = await uploadClubLogo("club-1", file);
-    expect(result.url).toBeDefined();
+    expect(result.url.startsWith("data:image/svg+xml;base64,")).toBe(true);
   });
 
   test("rejects disallowed mime type", async () => {
     const file = fakeFile("logo.gif", "image/gif", 1000);
     await expect(uploadClubLogo("club-1", file)).rejects.toThrow(/mime type/i);
-    expect(mockPut).not.toHaveBeenCalled();
   });
 
   test("rejects application/pdf", async () => {
@@ -71,38 +46,28 @@ describe("uploadClubLogo", () => {
   test("rejects files over 2MB", async () => {
     const file = fakeFile("huge.png", "image/png", 2 * 1024 * 1024 + 1);
     await expect(uploadClubLogo("club-1", file)).rejects.toThrow(/2MB/i);
-    expect(mockPut).not.toHaveBeenCalled();
   });
 
   test("accepts file exactly at 2MB", async () => {
-    mockPut.mockResolvedValue({ url: "https://blob.vercel-storage.com/clubs/c1/logo-abc.png" });
     const file = fakeFile("exact.png", "image/png", 2 * 1024 * 1024);
     const result = await uploadClubLogo("club-1", file);
-    expect(result.url).toBeDefined();
+    expect(result.url.startsWith("data:image/png;base64,")).toBe(true);
   });
 
-  test("blob path is namespaced by clubId", async () => {
-    mockPut.mockResolvedValue({ url: "https://blob.vercel-storage.com/clubs/my-club/logo-abc.png" });
-    const file = fakeFile("logo.png", "image/png", 1000);
-    await uploadClubLogo("my-club", file);
-    const callArgs = mockPut.mock.calls[0];
-    expect(callArgs[0]).toMatch(/^clubs\/my-club\//);
-  });
-
-  test("blob put is called with addRandomSuffix true", async () => {
-    mockPut.mockResolvedValue({ url: "https://blob.vercel-storage.com/clubs/c1/logo-abc.png" });
-    const file = fakeFile("logo.png", "image/png", 1000);
-    await uploadClubLogo("c1", file);
-    const callArgs = mockPut.mock.calls[0];
-    expect(callArgs[2]).toMatchObject({ addRandomSuffix: true });
+  test("base64 payload decodes back to original byte length", async () => {
+    const file = fakeFile("logo.png", "image/png", 1234);
+    const { url } = await uploadClubLogo("c1", file);
+    const b64 = url.split(",", 2)[1];
+    const decoded = Buffer.from(b64, "base64");
+    expect(decoded.length).toBe(1234);
   });
 });
 
 describe("deleteClubLogo", () => {
-  test("calls del with the provided URL", async () => {
-    mockDel.mockResolvedValue(undefined);
-    await deleteClubLogo("https://blob.vercel-storage.com/clubs/c1/logo-abc.png");
-    expect(mockDel).toHaveBeenCalledWith("https://blob.vercel-storage.com/clubs/c1/logo-abc.png");
+  test("is a no-op and resolves", async () => {
+    await expect(
+      deleteClubLogo("data:image/png;base64,AAAA")
+    ).resolves.toBeUndefined();
   });
 });
 
