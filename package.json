@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "prisma db push --accept-data-loss && prisma generate && next build",
     "start": "next start",
+    "sandcastle": "npx tsx .sandcastle/main.mts",
     "lint": "next lint",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -36,6 +37,7 @@
     "uuid": "^13.0.0"
   },
   "devDependencies": {
+    "@ai-hero/sandcastle": "^0.5.7",
     "@playwright/test": "^1.58.2",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "20.19.39",
