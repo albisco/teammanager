@@ -13,11 +13,13 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { LogoDropzone } from "@/components/logo-dropzone";
 
 interface Club {
   id: string;
   name: string;
   slug: string;
+  logoUrl: string | null;
   isAdultClub: boolean;
   enableAiChat: boolean;
   enablePlayHq: boolean;
@@ -35,6 +37,7 @@ export default function ClubsPage() {
   // Club dialog
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingClub, setEditingClub] = useState<Club | null>(null);
+  const [dialogLogoUrl, setDialogLogoUrl] = useState<string | null>(null);
   const [form, setForm] = useState({
     name: "",
     slug: "",
@@ -81,6 +84,7 @@ export default function ClubsPage() {
 
   function openEdit(club: Club) {
     setEditingClub(club);
+    setDialogLogoUrl(club.logoUrl);
     setForm({ name: club.name, slug: club.slug, isAdultClub: club.isAdultClub, enableAiChat: club.enableAiChat, enablePlayHq: club.enablePlayHq, allowTeamDutyRoles: club.allowTeamDutyRoles, enforceFamilyVoteExclusion: club.enforceFamilyVoteExclusion, maxVotesPerRound: club.maxVotesPerRound, adminName: "", adminEmail: "", adminPassword: "" });
     setDialogOpen(true);
   }
@@ -232,6 +236,17 @@ export default function ClubsPage() {
                 />
               </div>
             </div>
+            {editingClub && (
+              <div className="space-y-2">
+                <Label>Club Logo</Label>
+                <LogoDropzone
+                  clubId={editingClub.id}
+                  clubName={form.name}
+                  logoUrl={dialogLogoUrl}
+                  onLogoChange={setDialogLogoUrl}
+                />
+              </div>
+            )}
             <div className="flex items-center gap-3">
               <button
                 type="button"
