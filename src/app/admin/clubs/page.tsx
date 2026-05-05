@@ -32,7 +32,7 @@ interface Club {
 
 export default function ClubsPage() {
   const [clubs, setClubs] = useState<Club[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   // Club dialog
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -53,8 +53,12 @@ export default function ClubsPage() {
   });
 
   const fetchClubs = useCallback(async () => {
-    const res = await fetch("/api/clubs");
-    if (res.ok) setClubs(await res.json());
+    try {
+      const res = await fetch("/api/clubs");
+      if (res.ok) setClubs(await res.json());
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => { fetchClubs(); }, [fetchClubs]);
@@ -178,7 +182,13 @@ export default function ClubsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sorted.length === 0 ? (
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={8} className="text-center text-gray-500 py-8">
+                  Loading…
+                </TableCell>
+              </TableRow>
+            ) : sorted.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={8} className="text-center text-gray-500 py-8">
                   No clubs yet. Create your first club!
