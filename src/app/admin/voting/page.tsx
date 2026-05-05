@@ -70,7 +70,6 @@ export default function VotingPage() {
   const [maxVotesPerRound, setMaxVotesPerRound] = useState<number | null>(null);
   const [enforceFamilyVoteExclusion, setEnforceFamilyVoteExclusion] = useState(false);
   const [rosteredCounts, setRosteredCounts] = useState<Record<string, number>>({});
-  const [savingEnforcement, setSavingEnforcement] = useState(false);
   const [loading, setLoading] = useState(false);
 
 
@@ -122,24 +121,6 @@ export default function VotingPage() {
       setRosteredCounts(data.rosteredFamilyCountByRound ?? {});
     }
   }, []);
-
-  async function toggleEnforcement(next: boolean) {
-    if (!clubId) return;
-    setSavingEnforcement(true);
-    const res = await fetch("/api/clubs", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: clubId, enforceFamilyVoteExclusion: next }),
-    });
-    if (res.ok) {
-      setEnforceFamilyVoteExclusion(next);
-      toast.success(next ? "Family exclusion enforced" : "Family exclusion disabled");
-    } else {
-      const data = await res.json().catch(() => ({}));
-      toast.error(data.error || "Failed to update");
-    }
-    setSavingEnforcement(false);
-  }
 
   useEffect(() => {
     if (selectedTeam) fetchRounds(selectedTeam.id);
@@ -220,36 +201,7 @@ export default function VotingPage() {
     <div>
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <h1 className="text-3xl font-bold">Voting</h1>
-        <div className="flex items-center gap-6 text-sm flex-wrap">
-          {maxVotesPerRound !== null && (
-            <div className="flex items-center gap-2">
-              <span className="text-gray-600">Max votes per round:</span>
-              <Badge variant="secondary">{maxVotesPerRound}</Badge>
-            </div>
-          )}
-          <div className="flex items-center gap-2">
-            <span className="text-gray-600">Family vote exclusion:</span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={enforceFamilyVoteExclusion}
-              disabled={savingEnforcement || !clubId}
-              onClick={() => toggleEnforcement(!enforceFamilyVoteExclusion)}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-60 ${enforceFamilyVoteExclusion ? "bg-primary" : "bg-gray-200"}`}
-            >
-              <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${enforceFamilyVoteExclusion ? "translate-x-6" : "translate-x-1"}`} />
-            </button>
-            <Badge variant={enforceFamilyVoteExclusion ? "default" : "secondary"}>
-              {enforceFamilyVoteExclusion ? "On" : "Off"}
-            </Badge>
-          </div>
-        </div>
       </div>
-      {enforceFamilyVoteExclusion && (
-        <p className="text-xs text-gray-500 mb-4 -mt-2">
-          Parents pick their family from a dropdown limited to families rostered for the round; their own players are hidden from the rankings.
-        </p>
-      )}
 
       {/* Team selector */}
       <div className="flex gap-3 mb-6 flex-wrap">
