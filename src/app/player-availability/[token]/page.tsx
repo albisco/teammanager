@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+import { ClubLogo } from "@/components/club-logo";
 
 type AvailabilityStatus = "AVAILABLE" | "MAYBE" | "UNAVAILABLE";
 
@@ -24,6 +25,7 @@ interface Round {
 }
 
 interface TeamData {
+  club: { name: string; logoUrl: string | null };
   teamName: string;
   ageGroup: string;
   players: Player[];
@@ -150,6 +152,10 @@ export default function PlayerAvailabilityPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 flex flex-col items-center">
+      <div className="flex flex-col items-center mt-2 mb-4">
+        <ClubLogo name={data.club.name} logoUrl={data.club.logoUrl} size="hero" />
+        <p className="mt-2 text-sm font-medium text-gray-700">{data.club.name}</p>
+      </div>
       <Card className="w-full max-w-lg">
         <CardHeader>
           <div className="flex items-center gap-2 mb-1">

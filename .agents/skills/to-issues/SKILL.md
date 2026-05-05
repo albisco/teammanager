@@ -31,6 +31,17 @@ Slices may be 'HITL' or 'AFK'. HITL slices require human interaction, such as an
 - Prefer many thin slices over few thick ones
 </vertical-slice-rules>
 
+**Always include a final HITL "post-verification" slice** for any PRD that touches user-visible behavior (UI, public pages, auth, branding). The sandcastle reviewer agent does not replace human QA. This slice:
+
+- Title: `HITL QA — verify PRD #<N> (<short title>)`
+- Body: summarises ALL changes shipped across the AFK slices (schema, API, lib, UI surfaces, auth/session)
+- Acceptance criteria offer the user a CHOICE:
+  - Option A — run `/qa-only` skill against preview deploy
+  - Option B — manual checklist (per-role flows, public pages, edge cases, multi-format inputs, fallbacks)
+- Blocked by: all AFK implementation slices
+
+Do NOT auto-close this slice — the human running QA closes it.
+
 ### 4. Quiz the user
 
 Present the proposed breakdown as a numbered list. For each slice, show:
@@ -51,7 +62,7 @@ Iterate until the user approves the breakdown.
 
 ### 5. Publish the issues to the issue tracker
 
-For each approved slice, publish a new issue to the issue tracker. Use the issue body template below. Apply the `needs-triage` triage label so each issue enters the normal triage flow.
+For each approved slice, publish a new issue to the issue tracker. Use the issue body template below. Apply the `Sandcastle` label so each slice is picked up by the sandcastle implementer (which filters `--label Sandcastle`). (Project convention: slices that emerge from `/to-issues` after `/grill-me` are already triaged — they go straight to `Sandcastle`, not `needs-triage`.)
 
 Publish issues in dependency order (blockers first) so you can reference real issue identifiers in the "Blocked by" field.
 

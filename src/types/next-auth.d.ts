@@ -11,11 +11,17 @@ declare module "next-auth" {
       name: string;
       role: "SUPER_ADMIN" | "ADMIN" | "TEAM_MANAGER" | "FAMILY";
       clubId: string | null;
+      clubName: string | null;
+      clubLogoUrl: string | null;
       teamId: string | null;
       teams: ManagerTeam[];
       familyTeams: string[];
       isAdultClub: boolean;
       allowTeamDutyRoles: boolean;
+      enableAiChat: boolean;
+      enablePlayHq: boolean;
+      enableRoster: boolean;
+      enableAwards: boolean;
     };
   }
 }
@@ -25,10 +31,16 @@ declare module "next-auth/jwt" {
     role: string;
     id: string;
     clubId: string | null;
+    clubName: string | null;
+    clubLogoUrl: string | null;
     teamId: string | null;
     teams: ManagerTeam[];
     familyTeams: string[];
     isAdultClub: boolean;
     allowTeamDutyRoles: boolean;
+    enableAiChat: boolean;
+    enablePlayHq: boolean;
+    enableRoster: boolean;
+    enableAwards: boolean;
   }
 }

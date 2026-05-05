@@ -13,7 +13,7 @@ export async function GET(_req: NextRequest, { params }: { params: { token: stri
             include: {
               season: {
                 include: {
-                  club: { select: { isAdultClub: true, enforceFamilyVoteExclusion: true } },
+                  club: { select: { name: true, logoUrl: true, isAdultClub: true, enforceFamilyVoteExclusion: true, votingScheme: true, parentVoterCount: true, maxVotesPerRound: true } },
                 },
               },
               players: {
@@ -104,6 +104,7 @@ export async function GET(_req: NextRequest, { params }: { params: { token: stri
   return NextResponse.json({
     id: votingSession.id,
     status: votingSession.status,
+    club: { name: team.season.club.name, logoUrl: team.season.club.logoUrl },
     isAdultClub: team.season.club.isAdultClub,
     enforceFamilyVoteExclusion,
     round: {
@@ -115,9 +116,9 @@ export async function GET(_req: NextRequest, { params }: { params: { token: stri
       name: team.name,
       ageGroup: team.ageGroup,
       seasonName: team.season.name,
-      votingScheme: team.votingScheme,
-      parentVoterCount: team.parentVoterCount,
-      selfManaged: team.selfManaged,
+      votingScheme: team.season.club.votingScheme,
+      parentVoterCount: team.season.club.parentVoterCount,
+      selfManaged: team.season.club.isAdultClub,
     },
     players: team.players
       .map((tp) => ({

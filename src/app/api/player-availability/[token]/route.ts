@@ -6,6 +6,11 @@ export async function GET(_req: NextRequest, { params }: { params: { token: stri
   const team = await prisma.team.findUnique({
     where: { playerAvailabilityToken: params.token },
     include: {
+      season: {
+        include: {
+          club: { select: { name: true, logoUrl: true } },
+        },
+      },
       rounds: {
         orderBy: { roundNumber: "asc" },
         select: { id: true, roundNumber: true, date: true, gameTime: true, isBye: true },
@@ -32,6 +37,7 @@ export async function GET(_req: NextRequest, { params }: { params: { token: stri
   });
 
   return NextResponse.json({
+    club: { name: team.season.club.name, logoUrl: team.season.club.logoUrl },
     teamName: team.name,
     ageGroup: team.ageGroup,
     players,

@@ -4,6 +4,7 @@ export async function loadTeamAvailability(teamId: string) {
   const team = await prisma.team.findUnique({
     where: { id: teamId },
     include: {
+      season: { select: { club: { select: { isAdultClub: true } } } },
       players: {
         include: {
           player: { select: { id: true, firstName: true, surname: true, jumperNumber: true } },
