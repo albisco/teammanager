@@ -28,15 +28,20 @@ export async function PATCH(
   }
 
   const body = await req.json();
-  const { name, slug } = body;
+  const { name, slug, enableRoster, enableAwards } = body;
 
   if (role === Role.ADMIN) {
     const superAdminOnlyFields = ["slug", "isAdultClub", "enableAiChat", "enablePlayHq", "allowTeamDutyRoles"];
     if (superAdminOnlyFields.some((f) => body[f] !== undefined)) {
-      return NextResponse.json({ error: "ADMINs may only update name" }, { status: 403 });
+      return NextResponse.json({ error: "ADMINs may not update plan or compliance fields" }, { status: 403 });
     }
-    if (!name || typeof name !== "string" || !name.trim()) {
-      return NextResponse.json({ error: "name is required" }, { status: 400 });
+    // Validate name if provided
+    if (name !== undefined && (typeof name !== "string" || !name.trim())) {
+      return NextResponse.json({ error: "name must not be empty" }, { status: 400 });
+    }
+    // At least one ADMIN-editable field must be present
+    if (name === undefined && enableRoster === undefined && enableAwards === undefined) {
+      return NextResponse.json({ error: "No updatable fields provided" }, { status: 400 });
     }
   }
 
@@ -44,9 +49,11 @@ export async function PATCH(
     return NextResponse.json({ error: "name is required" }, { status: 400 });
   }
 
-  const data: Record<string, string> = {};
-  if (name) data.name = name.trim();
-  if (slug && role === Role.SUPER_ADMIN) data.slug = slug.toLowerCase().replace(/\s+/g, "-");
+  const data: Record<string, unknown> = {};
+  if (name) data.name = (name as string).trim();
+  if (slug && role === Role.SUPER_ADMIN) data.slug = (slug as string).toLowerCase().replace(/\s+/g, "-");
+  if (enableRoster !== undefined) data.enableRoster = !!enableRoster;
+  if (enableAwards !== undefined) data.enableAwards = !!enableAwards;
 
   const club = await prisma.club.update({
     where: { id: clubId },

@@ -130,3 +130,39 @@ describe("PATCH /api/clubs/[id] — SUPER_ADMIN full access", () => {
     expect(body.slug).toBe("renamed");
   });
 });
+
+describe("PATCH /api/clubs/[id] — feature flags", () => {
+  test("ADMIN can update enableRoster without name", async () => {
+    setTestSession(sessions.admin);
+    const updated = { id: CLUB_ID, name: "My Club", enableRoster: false, enableAwards: true };
+    mockUpdate.mockResolvedValueOnce(updated);
+    const req = createPatchRequest(CLUB_ID, { enableRoster: false });
+    const res = await PATCH(req, { params: { id: CLUB_ID } });
+    expect(res.status).toBe(200);
+  });
+
+  test("ADMIN can update enableAwards without name", async () => {
+    setTestSession(sessions.admin);
+    const updated = { id: CLUB_ID, name: "My Club", enableRoster: true, enableAwards: false };
+    mockUpdate.mockResolvedValueOnce(updated);
+    const req = createPatchRequest(CLUB_ID, { enableAwards: false });
+    const res = await PATCH(req, { params: { id: CLUB_ID } });
+    expect(res.status).toBe(200);
+  });
+
+  test("ADMIN can update name + feature flags together", async () => {
+    setTestSession(sessions.admin);
+    const updated = { id: CLUB_ID, name: "New Name", enableRoster: false, enableAwards: false };
+    mockUpdate.mockResolvedValueOnce(updated);
+    const req = createPatchRequest(CLUB_ID, { name: "New Name", enableRoster: false, enableAwards: false });
+    const res = await PATCH(req, { params: { id: CLUB_ID } });
+    expect(res.status).toBe(200);
+  });
+
+  test("ADMIN sending no updatable fields returns 400", async () => {
+    setTestSession(sessions.admin);
+    const req = createPatchRequest(CLUB_ID, {});
+    const res = await PATCH(req, { params: { id: CLUB_ID } });
+    expect(res.status).toBe(400);
+  });
+});
