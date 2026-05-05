@@ -97,7 +97,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     branchStrategy: { type: "branch", branch },
     name: "reviewer",
     maxIterations: 1,
-    agent: sandcastle.claudeCode("claude-sonnet-4-6"),
+    agent: sandcastle.claudeCode("claude-opus-4-6"),
     promptFile: "./.sandcastle/review-prompt.md",
     // Prompt arguments substitute {{BRANCH}} in review-prompt.md before the
     // agent sees the prompt.
