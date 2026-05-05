@@ -190,21 +190,11 @@ export default function SeasonPage() {
   function openAddTeam() {
     setEditingTeamId(null);
     setTeamForm({ name: "", ageGroup: "" });
-    setTeamDialogStaff(null);
     setTeamDialogOpen(true);
   }
   function openEditTeam(team: TeamSummary) {
     setEditingTeamId(team.id);
     setTeamForm({ name: team.name, ageGroup: team.ageGroup });
-    setTeamDialogStaff(null);
-    fetch(`/api/teams/${team.id}/staff`)
-      .then((r) => (r.ok ? r.json() : []))
-      .then((rows: { role: string }[]) => {
-        const headCoach = rows.filter((s) => s.role === "HEAD_COACH").length;
-        const assistantCoach = rows.filter((s) => s.role === "ASSISTANT_COACH").length;
-        setTeamDialogStaff({ headCoach, assistantCoach });
-      })
-      .catch(() => setTeamDialogStaff({ headCoach: 0, assistantCoach: 0 }));
     setTeamDialogOpen(true);
   }
   async function handleSaveTeam() {
