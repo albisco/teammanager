@@ -39,6 +39,10 @@ export async function PATCH(
     coachVoterCount,
     maxVotesPerRound,
     enforceFamilyVoteExclusion,
+    isAdultClub,
+    allowTeamDutyRoles,
+    enableAiChat,
+    enablePlayHq,
   } = body;
 
   if (role === Role.ADMIN) {
@@ -56,8 +60,11 @@ export async function PATCH(
     }
   }
 
-  if (role === Role.SUPER_ADMIN && !name && !slug) {
-    return NextResponse.json({ error: "name is required" }, { status: 400 });
+  if (role === Role.SUPER_ADMIN) {
+    const allFields = [name, slug, enableRoster, enableAwards, votingScheme, parentVoterCount, coachVoterCount, maxVotesPerRound, enforceFamilyVoteExclusion, isAdultClub, allowTeamDutyRoles, enableAiChat, enablePlayHq];
+    if (allFields.every((f) => f === undefined)) {
+      return NextResponse.json({ error: "No updatable fields provided" }, { status: 400 });
+    }
   }
 
   const data: Record<string, unknown> = {};
@@ -102,6 +109,12 @@ export async function PATCH(
   if (enforceFamilyVoteExclusion !== undefined) {
     data.enforceFamilyVoteExclusion = !!enforceFamilyVoteExclusion;
   }
+
+  // Section 4 fields — SUPER_ADMIN only (ADMIN check above already blocks these)
+  if (isAdultClub !== undefined && role === Role.SUPER_ADMIN) data.isAdultClub = !!isAdultClub;
+  if (allowTeamDutyRoles !== undefined && role === Role.SUPER_ADMIN) data.allowTeamDutyRoles = !!allowTeamDutyRoles;
+  if (enableAiChat !== undefined && role === Role.SUPER_ADMIN) data.enableAiChat = !!enableAiChat;
+  if (enablePlayHq !== undefined && role === Role.SUPER_ADMIN) data.enablePlayHq = !!enablePlayHq;
 
   const club = await prisma.club.update({
     where: { id: clubId },

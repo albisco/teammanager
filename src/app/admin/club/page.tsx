@@ -21,10 +21,28 @@ interface Club {
   coachVoterCount: number;
   maxVotesPerRound: number;
   enforceFamilyVoteExclusion: boolean;
+  isAdultClub: boolean;
+  allowTeamDutyRoles: boolean;
+  enableAiChat: boolean;
+  enablePlayHq: boolean;
+}
+
+function LockBadge() {
+  return (
+    <span
+      title="Contact support to change"
+      className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-500 border border-gray-200 cursor-default"
+    >
+      🔒 Set by support
+    </span>
+  );
 }
 
 export default function ClubSettingsPage() {
-  const { update: updateSession } = useSession();
+  const { data: session, update: updateSession } = useSession();
+  const sessionUser = session?.user as (Record<string, unknown> | undefined);
+  const isSuperAdmin = sessionUser?.role === "SUPER_ADMIN";
+
   const [club, setClub] = useState<Club | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -44,6 +62,12 @@ export default function ClubSettingsPage() {
   const [maxVotesPerRound, setMaxVotesPerRound] = useState(4);
   const [enforceFamilyVoteExclusion, setEnforceFamilyVoteExclusion] = useState(false);
 
+  // Section 4 — Plan & compliance (SUPER_ADMIN editable only)
+  const [isAdultClub, setIsAdultClub] = useState(false);
+  const [allowTeamDutyRoles, setAllowTeamDutyRoles] = useState(false);
+  const [enableAiChat, setEnableAiChat] = useState(true);
+  const [enablePlayHq, setEnablePlayHq] = useState(true);
+
   useEffect(() => {
     async function fetchClub() {
       try {
@@ -62,6 +86,10 @@ export default function ClubSettingsPage() {
           setCoachVoterCount(c.coachVoterCount ?? 1);
           setMaxVotesPerRound(c.maxVotesPerRound ?? 4);
           setEnforceFamilyVoteExclusion(c.enforceFamilyVoteExclusion ?? false);
+          setIsAdultClub(c.isAdultClub ?? false);
+          setAllowTeamDutyRoles(c.allowTeamDutyRoles ?? false);
+          setEnableAiChat(c.enableAiChat ?? true);
+          setEnablePlayHq(c.enablePlayHq ?? true);
         }
       } finally {
         setLoading(false);
@@ -81,7 +109,13 @@ export default function ClubSettingsPage() {
       parentVoterCount !== (club.parentVoterCount ?? 3) ||
       coachVoterCount !== (club.coachVoterCount ?? 1) ||
       maxVotesPerRound !== (club.maxVotesPerRound ?? 4) ||
-      enforceFamilyVoteExclusion !== (club.enforceFamilyVoteExclusion ?? false));
+      enforceFamilyVoteExclusion !== (club.enforceFamilyVoteExclusion ?? false) ||
+      (isSuperAdmin && (
+        isAdultClub !== (club.isAdultClub ?? false) ||
+        allowTeamDutyRoles !== (club.allowTeamDutyRoles ?? false) ||
+        enableAiChat !== (club.enableAiChat ?? true) ||
+        enablePlayHq !== (club.enablePlayHq ?? true)
+      )));
 
   const canSave = isDirty && schemeResult.ok;
 
@@ -107,6 +141,14 @@ export default function ClubSettingsPage() {
       if (enforceFamilyVoteExclusion !== (club.enforceFamilyVoteExclusion ?? false)) {
         body.enforceFamilyVoteExclusion = enforceFamilyVoteExclusion;
       }
+      if (isSuperAdmin) {
+        if (isAdultClub !== (club.isAdultClub ?? false)) body.isAdultClub = isAdultClub;
+        if (allowTeamDutyRoles !== (club.allowTeamDutyRoles ?? false)) body.allowTeamDutyRoles = allowTeamDutyRoles;
+        if (enableAiChat !== (club.enableAiChat ?? true)) body.enableAiChat = enableAiChat;
+        if (enablePlayHq !== (club.enablePlayHq ?? true)) body.enablePlayHq = enablePlayHq;
+      }
+
+      if (Object.keys(body).length === 0) return;
 
       const res = await fetch(`/api/clubs/${club.id}`, {
         method: "PATCH",
@@ -128,6 +170,10 @@ export default function ClubSettingsPage() {
       setCoachVoterCount(updated.coachVoterCount ?? 1);
       setMaxVotesPerRound(updated.maxVotesPerRound ?? 4);
       setEnforceFamilyVoteExclusion(updated.enforceFamilyVoteExclusion ?? false);
+      setIsAdultClub(updated.isAdultClub ?? false);
+      setAllowTeamDutyRoles(updated.allowTeamDutyRoles ?? false);
+      setEnableAiChat(updated.enableAiChat ?? true);
+      setEnablePlayHq(updated.enablePlayHq ?? true);
       await updateSession();
       toast.success("Club settings saved");
     } catch {
@@ -313,11 +359,82 @@ export default function ClubSettingsPage() {
           </label>
         </section>
 
+        {/* Section 4 — Plan & compliance */}
+        <section className="space-y-4">
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg font-semibold">Plan &amp; compliance</h2>
+            {!isSuperAdmin && <LockBadge />}
+          </div>
+
+          <PlanField
+            checked={isAdultClub}
+            onChange={setIsAdultClub}
+            locked={!isSuperAdmin}
+            label="Adult / self-managed club"
+            description="Players vote each other; enables the PLAYER voter type on the vote page. Team managers are optional."
+          />
+
+          <PlanField
+            checked={allowTeamDutyRoles}
+            onChange={setAllowTeamDutyRoles}
+            locked={!isSuperAdmin}
+            label="Allow team-level duty role overrides"
+            description="Teams can customise their duty role set rather than inheriting club defaults."
+          />
+
+          <PlanField
+            checked={enableAiChat}
+            onChange={setEnableAiChat}
+            locked={!isSuperAdmin}
+            label="Enable AI chat (/ask)"
+            description="Shows the Ask AI nav link and activates the AI chat endpoint."
+          />
+
+          <PlanField
+            checked={enablePlayHq}
+            onChange={setEnablePlayHq}
+            locked={!isSuperAdmin}
+            label="Enable PlayHQ integration"
+            description="Shows the PlayHQ nav link for fixture sync."
+          />
+        </section>
+
         {/* Save */}
         <Button onClick={handleSave} disabled={saving || !canSave}>
           {saving ? "Saving…" : "Save Changes"}
         </Button>
       </div>
     </div>
+  );
+}
+
+function PlanField({
+  checked,
+  onChange,
+  locked,
+  label,
+  description,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  locked: boolean;
+  label: string;
+  description: string;
+}) {
+  return (
+    <label className={`flex items-center gap-3 ${locked ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => !locked && onChange(e.target.checked)}
+        disabled={locked}
+        className="h-4 w-4 rounded border-gray-300"
+        title={locked ? "Contact support to change" : undefined}
+      />
+      <div>
+        <span className="font-medium text-sm">{label}</span>
+        <p className="text-xs text-muted-foreground">{description}</p>
+      </div>
+    </label>
   );
 }

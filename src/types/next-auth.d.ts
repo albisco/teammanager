@@ -19,9 +19,8 @@ declare module "next-auth" {
       allowTeamDutyRoles: boolean;
       enableAiChat: boolean;
       enablePlayHq: boolean;
-      teamSelfManaged: boolean;
-      teamEnableRoster: boolean;
-      teamEnableAwards: boolean;
+      enableRoster: boolean;
+      enableAwards: boolean;
     };
   }
 }
@@ -39,8 +38,7 @@ declare module "next-auth/jwt" {
     allowTeamDutyRoles: boolean;
     enableAiChat: boolean;
     enablePlayHq: boolean;
-    teamSelfManaged: boolean;
-    teamEnableRoster: boolean;
-    teamEnableAwards: boolean;
+    enableRoster: boolean;
+    enableAwards: boolean;
   }
 }

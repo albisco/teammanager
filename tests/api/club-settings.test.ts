@@ -193,3 +193,37 @@ describe("PATCH /api/clubs/[id] — voting config", () => {
     expect(res.status).toBe(400);
   });
 });
+
+describe("PATCH /api/clubs/[id] — Section 4 (plan fields)", () => {
+  test("ADMIN cannot update isAdultClub (403)", async () => {
+    setTestSession(sessions.admin);
+    const req = createPatchRequest(CLUB_ID, { isAdultClub: true, name: "My Club" });
+    const res = await PATCH(req, { params: { id: CLUB_ID } });
+    expect(res.status).toBe(403);
+  });
+
+  test("ADMIN cannot update allowTeamDutyRoles (403)", async () => {
+    setTestSession(sessions.admin);
+    const req = createPatchRequest(CLUB_ID, { allowTeamDutyRoles: true, name: "My Club" });
+    const res = await PATCH(req, { params: { id: CLUB_ID } });
+    expect(res.status).toBe(403);
+  });
+
+  test("SUPER_ADMIN can update isAdultClub", async () => {
+    setTestSession(sessions.superAdmin);
+    const updated = { id: CLUB_ID, name: "My Club", isAdultClub: true };
+    mockUpdate.mockResolvedValueOnce(updated);
+    const req = createPatchRequest(CLUB_ID, { isAdultClub: true });
+    const res = await PATCH(req, { params: { id: CLUB_ID } });
+    expect(res.status).toBe(200);
+  });
+
+  test("SUPER_ADMIN can update all section 4 fields", async () => {
+    setTestSession(sessions.superAdmin);
+    const updated = { id: CLUB_ID, name: "My Club", isAdultClub: false, allowTeamDutyRoles: true, enableAiChat: false, enablePlayHq: false };
+    mockUpdate.mockResolvedValueOnce(updated);
+    const req = createPatchRequest(CLUB_ID, { isAdultClub: false, allowTeamDutyRoles: true, enableAiChat: false, enablePlayHq: false });
+    const res = await PATCH(req, { params: { id: CLUB_ID } });
+    expect(res.status).toBe(200);
+  });
+});
