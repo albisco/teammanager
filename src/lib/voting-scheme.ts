@@ -51,20 +51,11 @@ export function parseVotingScheme(
     return err("Voting scheme must have at most 10 entries.");
   }
 
-  // Check strictly descending
+  // Check strictly descending (implies no duplicates)
   for (let i = 1; i < numbers.length; i++) {
     if (numbers[i] >= numbers[i - 1]) {
       return err("Voting scheme values must be strictly descending (e.g. 5, 4, 3, 2, 1).");
     }
-  }
-
-  // No duplicates — already implied by strictly descending, but explicit check is clearer
-  const seen = new Set<number>();
-  for (const n of numbers) {
-    if (seen.has(n)) {
-      return err("Voting scheme must not contain duplicate values.");
-    }
-    seen.add(n);
   }
 
   if (maxVotesPerRound !== undefined && numbers.length < maxVotesPerRound) {

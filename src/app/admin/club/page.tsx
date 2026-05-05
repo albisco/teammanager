@@ -293,17 +293,11 @@ export default function ClubSettingsPage() {
               value={schemeInput}
               onChange={(e) => setSchemeInput(e.target.value)}
               placeholder="e.g. 5, 4, 3, 2, 1"
+              title="Comma-separated, strictly descending positive integers (1–10 entries)"
             />
-            {schemeResult.ok ? (
-              <p className="text-xs text-green-600">
-                Will store: [{schemeResult.value.join(", ")}]
-              </p>
-            ) : (
+            {!schemeResult.ok && (
               <p className="text-xs text-red-600">{schemeResult.message}</p>
             )}
-            <p className="text-xs text-muted-foreground">
-              Comma-separated, strictly descending positive integers (1–10 entries).
-            </p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

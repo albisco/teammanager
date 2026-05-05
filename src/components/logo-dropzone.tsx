@@ -50,7 +50,7 @@ export function LogoDropzone({ clubId, clubName, logoUrl, onLogoChange }: LogoDr
     } finally {
       setUploading(false);
     }
-  }, [clubId, onLogoChange]);
+  }, [clubId, onLogoChange, update]);
 
   const handleRemove = useCallback(async () => {
     setRemoving(true);
@@ -69,7 +69,7 @@ export function LogoDropzone({ clubId, clubName, logoUrl, onLogoChange }: LogoDr
     } finally {
       setRemoving(false);
     }
-  }, [clubId, onLogoChange]);
+  }, [clubId, onLogoChange, update]);
 
   const onDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
