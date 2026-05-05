@@ -51,7 +51,7 @@ Iterate until the user approves the breakdown.
 
 ### 5. Publish the issues to the issue tracker
 
-For each approved slice, publish a new issue to the issue tracker. Use the issue body template below. Apply the `needs-triage` triage label so each issue enters the normal triage flow.
+For each approved slice, publish a new issue to the issue tracker. Use the issue body template below. Apply the `Sandcastle` label so each slice is picked up by the sandcastle implementer (which filters `--label Sandcastle`). (Project convention: slices that emerge from `/to-issues` after `/grill-me` are already triaged — they go straight to `Sandcastle`, not `needs-triage`.)
 
 Publish issues in dependency order (blockers first) so you can reference real issue identifiers in the "Blocked by" field.
 

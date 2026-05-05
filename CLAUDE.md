@@ -163,6 +163,11 @@ Decision depends on how family accounts work — tackle after rostering built.
 - Dates stored as DateTime in Prisma, formatted with `en-AU` locale in UI
 - Update CLAUDE.md on major architectural changes
 
+## Issue tracker labels
+- `Sandcastle` — auto-buildable slice or PRD ready for the sandcastle implementer to pick up. The implementer filters `--label Sandcastle` (see `.sandcastle/main.mts`). Apply this when publishing issues from `/to-prd` or `/to-issues` after `/grill-me`.
+- `needs-triage` — genuinely undecided work that still needs human review. Do NOT apply to issues coming out of `/grill-me` → `/to-prd` → `/to-issues` (those are already triaged).
+- Skill override: when `/to-prd` or `/to-issues` instructions say to apply `needs-triage`, apply `Sandcastle` instead.
+
 ## Skill routing
 
 On user request matching available skill, ALWAYS invoke via Skill tool as FIRST action. Do NOT answer directly, do NOT use other tools first. Skill has specialized workflows producing better results than ad-hoc answers.
