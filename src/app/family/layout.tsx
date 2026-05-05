@@ -7,6 +7,7 @@ import { useSession, signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { FamilyTeamSwitcher } from "@/components/ui/family-team-switcher";
 
 const navItems = [
   { href: "/family/dashboard", label: "Dashboard" },
@@ -95,6 +96,7 @@ export default function FamilyLayout({
             </button>
           </div>
         </div>
+        <FamilyTeamSwitcher />
         <nav className="flex-1 p-4 space-y-1">
           {navItems.map((item) => (
             <Link

@@ -20,10 +20,11 @@ model Club {
   enablePlayHq               Boolean  @default(true)
   createdAt                  DateTime @default(now())
 
-  users     User[]
-  seasons   Season[]
-  players   Player[]
-  dutyRoles DutyRole[]
+  users              User[]
+  seasons            Season[]
+  players            Player[]
+  dutyRoles          DutyRole[]
+  familyTeamAccesses FamilyTeamAccess[]
 }
 
 enum Role {
@@ -78,6 +79,7 @@ model User {
   managedTeams         Team[]               @relation("TeamManager")
   mcpTokens            McpToken[]
   teamStaffRoles       TeamStaff[]          @relation("TeamStaffUser")
+  familyTeamAccesses   FamilyTeamAccess[]   @relation("FamilyTeamAccessUser")
 }
 
 model McpToken {
@@ -152,6 +154,7 @@ model Team {
   dutyRoleExclusions    TeamDutyRoleExclusion[]
   awardTypes            AwardType[]
   staff                 TeamStaff[]
+  familyTeamAccesses    FamilyTeamAccess[]
 }
 
 model TeamStaff {
@@ -361,4 +364,23 @@ model Award {
   createdAt   DateTime  @default(now())
 
   @@unique([roundId, awardTypeId, slot])
+}
+
+// Manually granted team access for FAMILY users.
+// Player-derived access (via Player.familyId → TeamPlayer) is NOT stored here;
+// the effective access is the union of both sources — see src/lib/family-access.ts.
+model FamilyTeamAccess {
+  id           String   @id @default(cuid())
+  familyUserId String
+  teamId       String
+  clubId       String
+  createdAt    DateTime @default(now())
+
+  family User @relation("FamilyTeamAccessUser", fields: [familyUserId], references: [id], onDelete: Cascade)
+  team   Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  club   Club @relation(fields: [clubId], references: [id], onDelete: Cascade)
+
+  @@unique([familyUserId, teamId])
+  @@index([clubId])
+  @@index([familyUserId])
 }
