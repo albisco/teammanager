@@ -96,47 +96,51 @@ export default function ClubsPage() {
 
   async function handleSave() {
     setLoading(true);
-
-    if (editingClub) {
-      const res = await fetch("/api/clubs", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: editingClub.id,
-          name: form.name,
-          slug: form.slug,
-          isAdultClub: form.isAdultClub,
-          enableAiChat: form.enableAiChat,
-          enablePlayHq: form.enablePlayHq,
-          allowTeamDutyRoles: form.allowTeamDutyRoles,
-          enforceFamilyVoteExclusion: form.enforceFamilyVoteExclusion,
-          maxVotesPerRound: form.maxVotesPerRound,
-        }),
-      });
-      if (res.ok) {
-        toast.success("Club updated");
-        setDialogOpen(false);
-        fetchClubs();
+    try {
+      if (editingClub) {
+        const res = await fetch("/api/clubs", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: editingClub.id,
+            name: form.name,
+            slug: form.slug,
+            isAdultClub: form.isAdultClub,
+            enableAiChat: form.enableAiChat,
+            enablePlayHq: form.enablePlayHq,
+            allowTeamDutyRoles: form.allowTeamDutyRoles,
+            enforceFamilyVoteExclusion: form.enforceFamilyVoteExclusion,
+            maxVotesPerRound: form.maxVotesPerRound,
+          }),
+        });
+        if (res.ok) {
+          toast.success("Club updated");
+          setDialogOpen(false);
+          fetchClubs();
+        } else {
+          const data = await res.json().catch(() => ({}));
+          toast.error(data.error || "Failed to update");
+        }
       } else {
-        const data = await res.json();
-        toast.error(data.error || "Failed to update");
+        const res = await fetch("/api/clubs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(form),
+        });
+        if (res.ok) {
+          toast.success("Club created");
+          setDialogOpen(false);
+          fetchClubs();
+        } else {
+          const data = await res.json().catch(() => ({}));
+          toast.error(data.error || "Failed to create");
+        }
       }
-    } else {
-      const res = await fetch("/api/clubs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-      if (res.ok) {
-        toast.success("Club created");
-        setDialogOpen(false);
-        fetchClubs();
-      } else {
-        const data = await res.json();
-        toast.error(data.error || "Failed to create");
-      }
+    } catch {
+      toast.error("An unexpected error occurred");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   async function handleDelete(id: string) {
