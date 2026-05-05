@@ -70,6 +70,10 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     maxIterations: 100,
     agent: sandcastle.claudeCode("claude-sonnet-4-6"),
     promptFile: "./.sandcastle/implement-prompt.md",
+    promptArgs: {
+      LIST_TASKS_COMMAND: "gh issue list --state open --limit 30",
+      CLOSE_TASK_COMMAND: "gh issue close",
+    },
   });
 
   // Extract the branch the agent worked on so the reviewer can target it.
@@ -103,6 +107,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     // agent sees the prompt.
     promptArgs: {
       BRANCH: branch,
+      SOURCE_BRANCH: "feat/ui-nicety",
     },
   });
 
