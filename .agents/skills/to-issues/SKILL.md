@@ -31,6 +31,17 @@ Slices may be 'HITL' or 'AFK'. HITL slices require human interaction, such as an
 - Prefer many thin slices over few thick ones
 </vertical-slice-rules>
 
+**Always include a final HITL "post-verification" slice** for any PRD that touches user-visible behavior (UI, public pages, auth, branding). The sandcastle reviewer agent does not replace human QA. This slice:
+
+- Title: `HITL QA — verify PRD #<N> (<short title>)`
+- Body: summarises ALL changes shipped across the AFK slices (schema, API, lib, UI surfaces, auth/session)
+- Acceptance criteria offer the user a CHOICE:
+  - Option A — run `/qa-only` skill against preview deploy
+  - Option B — manual checklist (per-role flows, public pages, edge cases, multi-format inputs, fallbacks)
+- Blocked by: all AFK implementation slices
+
+Do NOT auto-close this slice — the human running QA closes it.
+
 ### 4. Quiz the user
 
 Present the proposed breakdown as a numbered list. For each slice, show:
