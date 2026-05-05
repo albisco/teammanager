@@ -30,7 +30,7 @@ const MAX_ITERATIONS = 10;
 // Hooks run inside the sandbox before the agent starts each iteration.
 // npm install ensures the sandbox always has fresh dependencies.
 const hooks = {
-  sandbox: { onSandboxReady: [{ command: "npm install" }] },
+  sandbox: { onSandboxReady: [{ command: "npm install", timeoutMs: 300_000 }] },
 };
 
 // Copy node_modules from the host into the worktree before each sandbox
