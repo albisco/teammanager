@@ -16,6 +16,7 @@
 // Or add to package.json:
 //   "scripts": { "sandcastle": "npx tsx .sandcastle/main.mts" }
 
+import { execSync } from "node:child_process";
 import * as sandcastle from "@ai-hero/sandcastle";
 import { docker } from "@ai-hero/sandcastle/sandboxes/docker";
 
@@ -48,8 +49,19 @@ const dockerOpts = {
 // Main loop
 // ---------------------------------------------------------------------------
 
+// Capture the host's current branch once — used as the base for sandcastle
+// branches and as the merge target after a successful review. This avoids
+// the reviewer trying to worktree the host's checked-out branch (which git
+// refuses) by committing to a separate sandcastle branch instead.
+const hostBranch = execSync("git rev-parse --abbrev-ref HEAD", {
+  encoding: "utf8",
+}).trim();
+
 for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
   console.log(`\n=== Iteration ${iteration}/${MAX_ITERATIONS} ===\n`);
+
+  // Unique branch for this iteration — implementer + reviewer share it.
+  const workBranch = `sandcastle/work/${Date.now()}`;
 
   // -------------------------------------------------------------------------
   // Phase 1: Implement
@@ -65,7 +77,11 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     hooks,
     copyToWorktree,
     sandbox: docker(dockerOpts),
-    branchStrategy: { type: "merge-to-head" },
+    branchStrategy: {
+      type: "branch",
+      branch: workBranch,
+      baseBranch: hostBranch,
+    },
     name: "implementer",
     maxIterations: 100,
     agent: sandcastle.claudeCode("claude-sonnet-4-6"),
@@ -111,6 +127,21 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
   });
 
   console.log("\nReview complete.");
+
+  // Merge the reviewed work branch back into the host branch so the host
+  // worktree reflects the iteration's output. Done after review (not before)
+  // so the reviewer can still amend the branch in place.
+  try {
+    execSync(`git merge --no-ff --no-edit ${branch}`, { stdio: "inherit" });
+    execSync(`git branch -D ${branch}`, { stdio: "inherit" });
+    console.log(`Merged ${branch} into ${hostBranch}.`);
+  } catch (err) {
+    console.error(
+      `Failed to merge ${branch} into ${hostBranch}. Resolve manually.`,
+      err,
+    );
+    break;
+  }
 }
 
 console.log("\nAll done.");
