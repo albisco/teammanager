@@ -71,7 +71,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     agent: sandcastle.claudeCode("claude-sonnet-4-6"),
     promptFile: "./.sandcastle/implement-prompt.md",
     promptArgs: {
-      LIST_TASKS_COMMAND: "gh issue list --state open --limit 30",
+      LIST_TASKS_COMMAND: "gh issue list --state open --label Sandcastle --limit 30",
       CLOSE_TASK_COMMAND: "gh issue close",
     },
   });
