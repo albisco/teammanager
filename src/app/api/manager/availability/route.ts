@@ -16,7 +16,7 @@ export async function GET() {
 
   const data = await loadTeamAvailability(teamId);
   if (!data) return NextResponse.json({ error: "Team not found" }, { status: 404 });
-  if (!data.team.selfManaged) {
+  if (!data.team.season.club.isAdultClub) {
     return NextResponse.json({ error: "Not enabled for this team" }, { status: 403 });
   }
 
