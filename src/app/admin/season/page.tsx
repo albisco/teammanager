@@ -91,8 +91,6 @@ export default function SeasonPage() {
     name: "",
     ageGroup: "",
   });
-  const [teamDialogStaff, setTeamDialogStaff] = useState<{ headCoach: number; assistantCoach: number } | null>(null);
-
   // Round dialog
   const [roundDialogOpen, setRoundDialogOpen] = useState(false);
   const [editingRoundId, setEditingRoundId] = useState<string | null>(null);
