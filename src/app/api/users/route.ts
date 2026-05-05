@@ -28,10 +28,6 @@ export async function GET(req: NextRequest) {
 
 type StaffAssignment = { teamId: string; role: TeamStaffRole };
 
-/**
- * Normalize and validate an optional teamStaff array from the request body.
- * Returns either a cleaned array or a 400 NextResponse.
- */
 function parseTeamStaff(input: unknown): StaffAssignment[] | NextResponse {
   if (input === undefined || input === null) return [];
   if (!Array.isArray(input)) {
@@ -51,6 +47,32 @@ function parseTeamStaff(input: unknown): StaffAssignment[] | NextResponse {
   return out;
 }
 
+/**
+ * Validates that all provided team IDs belong to the given club (via their season).
+ * Deduplicates the input. Returns a 400 response if any ID is outside the club.
+ */
+async function parseFamilyTeams(input: unknown, clubId: string): Promise<string[] | NextResponse> {
+  if (!Array.isArray(input)) {
+    return NextResponse.json({ error: "familyTeams must be an array" }, { status: 400 });
+  }
+  const ids = Array.from(
+    new Set(input.filter((id): id is string => typeof id === "string" && !!id.trim()))
+  );
+  if (!ids.length) return [];
+
+  const valid = await prisma.team.findMany({
+    where: { id: { in: ids }, season: { clubId } },
+    select: { id: true },
+  });
+  if (valid.length !== ids.length) {
+    return NextResponse.json(
+      { error: "One or more teams do not belong to your club" },
+      { status: 400 }
+    );
+  }
+  return ids;
+}
+
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (session?.user?.role !== Role.ADMIN && session?.user?.role !== Role.SUPER_ADMIN) {
@@ -59,7 +81,7 @@ export async function POST(req: NextRequest) {
 
   const clubId = (session.user as Record<string, unknown>)?.clubId as string;
   const body = await req.json();
-  const { name, email, password, role, teamStaff: rawStaff } = body;
+  const { name, email, password, role, teamStaff: rawStaff, familyTeams: rawFamilyTeams } = body;
 
   if (!name?.trim() || !email?.trim() || !password?.trim()) {
     return NextResponse.json({ error: "Name, email and password are required" }, { status: 400 });
@@ -72,8 +94,15 @@ export async function POST(req: NextRequest) {
 
   const parsed = parseTeamStaff(rawStaff);
   if (parsed instanceof NextResponse) return parsed;
-  // Team staff only applies to TEAM_MANAGER users. Silently ignore for others.
   const staffAssignments: StaffAssignment[] = role === Role.TEAM_MANAGER ? parsed : [];
+
+  // Validate manual family team grants
+  let familyTeamIds: string[] = [];
+  if (role === Role.FAMILY && rawFamilyTeams !== undefined) {
+    const parsedFamilyTeams = await parseFamilyTeams(rawFamilyTeams, clubId);
+    if (parsedFamilyTeams instanceof NextResponse) return parsedFamilyTeams;
+    familyTeamIds = parsedFamilyTeams;
+  }
 
   const hashed = await bcrypt.hash(password, 10);
 
@@ -84,8 +113,6 @@ export async function POST(req: NextRequest) {
     });
 
     if (staffAssignments.length) {
-      // For HEAD_COACH / TEAM_MANAGER slots, clear any existing holder on the
-      // same team so single-slot semantics hold (the UI warns before submit).
       for (const s of staffAssignments) {
         if (s.role === TeamStaffRole.HEAD_COACH || s.role === TeamStaffRole.TEAM_MANAGER) {
           await prisma.teamStaff.deleteMany({ where: { teamId: s.teamId, role: s.role } });
@@ -93,6 +120,13 @@ export async function POST(req: NextRequest) {
       }
       await prisma.teamStaff.createMany({
         data: staffAssignments.map((s) => ({ teamId: s.teamId, userId: user.id, role: s.role })),
+        skipDuplicates: true,
+      });
+    }
+
+    if (familyTeamIds.length) {
+      await prisma.familyTeamAccess.createMany({
+        data: familyTeamIds.map((teamId) => ({ familyUserId: user.id, teamId, clubId })),
         skipDuplicates: true,
       });
     }

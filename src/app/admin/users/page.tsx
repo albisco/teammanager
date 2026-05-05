@@ -9,14 +9,15 @@ import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { ROLE, TEAM_STAFF_ROLE, TeamStaffRoleName } from "@/lib/roles";
-import { TeamStaffPanel } from "@/components/team-staff-panel";
+import { ROLE, TEAM_STAFF_ROLE, TeamStaffRoleName, teamStaffRoleLabel } from "@/lib/roles";
 
 interface UserData {
   id: string;
   name: string;
   email: string;
   role: string;
+  manualTeamIds?: string[];
+  accessSource?: "player" | "manual" | "both";
 }
 
 interface StaffEntry {
@@ -54,6 +55,7 @@ interface ClubData {
   admins: UserData[];
   seasons: SeasonData[];
   allTeams: AllTeam[];
+  unlinkedFamilyUsers?: UserData[];
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -79,6 +81,7 @@ type FormState = {
   role: string;
   clubId: string;
   staff: StaffAssignment[];
+  familyTeams: string[];
 };
 
 const emptyForm: FormState = {
@@ -88,6 +91,7 @@ const emptyForm: FormState = {
   role: ROLE.FAMILY,
   clubId: "",
   staff: [],
+  familyTeams: [],
 };
 
 export default function UsersPage() {
@@ -106,7 +110,6 @@ export default function UsersPage() {
     if (res.ok) {
       const data: ClubData[] = await res.json();
       setClubs(data);
-      // Auto-expand all teams on first load
       const teamIds = new Set<string>();
       for (const club of data) {
         for (const season of club.seasons) {
@@ -124,7 +127,6 @@ export default function UsersPage() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // Look up a user's current staff rows across the club data we already have.
   const staffForUser = useMemo(() => {
     const map = new Map<string, StaffAssignment[]>();
     for (const club of clubs) {
@@ -141,6 +143,22 @@ export default function UsersPage() {
     return map;
   }, [clubs]);
 
+  // Teams this family user can access via their linked players.
+  const playerTeamIdsForUser = useMemo(() => {
+    if (!editingUser || form.role !== ROLE.FAMILY) return [];
+    const teamIds = new Set<string>();
+    for (const club of clubs) {
+      for (const season of club.seasons) {
+        for (const team of season.teams) {
+          for (const fu of team.familyUsers) {
+            if (fu.id === editingUser.id) teamIds.add(team.id);
+          }
+        }
+      }
+    }
+    return Array.from(teamIds);
+  }, [clubs, editingUser, form.role]);
+
   function openAdd(clubId: string) {
     setEditingUser(null);
     setForm({ ...emptyForm, clubId });
@@ -156,6 +174,7 @@ export default function UsersPage() {
       role: user.role,
       clubId,
       staff: staffForUser.get(user.id) ?? [],
+      familyTeams: user.manualTeamIds ?? [],
     });
     setDialogOpen(true);
   }
@@ -169,6 +188,7 @@ export default function UsersPage() {
       role: form.role,
       clubId: form.clubId,
       teamStaff: form.role === ROLE.TEAM_MANAGER ? form.staff : [],
+      ...(form.role === ROLE.FAMILY ? { familyTeams: form.familyTeams } : {}),
     };
     if (editingUser) {
       const res = await fetch(`/api/users/${editingUser.id}`, {
@@ -222,7 +242,6 @@ export default function UsersPage() {
     });
   }
 
-  // Get allTeams for the selected club in the dialog
   const dialogClub = clubs.find((c) => c.id === form.clubId);
   const availableTeams = dialogClub?.allTeams ?? [];
 
@@ -249,6 +268,15 @@ export default function UsersPage() {
     setForm((f) => ({ ...f, staff: f.staff.filter((_, i) => i !== index) }));
   }
 
+  function toggleFamilyTeam(teamId: string, checked: boolean) {
+    setForm((f) => ({
+      ...f,
+      familyTeams: checked
+        ? [...f.familyTeams, teamId]
+        : f.familyTeams.filter((id) => id !== teamId),
+    }));
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -265,7 +293,6 @@ export default function UsersPage() {
             <h2 className="text-xl font-semibold mb-3 text-muted-foreground">{club.name}</h2>
           )}
 
-          {/* Club-level admins */}
           <Section
             title="Club Admins"
             users={club.admins}
@@ -276,7 +303,6 @@ export default function UsersPage() {
             addLabel="Add User"
           />
 
-          {/* Teams */}
           {club.seasons.map((season) => (
             <div key={season.id} className="mb-4">
               <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-2">
@@ -288,7 +314,6 @@ export default function UsersPage() {
                   const staffCount = team.staff.length;
                   return (
                     <div key={team.id} className="border rounded-lg bg-card">
-                      {/* Team header */}
                       <button
                         className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-muted/50 transition-colors"
                         onClick={() => toggleTeam(team.id)}
@@ -311,10 +336,25 @@ export default function UsersPage() {
 
                       {expanded && (
                         <div className="border-t px-4 py-3 space-y-3">
-                          {/* Team Staff — full CRUD panel */}
-                          <TeamStaffPanel teamId={team.id} onChange={fetchData} />
+                          <div>
+                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Team Staff</p>
+                            {team.staff.length === 0 ? (
+                              <p className="text-sm text-muted-foreground italic">No staff assigned</p>
+                            ) : (
+                              <div className="space-y-1">
+                                {team.staff.map((s) => (
+                                  <UserRow
+                                    key={s.id}
+                                    user={s.user}
+                                    badgeOverride={teamStaffRoleLabel(s.role)}
+                                    onEdit={() => openEdit(s.user, club.id)}
+                                    onDelete={() => handleDelete(s.user)}
+                                  />
+                                ))}
+                              </div>
+                            )}
+                          </div>
 
-                          {/* Family Users */}
                           <div>
                             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
                               Family Users ({team.familyUsers.length})
@@ -327,6 +367,11 @@ export default function UsersPage() {
                                   <UserRow
                                     key={u.id}
                                     user={u}
+                                    accessLabel={
+                                      u.accessSource === "both" ? "player + manual"
+                                      : u.accessSource === "manual" ? "manual"
+                                      : undefined
+                                    }
                                     onEdit={() => openEdit(u, club.id)}
                                     onDelete={() => handleDelete(u)}
                                   />
@@ -346,10 +391,21 @@ export default function UsersPage() {
           {club.seasons.length === 0 && (
             <p className="text-sm text-muted-foreground italic mt-2">No seasons — create a season to see teams here.</p>
           )}
+
+          {(club.unlinkedFamilyUsers?.length ?? 0) > 0 && (
+            <Section
+              title="Unlinked Family Users"
+              users={club.unlinkedFamilyUsers ?? []}
+              emptyText="None"
+              onEdit={(u) => openEdit(u, club.id)}
+              onDelete={handleDelete}
+              onAdd={() => openAdd(club.id)}
+              addLabel="Add User"
+            />
+          )}
         </div>
       ))}
 
-      {/* Add/Edit User Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -386,7 +442,7 @@ export default function UsersPage() {
               <Label>Role *</Label>
               <Select
                 value={form.role}
-                onChange={(e) => setForm({ ...form, role: e.target.value, staff: [] })}
+                onChange={(e) => setForm({ ...form, role: e.target.value, staff: [], familyTeams: [] })}
               >
                 <option value={ROLE.FAMILY}>Family</option>
                 <option value={ROLE.TEAM_MANAGER}>Team Manager</option>
@@ -457,6 +513,65 @@ export default function UsersPage() {
                 )}
               </div>
             )}
+
+            {form.role === ROLE.FAMILY && (
+              <div className="space-y-3">
+                {playerTeamIdsForUser.length > 0 && (
+                  <div className="space-y-1">
+                    <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                      Access via linked players
+                    </Label>
+                    <div className="space-y-1 pl-1">
+                      {playerTeamIdsForUser.map((tid) => {
+                        const t = availableTeams.find((at) => at.id === tid);
+                        return (
+                          <p key={tid} className="text-sm text-muted-foreground">
+                            {t ? `${t.ageGroup} ${t.name} (${t.seasonName})` : tid}
+                          </p>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-1">
+                  <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                    Additional manual team access
+                  </Label>
+                  {availableTeams.length === 0 ? (
+                    <p className="text-sm text-muted-foreground italic">
+                      No teams available in this club yet.
+                    </p>
+                  ) : (
+                    <div className="max-h-40 overflow-y-auto border rounded-md p-2 space-y-1">
+                      {availableTeams.map((t) => {
+                        const checked = form.familyTeams.includes(t.id);
+                        const viaPlayer = playerTeamIdsForUser.includes(t.id);
+                        return (
+                          <label
+                            key={t.id}
+                            className="flex items-center gap-2 text-sm cursor-pointer select-none"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={(e) => toggleFamilyTeam(t.id, e.target.checked)}
+                              className="rounded"
+                            />
+                            <span className={viaPlayer ? "text-muted-foreground" : undefined}>
+                              {t.ageGroup} {t.name} ({t.seasonName})
+                              {viaPlayer && (
+                                <span className="ml-1 text-xs">(already via player)</span>
+                              )}
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
@@ -511,11 +626,13 @@ function UserRow({
   onEdit,
   onDelete,
   badgeOverride,
+  accessLabel,
 }: {
   user: UserData;
   onEdit: () => void;
   onDelete: () => void;
   badgeOverride?: string;
+  accessLabel?: string;
 }) {
   return (
     <div className="flex items-center justify-between px-4 py-2.5">
@@ -524,6 +641,9 @@ function UserRow({
         <span className="text-muted-foreground text-sm ml-2">{user.email}</span>
       </div>
       <div className="flex items-center gap-2 ml-4 shrink-0">
+        {accessLabel && (
+          <span className="text-xs text-muted-foreground">{accessLabel}</span>
+        )}
         <Badge variant={ROLE_VARIANTS[user.role] ?? "outline"}>
           {badgeOverride ?? ROLE_LABELS[user.role] ?? user.role}
         </Badge>

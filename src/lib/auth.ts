@@ -2,6 +2,7 @@ import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { Role, TeamStaffRole } from "@prisma/client";
+import { getFamilyAccessibleTeams } from "./family-access";
 
 export type ManagerTeam = { teamId: string; role: TeamStaffRole };
 
@@ -31,6 +32,13 @@ export const authOptions: NextAuthOptions = {
         if (!isValid) return null;
 
         let teams: ManagerTeam[] = [];
+        let familyTeams: string[] = [];
+        let teamSelfManaged = false;
+        let teamEnableRoster = true;
+        let teamEnableAwards = true;
+        if (user.role === Role.FAMILY && user.clubId) {
+          familyTeams = await getFamilyAccessibleTeams(user.id, user.clubId);
+        }
         if (user.role === Role.TEAM_MANAGER) {
           // Self-heal backfill: if a legacy Team.managerId exists with no
           // matching TeamStaff row, create the TEAM_MANAGER row now. This keeps
@@ -70,6 +78,17 @@ export const authOptions: NextAuthOptions = {
           }
 
           teams = staffRows;
+
+          const firstTeamId = teams[0]?.teamId;
+          if (firstTeamId) {
+            const team = await prisma.team.findUnique({
+              where: { id: firstTeamId },
+              select: { selfManaged: true, enableRoster: true, enableAwards: true },
+            });
+            teamSelfManaged = team?.selfManaged ?? false;
+            teamEnableRoster = team?.enableRoster ?? true;
+            teamEnableAwards = team?.enableAwards ?? true;
+          }
         }
 
         let isAdultClub = false;
@@ -114,12 +133,16 @@ export const authOptions: NextAuthOptions = {
           clubLogoUrl,
           teamId: teams[0]?.teamId ?? null,
           teams,
+          familyTeams,
           isAdultClub,
           enableAiChat,
           enablePlayHq,
           allowTeamDutyRoles,
           enableRoster,
           enableAwards,
+          teamSelfManaged,
+          teamEnableRoster,
+          teamEnableAwards,
         };
       },
     }),
@@ -135,12 +158,16 @@ export const authOptions: NextAuthOptions = {
         token.clubLogoUrl = u.clubLogoUrl as string | null;
         token.teamId = u.teamId as string | null;
         token.teams = u.teams as ManagerTeam[];
+        token.familyTeams = u.familyTeams as string[];
         token.isAdultClub = u.isAdultClub as boolean;
         token.enableAiChat = u.enableAiChat as boolean;
         token.enablePlayHq = u.enablePlayHq as boolean;
         token.allowTeamDutyRoles = u.allowTeamDutyRoles as boolean;
         token.enableRoster = u.enableRoster as boolean;
         token.enableAwards = u.enableAwards as boolean;
+        token.teamSelfManaged = u.teamSelfManaged as boolean;
+        token.teamEnableRoster = u.teamEnableRoster as boolean;
+        token.teamEnableAwards = u.teamEnableAwards as boolean;
       }
 
       if (trigger === "update" && token.clubId) {
@@ -170,12 +197,16 @@ export const authOptions: NextAuthOptions = {
         s.clubLogoUrl = token.clubLogoUrl;
         s.teamId = token.teamId;
         s.teams = token.teams ?? [];
+        s.familyTeams = token.familyTeams ?? [];
         s.isAdultClub = token.isAdultClub;
         s.enableAiChat = token.enableAiChat;
         s.enablePlayHq = token.enablePlayHq;
         s.allowTeamDutyRoles = token.allowTeamDutyRoles;
         s.enableRoster = token.enableRoster;
         s.enableAwards = token.enableAwards;
+        s.teamSelfManaged = token.teamSelfManaged;
+        s.teamEnableRoster = token.teamEnableRoster;
+        s.teamEnableAwards = token.teamEnableAwards;
       }
       return session;
     },

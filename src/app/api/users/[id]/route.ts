@@ -26,6 +26,32 @@ function parseTeamStaff(input: unknown): StaffAssignment[] | NextResponse {
   return out;
 }
 
+/**
+ * Validates that all provided team IDs belong to the given club (via their season).
+ * Deduplicates the input. Returns a 400 response if any ID is outside the club.
+ */
+async function parseFamilyTeams(input: unknown, clubId: string): Promise<string[] | NextResponse> {
+  if (!Array.isArray(input)) {
+    return NextResponse.json({ error: "familyTeams must be an array" }, { status: 400 });
+  }
+  const ids = Array.from(
+    new Set(input.filter((id): id is string => typeof id === "string" && !!id.trim()))
+  );
+  if (!ids.length) return [];
+
+  const valid = await prisma.team.findMany({
+    where: { id: { in: ids }, season: { clubId } },
+    select: { id: true },
+  });
+  if (valid.length !== ids.length) {
+    return NextResponse.json(
+      { error: "One or more teams do not belong to your club" },
+      { status: 400 }
+    );
+  }
+  return ids;
+}
+
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
   if (session?.user?.role !== Role.ADMIN && session?.user?.role !== Role.SUPER_ADMIN) {
@@ -33,7 +59,8 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   }
 
   const body = await req.json();
-  const { name, email, password, role, teamStaff: rawStaff, clubId } = body;
+  const { name, email, password, role, teamStaff: rawStaff, clubId, familyTeams: rawFamilyTeams } =
+    body;
 
   if (!name?.trim() || !email?.trim()) {
     return NextResponse.json({ error: "Name and email are required" }, { status: 400 });
@@ -47,13 +74,33 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     return NextResponse.json({ error: "Invalid role" }, { status: 400 });
   }
 
-  // teamStaff is only consulted if the resulting role is TEAM_MANAGER. When a
-  // user changes away from TEAM_MANAGER we clear all of their staff rows.
   const effectiveRole = role as Role | undefined;
   const staffApplies = effectiveRole === Role.TEAM_MANAGER;
+  const familyApplies = effectiveRole === Role.FAMILY;
+
+  // TeamStaff — unchanged logic
   const parsed = rawStaff === undefined ? null : parseTeamStaff(rawStaff);
   if (parsed instanceof NextResponse) return parsed;
   const staffAssignments: StaffAssignment[] = staffApplies && parsed ? parsed : [];
+
+  // FamilyTeamAccess — only parsed when the caller supplies the field
+  // SUPER_ADMIN may provide a clubId in the body; ADMIN is scoped to session clubId.
+  const sessionClubId = (session.user as Record<string, unknown>)?.clubId as string | null;
+  const validationClubId =
+    typeof clubId === "string" && clubId ? clubId : sessionClubId ?? "";
+
+  let familyTeamIds: string[] | null = null; // null = field absent, don't touch rows
+  if (rawFamilyTeams !== undefined) {
+    if (!familyApplies) {
+      // Caller sent familyTeams for a non-FAMILY user — silently ignore; rows
+      // will be cleared below as part of the role-change cleanup.
+      familyTeamIds = [];
+    } else {
+      const parsedFamilyTeams = await parseFamilyTeams(rawFamilyTeams, validationClubId);
+      if (parsedFamilyTeams instanceof NextResponse) return parsedFamilyTeams;
+      familyTeamIds = parsedFamilyTeams;
+    }
+  }
 
   try {
     const data: Record<string, unknown> = {
@@ -73,24 +120,36 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       select: { id: true, name: true, email: true, role: true },
     });
 
-    // Rewrite the user's TeamStaff rows only when the caller sent a staff
-    // array. An absent field leaves existing assignments alone; an explicit
-    // empty array clears them. Users whose role is no longer TEAM_MANAGER
-    // always have their staff rows removed.
+    // TeamStaff — rewrite only when caller sent the field; clear on role change away from TM.
     if (!staffApplies) {
       await prisma.teamStaff.deleteMany({ where: { userId: params.id } });
     } else if (parsed !== null) {
-      // Replace-all semantics.
       await prisma.teamStaff.deleteMany({ where: { userId: params.id } });
       if (staffAssignments.length) {
         for (const s of staffAssignments) {
           if (s.role === TeamStaffRole.HEAD_COACH || s.role === TeamStaffRole.TEAM_MANAGER) {
-            // Single-slot: kick out any current holder of this role on the team.
             await prisma.teamStaff.deleteMany({ where: { teamId: s.teamId, role: s.role } });
           }
         }
         await prisma.teamStaff.createMany({
           data: staffAssignments.map((s) => ({ teamId: s.teamId, userId: params.id, role: s.role })),
+          skipDuplicates: true,
+        });
+      }
+    }
+
+    // FamilyTeamAccess — clear on role change away from FAMILY; replace-all when field present.
+    if (!familyApplies) {
+      await prisma.familyTeamAccess.deleteMany({ where: { familyUserId: params.id } });
+    } else if (familyTeamIds !== null) {
+      await prisma.familyTeamAccess.deleteMany({ where: { familyUserId: params.id } });
+      if (familyTeamIds.length) {
+        await prisma.familyTeamAccess.createMany({
+          data: familyTeamIds.map((teamId) => ({
+            familyUserId: params.id,
+            teamId,
+            clubId: validationClubId,
+          })),
           skipDuplicates: true,
         });
       }
@@ -112,7 +171,6 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  // Prevent deleting yourself
   if ((session.user as Record<string, unknown>).id === params.id) {
     return NextResponse.json({ error: "You cannot delete your own account" }, { status: 400 });
   }
