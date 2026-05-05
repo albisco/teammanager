@@ -49,9 +49,9 @@ export default function ManagerLayout({ children }: { children: React.ReactNode 
     if (!sessionLoaded && (item.teamManagerOnly || item.requiresAiChat || item.requiresRoster || item.requiresAwards || item.requiresSelfManaged)) return false;
     if (item.teamManagerOnly && activeStaffRole !== TEAM_STAFF_ROLE.TEAM_MANAGER) return false;
     if (item.requiresAiChat && user?.enableAiChat === false) return false;
-    if (item.requiresRoster && user?.teamEnableRoster === false) return false;
-    if (item.requiresAwards && user?.teamEnableAwards === false) return false;
-    if (item.requiresSelfManaged && user?.teamSelfManaged !== true) return false;
+    if (item.requiresRoster && user?.enableRoster === false) return false;
+    if (item.requiresAwards && user?.enableAwards === false) return false;
+    if (item.requiresSelfManaged && user?.isAdultClub !== true) return false;
     return true;
   });
 

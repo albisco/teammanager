@@ -16,10 +16,13 @@ export async function GET() {
 
   const team = await prisma.team.findUnique({
     where: { id: teamId },
-    select: { playerAvailabilityToken: true, selfManaged: true },
+    select: {
+      playerAvailabilityToken: true,
+      season: { select: { club: { select: { isAdultClub: true } } } },
+    },
   });
   if (!team) return NextResponse.json({ error: "Team not found" }, { status: 404 });
-  if (!team.selfManaged) return NextResponse.json({ error: "Not enabled for this team" }, { status: 403 });
+  if (!team.season.club.isAdultClub) return NextResponse.json({ error: "Not enabled for this team" }, { status: 403 });
 
   if (team.playerAvailabilityToken) {
     return NextResponse.json({ token: team.playerAvailabilityToken });
