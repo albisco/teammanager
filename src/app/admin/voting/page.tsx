@@ -5,13 +5,11 @@ import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
 } from "@/components/ui/table";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import QRCode from "qrcode";
@@ -75,10 +73,6 @@ export default function VotingPage() {
   const [savingEnforcement, setSavingEnforcement] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Max votes edit dialog
-  const [maxDialogOpen, setMaxDialogOpen] = useState(false);
-  const [maxDialogValue, setMaxDialogValue] = useState(4);
-  const [savingMax, setSavingMax] = useState(false);
 
   // QR dialog
   const [qrDialogOpen, setQrDialogOpen] = useState(false);
@@ -181,31 +175,6 @@ export default function VotingPage() {
     }
   }
 
-  async function saveMaxVotes() {
-    if (!clubId) return;
-    const parsed = Number(maxDialogValue);
-    if (!Number.isInteger(parsed) || parsed < 1) {
-      toast.error("Max votes must be a positive whole number");
-      return;
-    }
-    setSavingMax(true);
-    const res = await fetch("/api/clubs", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: clubId, maxVotesPerRound: parsed }),
-    });
-    if (res.ok) {
-      toast.success("Max votes updated");
-      setMaxVotesPerRound(parsed);
-      setMaxDialogOpen(false);
-      if (selectedTeam) fetchRounds(selectedTeam.id);
-    } else {
-      const data = await res.json().catch(() => ({}));
-      toast.error(data.error || "Failed to update");
-    }
-    setSavingMax(false);
-  }
-
   async function deleteVote(voteId: string) {
     if (!confirm("Delete this vote? Voting will remain in its current status — reopen manually if needed.")) return;
     const res = await fetch(`/api/voting/votes/${voteId}`, { method: "DELETE" });
@@ -256,13 +225,6 @@ export default function VotingPage() {
             <div className="flex items-center gap-2">
               <span className="text-gray-600">Max votes per round:</span>
               <Badge variant="secondary">{maxVotesPerRound}</Badge>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => { setMaxDialogValue(maxVotesPerRound); setMaxDialogOpen(true); }}
-              >
-                Edit
-              </Button>
             </div>
           )}
           <div className="flex items-center gap-2">
@@ -409,33 +371,6 @@ export default function VotingPage() {
           </div>
         </>
       )}
-
-      {/* Max Votes Dialog */}
-      <Dialog open={maxDialogOpen} onOpenChange={setMaxDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Max Votes Per Round</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-2 py-4">
-            <Label>Max Votes Per Round</Label>
-            <Input
-              type="number"
-              min={1}
-              value={maxDialogValue}
-              onChange={(e) => setMaxDialogValue(Math.max(1, Number(e.target.value) || 1))}
-            />
-            <p className="text-xs text-gray-500">
-              When a round hits this many votes, voting auto-closes. Deleting a vote does not automatically reopen — use the round&apos;s Reopen button.
-            </p>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setMaxDialogOpen(false)}>Cancel</Button>
-            <Button onClick={saveMaxVotes} disabled={savingMax}>
-              {savingMax ? "Saving..." : "Save"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* QR Code Dialog */}
       <Dialog open={qrDialogOpen} onOpenChange={setQrDialogOpen}>

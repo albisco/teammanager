@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LogoDropzone } from "@/components/logo-dropzone";
 import { toast } from "sonner";
+import { parseVotingScheme } from "@/lib/voting-scheme";
 
 interface Club {
   id: string;
@@ -15,6 +16,11 @@ interface Club {
   logoUrl: string | null;
   enableRoster: boolean;
   enableAwards: boolean;
+  votingScheme: number[];
+  parentVoterCount: number;
+  coachVoterCount: number;
+  maxVotesPerRound: number;
+  enforceFamilyVoteExclusion: boolean;
 }
 
 export default function ClubSettingsPage() {
@@ -31,6 +37,13 @@ export default function ClubSettingsPage() {
   const [enableRoster, setEnableRoster] = useState(true);
   const [enableAwards, setEnableAwards] = useState(true);
 
+  // Section 3 — Voting
+  const [schemeInput, setSchemeInput] = useState("5,4,3,2,1");
+  const [parentVoterCount, setParentVoterCount] = useState(3);
+  const [coachVoterCount, setCoachVoterCount] = useState(1);
+  const [maxVotesPerRound, setMaxVotesPerRound] = useState(4);
+  const [enforceFamilyVoteExclusion, setEnforceFamilyVoteExclusion] = useState(false);
+
   useEffect(() => {
     async function fetchClub() {
       try {
@@ -44,6 +57,11 @@ export default function ClubSettingsPage() {
           setLogoUrl(c.logoUrl);
           setEnableRoster(c.enableRoster);
           setEnableAwards(c.enableAwards);
+          setSchemeInput((c.votingScheme ?? [5, 4, 3, 2, 1]).join(", "));
+          setParentVoterCount(c.parentVoterCount ?? 3);
+          setCoachVoterCount(c.coachVoterCount ?? 1);
+          setMaxVotesPerRound(c.maxVotesPerRound ?? 4);
+          setEnforceFamilyVoteExclusion(c.enforceFamilyVoteExclusion ?? false);
         }
       } finally {
         setLoading(false);
@@ -52,14 +70,23 @@ export default function ClubSettingsPage() {
     fetchClub();
   }, []);
 
+  const schemeResult = parseVotingScheme(schemeInput, maxVotesPerRound);
+
   const isDirty =
     club !== null &&
     (name.trim() !== club.name ||
       enableRoster !== club.enableRoster ||
-      enableAwards !== club.enableAwards);
+      enableAwards !== club.enableAwards ||
+      (schemeResult.ok && JSON.stringify(schemeResult.value) !== JSON.stringify(club.votingScheme ?? [5, 4, 3, 2, 1])) ||
+      parentVoterCount !== (club.parentVoterCount ?? 3) ||
+      coachVoterCount !== (club.coachVoterCount ?? 1) ||
+      maxVotesPerRound !== (club.maxVotesPerRound ?? 4) ||
+      enforceFamilyVoteExclusion !== (club.enforceFamilyVoteExclusion ?? false));
+
+  const canSave = isDirty && schemeResult.ok;
 
   const handleSave = async () => {
-    if (!club || !isDirty) return;
+    if (!club || !canSave || !schemeResult.ok) return;
     const trimmedName = name.trim();
     if (!trimmedName) {
       toast.error("Club name cannot be empty");
@@ -71,6 +98,15 @@ export default function ClubSettingsPage() {
       if (trimmedName !== club.name) body.name = trimmedName;
       if (enableRoster !== club.enableRoster) body.enableRoster = enableRoster;
       if (enableAwards !== club.enableAwards) body.enableAwards = enableAwards;
+      if (JSON.stringify(schemeResult.value) !== JSON.stringify(club.votingScheme ?? [5, 4, 3, 2, 1])) {
+        body.votingScheme = schemeInput;
+      }
+      if (parentVoterCount !== (club.parentVoterCount ?? 3)) body.parentVoterCount = parentVoterCount;
+      if (coachVoterCount !== (club.coachVoterCount ?? 1)) body.coachVoterCount = coachVoterCount;
+      if (maxVotesPerRound !== (club.maxVotesPerRound ?? 4)) body.maxVotesPerRound = maxVotesPerRound;
+      if (enforceFamilyVoteExclusion !== (club.enforceFamilyVoteExclusion ?? false)) {
+        body.enforceFamilyVoteExclusion = enforceFamilyVoteExclusion;
+      }
 
       const res = await fetch(`/api/clubs/${club.id}`, {
         method: "PATCH",
@@ -87,6 +123,11 @@ export default function ClubSettingsPage() {
       setName(updated.name);
       setEnableRoster(updated.enableRoster);
       setEnableAwards(updated.enableAwards);
+      setSchemeInput((updated.votingScheme ?? [5, 4, 3, 2, 1]).join(", "));
+      setParentVoterCount(updated.parentVoterCount ?? 3);
+      setCoachVoterCount(updated.coachVoterCount ?? 1);
+      setMaxVotesPerRound(updated.maxVotesPerRound ?? 4);
+      setEnforceFamilyVoteExclusion(updated.enforceFamilyVoteExclusion ?? false);
       await updateSession();
       toast.success("Club settings saved");
     } catch {
@@ -195,8 +236,85 @@ export default function ClubSettingsPage() {
           </label>
         </section>
 
+        {/* Section 3 — Voting */}
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold">Voting</h2>
+
+          <div className="space-y-2">
+            <Label htmlFor="voting-scheme">Voting Scheme</Label>
+            <Input
+              id="voting-scheme"
+              value={schemeInput}
+              onChange={(e) => setSchemeInput(e.target.value)}
+              placeholder="e.g. 5, 4, 3, 2, 1"
+            />
+            {schemeResult.ok ? (
+              <p className="text-xs text-green-600">
+                Will store: [{schemeResult.value.join(", ")}]
+              </p>
+            ) : (
+              <p className="text-xs text-red-600">{schemeResult.message}</p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Comma-separated, strictly descending positive integers (1–10 entries).
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="parent-voter-count">Parent voter cap</Label>
+              <Input
+                id="parent-voter-count"
+                type="number"
+                min={0}
+                value={parentVoterCount}
+                onChange={(e) => setParentVoterCount(Math.max(0, parseInt(e.target.value) || 0))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="coach-voter-count">Coach voter cap</Label>
+              <Input
+                id="coach-voter-count"
+                type="number"
+                min={0}
+                value={coachVoterCount}
+                onChange={(e) => setCoachVoterCount(Math.max(0, parseInt(e.target.value) || 0))}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="max-votes">Max votes per round</Label>
+            <Input
+              id="max-votes"
+              type="number"
+              min={1}
+              value={maxVotesPerRound}
+              onChange={(e) => setMaxVotesPerRound(Math.max(1, parseInt(e.target.value) || 1))}
+            />
+            <p className="text-xs text-muted-foreground">
+              When a round reaches this many votes, voting auto-closes.
+            </p>
+          </div>
+
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={enforceFamilyVoteExclusion}
+              onChange={(e) => setEnforceFamilyVoteExclusion(e.target.checked)}
+              className="h-4 w-4 rounded border-gray-300"
+            />
+            <div>
+              <span className="font-medium text-sm">Enforce family vote exclusion</span>
+              <p className="text-xs text-muted-foreground">
+                Only families rostered on a voting duty role can cast parent votes.
+              </p>
+            </div>
+          </label>
+        </section>
+
         {/* Save */}
-        <Button onClick={handleSave} disabled={saving || !isDirty}>
+        <Button onClick={handleSave} disabled={saving || !canSave}>
           {saving ? "Saving…" : "Save Changes"}
         </Button>
       </div>

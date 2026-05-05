@@ -166,3 +166,30 @@ describe("PATCH /api/clubs/[id] — feature flags", () => {
     expect(res.status).toBe(400);
   });
 });
+
+describe("PATCH /api/clubs/[id] — voting config", () => {
+  test("ADMIN can update voting fields", async () => {
+    setTestSession(sessions.admin);
+    const updated = { id: CLUB_ID, name: "My Club", parentVoterCount: 2, coachVoterCount: 0, maxVotesPerRound: 3, enforceFamilyVoteExclusion: true, votingScheme: [5, 4, 3] };
+    mockUpdate.mockResolvedValueOnce(updated);
+    const req = createPatchRequest(CLUB_ID, { votingScheme: "5,4,3", parentVoterCount: 2, coachVoterCount: 0, maxVotesPerRound: 3, enforceFamilyVoteExclusion: true, name: "My Club" });
+    const res = await PATCH(req, { params: { id: CLUB_ID } });
+    expect(res.status).toBe(200);
+  });
+
+  test("invalid voting scheme returns 400", async () => {
+    setTestSession(sessions.admin);
+    const req = createPatchRequest(CLUB_ID, { votingScheme: "1,2,3", name: "My Club" });
+    const res = await PATCH(req, { params: { id: CLUB_ID } });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/descending/i);
+  });
+
+  test("negative parentVoterCount returns 400", async () => {
+    setTestSession(sessions.admin);
+    const req = createPatchRequest(CLUB_ID, { parentVoterCount: -1, name: "My Club" });
+    const res = await PATCH(req, { params: { id: CLUB_ID } });
+    expect(res.status).toBe(400);
+  });
+});
