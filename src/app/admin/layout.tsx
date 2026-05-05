@@ -15,9 +15,9 @@ const navItems = [
   { href: "/admin/clubs", label: "Clubs", superAdminOnly: true },
   { href: "/admin/players", label: "Players" },
   { href: "/admin/season", label: "Season", clubAdminOnly: true },
-  { href: "/admin/voting", label: "Voting", clubAdminOnly: true },
+  { href: "/admin/voting", label: "Voting", clubAdminOnly: true, requiresAwards: true },
   { href: "/admin/availability", label: "Availability", clubAdminOnly: true, adultOnly: true },
-  { href: "/admin/roster", label: "Roster", clubAdminOnly: true },
+  { href: "/admin/roster", label: "Roster", clubAdminOnly: true, requiresRoster: true },
   { href: "/admin/club", label: "Club", clubAdminOnly: true },
   { href: "/admin/users", label: "Users" },
   { href: "/admin/playhq", label: "PlayHQ", clubAdminOnly: true, requiresPlayHq: true },
@@ -64,6 +64,8 @@ export default function AdminLayout({
     if ((item as { adultOnly?: boolean }).adultOnly && !user?.isAdultClub) return false;
     if ((item as { requiresAiChat?: boolean }).requiresAiChat && user?.enableAiChat === false) return false;
     if ((item as { requiresPlayHq?: boolean }).requiresPlayHq && user?.enablePlayHq === false) return false;
+    if ((item as { requiresRoster?: boolean }).requiresRoster && user?.enableRoster === false) return false;
+    if ((item as { requiresAwards?: boolean }).requiresAwards && user?.enableAwards === false) return false;
     return true;
   });
 
