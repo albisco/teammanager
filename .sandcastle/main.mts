@@ -107,7 +107,6 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     // agent sees the prompt.
     promptArgs: {
       BRANCH: branch,
-      SOURCE_BRANCH: "feat/ui-nicety",
     },
   });
 
