@@ -35,20 +35,14 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   }
 
   const body = await req.json();
-  const { name, ageGroup, votingScheme, parentVoterCount, coachVoterCount, managerId, selfManaged, enableRoster, enableAwards } = body;
+  const { name, ageGroup, managerId } = body;
 
   const team = await prisma.team.update({
     where: { id: params.id },
     data: {
       name: name || undefined,
       ageGroup: ageGroup || undefined,
-      votingScheme: votingScheme || undefined,
-      parentVoterCount: parentVoterCount != null ? parseInt(parentVoterCount) : undefined,
-      coachVoterCount: coachVoterCount != null ? parseInt(coachVoterCount) : undefined,
       managerId: managerId !== undefined ? (managerId || null) : undefined,
-      selfManaged: selfManaged !== undefined ? !!selfManaged : undefined,
-      enableRoster: enableRoster !== undefined ? !!enableRoster : undefined,
-      enableAwards: enableAwards !== undefined ? !!enableAwards : undefined,
     },
     include: {
       manager: { select: { id: true, name: true, email: true } },

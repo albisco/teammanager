@@ -28,6 +28,9 @@ export async function POST(req: NextRequest, { params }: { params: { token: stri
                       id: true,
                       maxVotesPerRound: true,
                       enforceFamilyVoteExclusion: true,
+                      votingScheme: true,
+                      parentVoterCount: true,
+                      isAdultClub: true,
                     },
                   },
                 },
@@ -78,13 +81,13 @@ export async function POST(req: NextRequest, { params }: { params: { token: stri
     }
   }
 
-  // For self-managed teams, only PLAYER voters allowed
-  if (votingSession.round.team.selfManaged && voterType !== "PLAYER") {
+  // For adult/self-managed clubs, only PLAYER voters allowed
+  if (club.isAdultClub && voterType !== "PLAYER") {
     return NextResponse.json({ error: "This team accepts player votes only" }, { status: 400 });
   }
 
   // Validate rankings match voting scheme length
-  const votingScheme = team.votingScheme as number[];
+  const votingScheme = club.votingScheme as number[];
   if (rankings.length !== votingScheme.length) {
     return NextResponse.json({
       error: `Expected ${votingScheme.length} rankings, got ${rankings.length}`,
@@ -187,7 +190,7 @@ export async function POST(req: NextRequest, { params }: { params: { token: stri
         const parentCount = await tx.vote.count({
           where: { votingSessionId: votingSession.id, voterType: "PARENT" },
         });
-        if (parentCount >= team.parentVoterCount) {
+        if (parentCount >= club.parentVoterCount) {
           throw new Error("PARENT_FULL");
         }
       }

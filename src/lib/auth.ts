@@ -95,15 +95,32 @@ export const authOptions: NextAuthOptions = {
         let enableAiChat = true;
         let enablePlayHq = true;
         let allowTeamDutyRoles = false;
+        let enableRoster = true;
+        let enableAwards = true;
+        let clubName: string | null = null;
+        let clubLogoUrl: string | null = null;
         if (user.clubId) {
           const club = await prisma.club.findUnique({
             where: { id: user.clubId },
-            select: { isAdultClub: true, enableAiChat: true, enablePlayHq: true, allowTeamDutyRoles: true },
+            select: {
+              name: true,
+              logoUrl: true,
+              isAdultClub: true,
+              enableAiChat: true,
+              enablePlayHq: true,
+              allowTeamDutyRoles: true,
+              enableRoster: true,
+              enableAwards: true,
+            },
           });
+          clubName = club?.name ?? null;
+          clubLogoUrl = club?.logoUrl ?? null;
           isAdultClub = club?.isAdultClub ?? false;
           enableAiChat = club?.enableAiChat ?? true;
           enablePlayHq = club?.enablePlayHq ?? true;
           allowTeamDutyRoles = club?.allowTeamDutyRoles ?? false;
+          enableRoster = club?.enableRoster ?? true;
+          enableAwards = club?.enableAwards ?? true;
         }
 
         return {
@@ -112,6 +129,8 @@ export const authOptions: NextAuthOptions = {
           name: user.name,
           role: user.role,
           clubId: user.clubId,
+          clubName,
+          clubLogoUrl,
           teamId: teams[0]?.teamId ?? null,
           teams,
           familyTeams,
@@ -119,6 +138,8 @@ export const authOptions: NextAuthOptions = {
           enableAiChat,
           enablePlayHq,
           allowTeamDutyRoles,
+          enableRoster,
+          enableAwards,
           teamSelfManaged,
           teamEnableRoster,
           teamEnableAwards,
@@ -127,12 +148,14 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
       if (user) {
         const u = user as unknown as Record<string, unknown>;
         token.role = u.role as string;
         token.id = user.id;
         token.clubId = u.clubId as string;
+        token.clubName = u.clubName as string | null;
+        token.clubLogoUrl = u.clubLogoUrl as string | null;
         token.teamId = u.teamId as string | null;
         token.teams = u.teams as ManagerTeam[];
         token.familyTeams = u.familyTeams as string[];
@@ -140,10 +163,28 @@ export const authOptions: NextAuthOptions = {
         token.enableAiChat = u.enableAiChat as boolean;
         token.enablePlayHq = u.enablePlayHq as boolean;
         token.allowTeamDutyRoles = u.allowTeamDutyRoles as boolean;
+        token.enableRoster = u.enableRoster as boolean;
+        token.enableAwards = u.enableAwards as boolean;
         token.teamSelfManaged = u.teamSelfManaged as boolean;
         token.teamEnableRoster = u.teamEnableRoster as boolean;
         token.teamEnableAwards = u.teamEnableAwards as boolean;
       }
+
+      if (trigger === "update" && token.clubId) {
+        const { prisma } = await import("./prisma");
+        const club = await prisma.club.findUnique({
+          where: { id: token.clubId as string },
+          select: { name: true, logoUrl: true, enableRoster: true, enableAwards: true, isAdultClub: true },
+        });
+        if (club) {
+          token.clubName = club.name;
+          token.clubLogoUrl = club.logoUrl;
+          token.enableRoster = club.enableRoster;
+          token.enableAwards = club.enableAwards;
+          token.isAdultClub = club.isAdultClub;
+        }
+      }
+
       return token;
     },
     async session({ session, token }) {
@@ -152,6 +193,8 @@ export const authOptions: NextAuthOptions = {
         s.role = token.role;
         s.id = token.id;
         s.clubId = token.clubId;
+        s.clubName = token.clubName;
+        s.clubLogoUrl = token.clubLogoUrl;
         s.teamId = token.teamId;
         s.teams = token.teams ?? [];
         s.familyTeams = token.familyTeams ?? [];
@@ -159,6 +202,8 @@ export const authOptions: NextAuthOptions = {
         s.enableAiChat = token.enableAiChat;
         s.enablePlayHq = token.enablePlayHq;
         s.allowTeamDutyRoles = token.allowTeamDutyRoles;
+        s.enableRoster = token.enableRoster;
+        s.enableAwards = token.enableAwards;
         s.teamSelfManaged = token.teamSelfManaged;
         s.teamEnableRoster = token.teamEnableRoster;
         s.teamEnableAwards = token.teamEnableAwards;

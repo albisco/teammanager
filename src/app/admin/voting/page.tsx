@@ -5,13 +5,11 @@ import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
 } from "@/components/ui/table";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import QRCode from "qrcode";
@@ -72,13 +70,8 @@ export default function VotingPage() {
   const [maxVotesPerRound, setMaxVotesPerRound] = useState<number | null>(null);
   const [enforceFamilyVoteExclusion, setEnforceFamilyVoteExclusion] = useState(false);
   const [rosteredCounts, setRosteredCounts] = useState<Record<string, number>>({});
-  const [savingEnforcement, setSavingEnforcement] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Max votes edit dialog
-  const [maxDialogOpen, setMaxDialogOpen] = useState(false);
-  const [maxDialogValue, setMaxDialogValue] = useState(4);
-  const [savingMax, setSavingMax] = useState(false);
 
   // QR dialog
   const [qrDialogOpen, setQrDialogOpen] = useState(false);
@@ -129,24 +122,6 @@ export default function VotingPage() {
     }
   }, []);
 
-  async function toggleEnforcement(next: boolean) {
-    if (!clubId) return;
-    setSavingEnforcement(true);
-    const res = await fetch("/api/clubs", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: clubId, enforceFamilyVoteExclusion: next }),
-    });
-    if (res.ok) {
-      setEnforceFamilyVoteExclusion(next);
-      toast.success(next ? "Family exclusion enforced" : "Family exclusion disabled");
-    } else {
-      const data = await res.json().catch(() => ({}));
-      toast.error(data.error || "Failed to update");
-    }
-    setSavingEnforcement(false);
-  }
-
   useEffect(() => {
     if (selectedTeam) fetchRounds(selectedTeam.id);
   }, [selectedTeam, fetchRounds]);
@@ -179,31 +154,6 @@ export default function VotingPage() {
       toast.success(`Voting ${newStatus.toLowerCase()}`);
       if (selectedTeam) fetchRounds(selectedTeam.id);
     }
-  }
-
-  async function saveMaxVotes() {
-    if (!clubId) return;
-    const parsed = Number(maxDialogValue);
-    if (!Number.isInteger(parsed) || parsed < 1) {
-      toast.error("Max votes must be a positive whole number");
-      return;
-    }
-    setSavingMax(true);
-    const res = await fetch("/api/clubs", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: clubId, maxVotesPerRound: parsed }),
-    });
-    if (res.ok) {
-      toast.success("Max votes updated");
-      setMaxVotesPerRound(parsed);
-      setMaxDialogOpen(false);
-      if (selectedTeam) fetchRounds(selectedTeam.id);
-    } else {
-      const data = await res.json().catch(() => ({}));
-      toast.error(data.error || "Failed to update");
-    }
-    setSavingMax(false);
   }
 
   async function deleteVote(voteId: string) {
@@ -251,43 +201,7 @@ export default function VotingPage() {
     <div>
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <h1 className="text-3xl font-bold">Voting</h1>
-        <div className="flex items-center gap-6 text-sm flex-wrap">
-          {maxVotesPerRound !== null && (
-            <div className="flex items-center gap-2">
-              <span className="text-gray-600">Max votes per round:</span>
-              <Badge variant="secondary">{maxVotesPerRound}</Badge>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => { setMaxDialogValue(maxVotesPerRound); setMaxDialogOpen(true); }}
-              >
-                Edit
-              </Button>
-            </div>
-          )}
-          <div className="flex items-center gap-2">
-            <span className="text-gray-600">Family vote exclusion:</span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={enforceFamilyVoteExclusion}
-              disabled={savingEnforcement || !clubId}
-              onClick={() => toggleEnforcement(!enforceFamilyVoteExclusion)}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-60 ${enforceFamilyVoteExclusion ? "bg-primary" : "bg-gray-200"}`}
-            >
-              <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${enforceFamilyVoteExclusion ? "translate-x-6" : "translate-x-1"}`} />
-            </button>
-            <Badge variant={enforceFamilyVoteExclusion ? "default" : "secondary"}>
-              {enforceFamilyVoteExclusion ? "On" : "Off"}
-            </Badge>
-          </div>
-        </div>
       </div>
-      {enforceFamilyVoteExclusion && (
-        <p className="text-xs text-gray-500 mb-4 -mt-2">
-          Parents pick their family from a dropdown limited to families rostered for the round; their own players are hidden from the rankings.
-        </p>
-      )}
 
       {/* Team selector */}
       <div className="flex gap-3 mb-6 flex-wrap">
@@ -409,33 +323,6 @@ export default function VotingPage() {
           </div>
         </>
       )}
-
-      {/* Max Votes Dialog */}
-      <Dialog open={maxDialogOpen} onOpenChange={setMaxDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Max Votes Per Round</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-2 py-4">
-            <Label>Max Votes Per Round</Label>
-            <Input
-              type="number"
-              min={1}
-              value={maxDialogValue}
-              onChange={(e) => setMaxDialogValue(Math.max(1, Number(e.target.value) || 1))}
-            />
-            <p className="text-xs text-gray-500">
-              When a round hits this many votes, voting auto-closes. Deleting a vote does not automatically reopen — use the round&apos;s Reopen button.
-            </p>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setMaxDialogOpen(false)}>Cancel</Button>
-            <Button onClick={saveMaxVotes} disabled={savingMax}>
-              {savingMax ? "Saving..." : "Save"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* QR Code Dialog */}
       <Dialog open={qrDialogOpen} onOpenChange={setQrDialogOpen}>

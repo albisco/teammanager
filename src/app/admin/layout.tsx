@@ -7,6 +7,7 @@ import { useSession, signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { ClubLogo } from "@/components/club-logo";
 import { ROLE } from "@/lib/roles";
 
 const navItems = [
@@ -14,9 +15,10 @@ const navItems = [
   { href: "/admin/clubs", label: "Clubs", superAdminOnly: true },
   { href: "/admin/players", label: "Players" },
   { href: "/admin/season", label: "Season", clubAdminOnly: true },
-  { href: "/admin/voting", label: "Voting", clubAdminOnly: true },
+  { href: "/admin/voting", label: "Voting", clubAdminOnly: true, requiresAwards: true },
   { href: "/admin/availability", label: "Availability", clubAdminOnly: true, adultOnly: true },
-  { href: "/admin/roster", label: "Roster", clubAdminOnly: true },
+  { href: "/admin/roster", label: "Roster", clubAdminOnly: true, requiresRoster: true },
+  { href: "/admin/club", label: "Settings", clubAdminOnly: true },
   { href: "/admin/users", label: "Users" },
   { href: "/admin/playhq", label: "PlayHQ", clubAdminOnly: true, requiresPlayHq: true },
   { href: "/admin/ask", label: "Ask AI", clubAdminOnly: true, requiresAiChat: true },
@@ -28,7 +30,7 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const asideRef = useRef<HTMLElement>(null);
 
@@ -51,14 +53,19 @@ export default function AdminLayout({
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  const user = session?.user as Record<string, unknown> | undefined;
+  const clubName = user?.clubName as string | undefined;
+  const clubLogoUrl = user?.clubLogoUrl as string | undefined;
+
   const filteredNavItems = navItems.filter((item) => {
-    const user = session?.user as Record<string, unknown> | undefined;
     const role = user?.role;
     if (item.superAdminOnly && role !== ROLE.SUPER_ADMIN) return false;
     if (item.clubAdminOnly && role === ROLE.SUPER_ADMIN) return false;
     if ((item as { adultOnly?: boolean }).adultOnly && !user?.isAdultClub) return false;
     if ((item as { requiresAiChat?: boolean }).requiresAiChat && user?.enableAiChat === false) return false;
     if ((item as { requiresPlayHq?: boolean }).requiresPlayHq && user?.enablePlayHq === false) return false;
+    if ((item as { requiresRoster?: boolean }).requiresRoster && user?.enableRoster === false) return false;
+    if ((item as { requiresAwards?: boolean }).requiresAwards && user?.enableAwards === false) return false;
     return true;
   });
 
@@ -97,9 +104,26 @@ export default function AdminLayout({
         )}
       >
         <div className="p-4 border-b border-gray-700 flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-bold">Team Manager</h1>
-            <p className="text-sm text-gray-400">Admin Panel</p>
+          <div className="flex items-center gap-2 min-w-0">
+            {status === "loading" ? (
+              <>
+                <div className="w-8 h-8 rounded-full bg-gray-700 animate-pulse shrink-0" />
+                <div className="min-w-0 flex-1 space-y-1">
+                  <div className="h-5 w-32 bg-gray-700 rounded animate-pulse" />
+                  <div className="h-3 w-20 bg-gray-800 rounded animate-pulse" />
+                </div>
+              </>
+            ) : (
+              <>
+                {clubName && (
+                  <ClubLogo name={clubName} logoUrl={clubLogoUrl} size="sm" />
+                )}
+                <div className="min-w-0">
+                  <h1 className="text-lg font-bold truncate">{clubName || "Team Manager"}</h1>
+                  <p className="text-sm text-gray-400">Admin Panel</p>
+                </div>
+              </>
+            )}
           </div>
           <div className="flex items-center gap-1">
             <ThemeToggle />

@@ -30,24 +30,14 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { name, ageGroup, seasonId, votingScheme, parentVoterCount, coachVoterCount, selfManaged, enableRoster, enableAwards } = body;
+  const { name, ageGroup, seasonId } = body;
 
   if (!name || !ageGroup || !seasonId) {
     return NextResponse.json({ error: "Name, age group, and season are required" }, { status: 400 });
   }
 
   const team = await prisma.team.create({
-    data: {
-      name,
-      ageGroup,
-      seasonId,
-      votingScheme: votingScheme || [5, 4, 3, 2, 1],
-      parentVoterCount: parentVoterCount ? parseInt(parentVoterCount) : 3,
-      coachVoterCount: coachVoterCount ? parseInt(coachVoterCount) : 1,
-      ...(selfManaged !== undefined && { selfManaged: !!selfManaged }),
-      ...(enableRoster !== undefined && { enableRoster: !!enableRoster }),
-      ...(enableAwards !== undefined && { enableAwards: !!enableAwards }),
-    },
+    data: { name, ageGroup, seasonId },
   });
 
   return NextResponse.json(team, { status: 201 });

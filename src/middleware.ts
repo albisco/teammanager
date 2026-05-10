@@ -14,6 +14,10 @@ export default withAuth(
       return NextResponse.redirect(new URL("/login", req.url));
     }
 
+    if (path.startsWith("/admin/clubs") && token?.role !== ROLE.SUPER_ADMIN) {
+      return NextResponse.redirect(new URL("/admin/dashboard", req.url));
+    }
+
     if (path.startsWith("/admin") && !path.startsWith("/admin/players") && !isAdminOrSuper) {
       return NextResponse.redirect(new URL("/login", req.url));
     }

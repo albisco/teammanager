@@ -12,12 +12,18 @@ model Club {
   id                         String   @id @default(cuid())
   name                       String
   slug                       String   @unique
+  logoUrl                    String?
   isAdultClub                Boolean  @default(false)
   allowTeamDutyRoles         Boolean  @default(false)
   enforceFamilyVoteExclusion Boolean  @default(false)
   maxVotesPerRound           Int      @default(4)
   enableAiChat               Boolean  @default(true)
   enablePlayHq               Boolean  @default(true)
+  votingScheme               Json     @default("[5,4,3,2,1]")
+  parentVoterCount           Int      @default(3)
+  coachVoterCount            Int      @default(1)
+  enableRoster               Boolean  @default(true)
+  enableAwards               Boolean  @default(true)
   createdAt                  DateTime @default(now())
 
   users              User[]

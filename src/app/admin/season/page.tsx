@@ -56,12 +56,6 @@ interface TeamSummary {
   id: string;
   name: string;
   ageGroup: string;
-  votingScheme: number[];
-  parentVoterCount: number;
-  coachVoterCount: number;
-  selfManaged?: boolean;
-  enableRoster?: boolean;
-  enableAwards?: boolean;
   _count: { players: number; rounds: number };
 }
 
@@ -96,14 +90,7 @@ export default function SeasonPage() {
   const [teamForm, setTeamForm] = useState({
     name: "",
     ageGroup: "",
-    votingScheme: "5,4,3,2,1",
-    parentVoterCount: "2",
-    selfManaged: false,
-    enableRoster: true,
-    enableAwards: true,
   });
-  const [teamDialogStaff, setTeamDialogStaff] = useState<{ headCoach: number; assistantCoach: number } | null>(null);
-
   // Round dialog
   const [roundDialogOpen, setRoundDialogOpen] = useState(false);
   const [editingRoundId, setEditingRoundId] = useState<string | null>(null);
@@ -202,37 +189,17 @@ export default function SeasonPage() {
   // === Team CRUD ===
   function openAddTeam() {
     setEditingTeamId(null);
-    setTeamForm({ name: "", ageGroup: "", votingScheme: "5,4,3,2,1", parentVoterCount: "2", selfManaged: false, enableRoster: true, enableAwards: true });
-    setTeamDialogStaff(null);
+    setTeamForm({ name: "", ageGroup: "" });
     setTeamDialogOpen(true);
   }
   function openEditTeam(team: TeamSummary) {
     setEditingTeamId(team.id);
-    setTeamForm({
-      name: team.name,
-      ageGroup: team.ageGroup,
-      votingScheme: (team.votingScheme as number[]).join(","),
-      parentVoterCount: String(team.parentVoterCount ?? 2),
-      selfManaged: team.selfManaged ?? false,
-      enableRoster: team.enableRoster ?? true,
-      enableAwards: team.enableAwards ?? true,
-    });
-    setTeamDialogStaff(null);
-    fetch(`/api/teams/${team.id}/staff`)
-      .then((r) => (r.ok ? r.json() : []))
-      .then((rows: { role: string }[]) => {
-        const headCoach = rows.filter((s) => s.role === "HEAD_COACH").length;
-        const assistantCoach = rows.filter((s) => s.role === "ASSISTANT_COACH").length;
-        setTeamDialogStaff({ headCoach, assistantCoach });
-      })
-      .catch(() => setTeamDialogStaff({ headCoach: 0, assistantCoach: 0 }));
+    setTeamForm({ name: team.name, ageGroup: team.ageGroup });
     setTeamDialogOpen(true);
   }
   async function handleSaveTeam() {
     if (!selectedSeason) return;
     setLoading(true);
-    const votingScheme = teamForm.votingScheme.split(",").map((s) => parseInt(s.trim())).filter((n) => !isNaN(n));
-    const parentVoterCount = Math.max(1, parseInt(teamForm.parentVoterCount) || 2);
     const url = editingTeamId ? `/api/teams/${editingTeamId}` : "/api/teams";
     const method = editingTeamId ? "PUT" : "POST";
     const res = await fetch(url, {
@@ -240,12 +207,7 @@ export default function SeasonPage() {
       body: JSON.stringify({
         name: teamForm.name,
         ageGroup: teamForm.ageGroup,
-        votingScheme,
-        parentVoterCount,
         seasonId: selectedSeason.id,
-        selfManaged: teamForm.selfManaged,
-        enableRoster: teamForm.enableRoster,
-        enableAwards: teamForm.enableAwards,
       }),
     });
     if (res.ok) {
@@ -422,7 +384,6 @@ export default function SeasonPage() {
                   <p className="text-sm text-gray-500">
                     {team._count.players} player{team._count.players !== 1 ? "s" : ""} &middot; {team._count.rounds} round{team._count.rounds !== 1 ? "s" : ""}
                   </p>
-                  <p className="text-xs text-gray-400 mt-1">Voting: {(team.votingScheme as number[]).join(", ")} pts</p>
                   <div className="flex gap-1 mt-2">
                     <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); openEditTeam(team); }}>Edit</Button>
                     <Button variant="destructive" size="sm" onClick={(e) => { e.stopPropagation(); handleDeleteTeam(team.id); }}>Delete</Button>
@@ -642,78 +603,6 @@ export default function SeasonPage() {
                 <Label>Team Name *</Label>
                 <Input value={teamForm.name} onChange={(e) => setTeamForm({ ...teamForm, name: e.target.value })} placeholder="e.g. Lightning" />
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Voting Scheme (comma-separated points)</Label>
-              <Input value={teamForm.votingScheme} onChange={(e) => setTeamForm({ ...teamForm, votingScheme: e.target.value })} placeholder="5,4,3,2,1" />
-              <p className="text-xs text-gray-500">Points awarded for each vote position (best to least)</p>
-            </div>
-            <div className="space-y-2">
-              <Label>Parent voters per round</Label>
-              <Input
-                type="number"
-                min={1}
-                value={teamForm.parentVoterCount}
-                onChange={(e) => setTeamForm({ ...teamForm, parentVoterCount: e.target.value })}
-              />
-              <p className="text-xs text-gray-500">Maximum number of family votes accepted per round.</p>
-            </div>
-            {editingTeamId && teamDialogStaff && (
-              <div className="space-y-1 rounded-md border bg-gray-50 p-3">
-                <p className="text-xs font-medium text-gray-700">
-                  Coach votes: {teamDialogStaff.headCoach} Head Coach
-                  {teamDialogStaff.assistantCoach > 0
-                    ? ` + ${teamDialogStaff.assistantCoach} Assistant Coach${teamDialogStaff.assistantCoach !== 1 ? "es" : ""}`
-                    : ""} (one vote each)
-                </p>
-                {teamDialogStaff.headCoach + teamDialogStaff.assistantCoach === 0 && (
-                  <p className="text-xs text-amber-700">
-                    No coach seats configured — set a Head Coach / Assistant Coach in Team Staff to enable coach voting.
-                  </p>
-                )}
-              </div>
-            )}
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                role="switch"
-                aria-checked={teamForm.selfManaged}
-                onClick={() => setTeamForm({ ...teamForm, selfManaged: !teamForm.selfManaged })}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${teamForm.selfManaged ? "bg-primary" : "bg-gray-200"}`}
-              >
-                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${teamForm.selfManaged ? "translate-x-6" : "translate-x-1"}`} />
-              </button>
-              <Label className="cursor-pointer" onClick={() => setTeamForm({ ...teamForm, selfManaged: !teamForm.selfManaged })}>
-                Self-managed (players vote each other, no team staff)
-              </Label>
-            </div>
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                role="switch"
-                aria-checked={teamForm.enableRoster}
-                onClick={() => setTeamForm({ ...teamForm, enableRoster: !teamForm.enableRoster })}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${teamForm.enableRoster ? "bg-primary" : "bg-gray-200"}`}
-              >
-                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${teamForm.enableRoster ? "translate-x-6" : "translate-x-1"}`} />
-              </button>
-              <Label className="cursor-pointer" onClick={() => setTeamForm({ ...teamForm, enableRoster: !teamForm.enableRoster })}>
-                Enable duty roster
-              </Label>
-            </div>
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                role="switch"
-                aria-checked={teamForm.enableAwards}
-                onClick={() => setTeamForm({ ...teamForm, enableAwards: !teamForm.enableAwards })}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${teamForm.enableAwards ? "bg-primary" : "bg-gray-200"}`}
-              >
-                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${teamForm.enableAwards ? "translate-x-6" : "translate-x-1"}`} />
-              </button>
-              <Label className="cursor-pointer" onClick={() => setTeamForm({ ...teamForm, enableAwards: !teamForm.enableAwards })}>
-                Enable awards
-              </Label>
             </div>
           </div>
           <DialogFooter>

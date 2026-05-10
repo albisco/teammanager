@@ -7,6 +7,7 @@ import { useSession, signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { ClubLogo } from "@/components/club-logo";
 import { TeamSwitcher } from "@/components/ui/team-switcher";
 import { useActiveTeam } from "@/hooks/use-active-team";
 import { TEAM_STAFF_ROLE } from "@/lib/roles";
@@ -34,21 +35,23 @@ const navItems: NavItem[] = [
 
 export default function ManagerLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const { activeStaffRole } = useActiveTeam();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const asideRef = useRef<HTMLElement>(null);
 
   const user = session?.user as Record<string, unknown> | undefined;
+  const clubName = user?.clubName as string | undefined;
+  const clubLogoUrl = user?.clubLogoUrl as string | undefined;
   const sessionLoaded = !!user;
   const visibleNavItems = navItems.filter((item) => {
     // While session loads, hide feature-gated items to avoid flashing links the user can't access.
     if (!sessionLoaded && (item.teamManagerOnly || item.requiresAiChat || item.requiresRoster || item.requiresAwards || item.requiresSelfManaged)) return false;
     if (item.teamManagerOnly && activeStaffRole !== TEAM_STAFF_ROLE.TEAM_MANAGER) return false;
     if (item.requiresAiChat && user?.enableAiChat === false) return false;
-    if (item.requiresRoster && user?.teamEnableRoster === false) return false;
-    if (item.requiresAwards && user?.teamEnableAwards === false) return false;
-    if (item.requiresSelfManaged && user?.teamSelfManaged !== true) return false;
+    if (item.requiresRoster && user?.enableRoster === false) return false;
+    if (item.requiresAwards && user?.enableAwards === false) return false;
+    if (item.requiresSelfManaged && user?.isAdultClub !== true) return false;
     return true;
   });
 
@@ -106,9 +109,26 @@ export default function ManagerLayout({ children }: { children: React.ReactNode 
         )}
       >
         <div className="p-4 border-b border-gray-700 flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-bold">Team Manager</h1>
-            <p className="text-sm text-gray-400 truncate">{session?.user?.name}</p>
+          <div className="flex items-center gap-2 min-w-0">
+            {status === "loading" ? (
+              <>
+                <div className="w-8 h-8 rounded-full bg-gray-700 animate-pulse shrink-0" />
+                <div className="min-w-0 flex-1 space-y-1">
+                  <div className="h-5 w-32 bg-gray-700 rounded animate-pulse" />
+                  <div className="h-3 w-20 bg-gray-800 rounded animate-pulse" />
+                </div>
+              </>
+            ) : (
+              <>
+                {clubName && (
+                  <ClubLogo name={clubName} logoUrl={clubLogoUrl} size="sm" />
+                )}
+                <div className="min-w-0">
+                  <h1 className="text-lg font-bold truncate">{clubName || "Team Manager"}</h1>
+                  <p className="text-sm text-gray-400 truncate">{session?.user?.name}</p>
+                </div>
+              </>
+            )}
           </div>
           <div className="flex items-center gap-1">
             <ThemeToggle />
