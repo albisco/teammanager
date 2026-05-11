@@ -96,6 +96,14 @@ export default function FamilyRosterPage() {
 
   const hasAssignments = Object.keys(data.assignments).length > 0;
 
+  // Show all past rounds + the next 3 upcoming
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const pastRounds = data.rounds.filter((r) => r.date && new Date(r.date) < today);
+  const upcomingRounds = data.rounds.filter((r) => !r.date || new Date(r.date) >= today);
+  const visibleRounds = [...pastRounds, ...upcomingRounds.slice(0, 3)];
+  const hiddenCount = upcomingRounds.length - Math.min(3, upcomingRounds.length);
+
   // Which rounds have at least one assignment for my family?
   const myAssignedRoundIds = new Set(
     Object.entries(data.assignments)
@@ -137,7 +145,7 @@ export default function FamilyRosterPage() {
         <>
           {/* Mobile: card list per round */}
           <div className="md:hidden space-y-3">
-            {data.rounds.map((round) => {
+            {visibleRounds.map((round) => {
               const myDuties: { roleName: string }[] = [];
               for (const role of data.roles) {
                 const key = `${round.id}:${role.id}`;
@@ -207,7 +215,7 @@ export default function FamilyRosterPage() {
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {data.rounds.map((round) => {
+                {visibleRounds.map((round) => {
                   const isMyRound = myAssignedRoundIds.has(round.id);
                   return (
                     <tr
@@ -265,6 +273,11 @@ export default function FamilyRosterPage() {
             </span>
             <span>Other names shown when someone else is assigned</span>
           </div>
+          {hiddenCount > 0 && (
+            <p className="mt-3 text-xs text-muted-foreground">
+              {hiddenCount} more round{hiddenCount !== 1 ? "s" : ""} later in the season — check back as they get closer.
+            </p>
+          )}
         </>
       )}
     </div>
