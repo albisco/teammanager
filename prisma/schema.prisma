@@ -193,6 +193,7 @@ model Round {
   opponent         String?
   venue            String?
   court            String?
+  isHome           Boolean?
   externalId       String?
   isRosterLocked   Boolean   @default(false)
 
@@ -258,6 +259,7 @@ model TeamDutyRole {
   assignedFamilyId   String?
   frequencyWeeks     Int          @default(1)
   slots              Int          @default(1)
+  allowOptOut        Boolean      @default(true)
 
   specialists       TeamDutyRoleSpecialist[]
   rosterAssignments RosterAssignment[]

@@ -10,6 +10,49 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { ClubLogo } from "@/components/club-logo";
 import { FamilyTeamSwitcher } from "@/components/ui/family-team-switcher";
 
+function UserMenu({ name }: { name: string }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  const initials = name
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-700 text-white text-xs font-bold hover:bg-blue-600 transition-colors"
+        aria-label="User menu"
+      >
+        {initials}
+      </button>
+      {open && (
+        <div className="absolute right-0 top-10 z-50 w-48 bg-popover border rounded-md shadow-lg py-1">
+          <p className="px-3 py-2 text-sm font-medium truncate border-b">{name}</p>
+          <button
+            className="w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors"
+            onClick={() => signOut({ callbackUrl: "/login" })}
+          >
+            Sign out
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const navItems = [
   { href: "/family/dashboard", label: "Dashboard" },
   { href: "/family/availability", label: "Availability" },
@@ -51,10 +94,10 @@ export default function FamilyLayout({
   return (
     <div className="min-h-screen flex">
       {/* Mobile header */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-30 bg-blue-900 text-white flex items-center px-4 h-14">
+      <div className="md:hidden fixed top-0 left-0 right-0 z-30 bg-blue-900 text-white flex items-center px-4 h-14 gap-2">
         <button
           onClick={() => setSidebarOpen(true)}
-          className="p-1 mr-3"
+          className="p-1 mr-1 shrink-0"
           aria-label="Open menu"
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -63,6 +106,7 @@ export default function FamilyLayout({
         </button>
         <h1 className="flex-1 text-lg font-bold">Family Portal</h1>
         <ThemeToggle />
+        {session?.user?.name && <UserMenu name={session.user.name} />}
       </div>
 
       {/* Overlay */}
@@ -135,7 +179,7 @@ export default function FamilyLayout({
             </Link>
           ))}
         </nav>
-        <div className="p-4 border-t border-blue-700">
+        <div className="p-4 border-t border-blue-700 hidden md:block">
           <p className="text-sm text-blue-300 mb-2 truncate">{session?.user?.name}</p>
           <Button
             variant="ghost"

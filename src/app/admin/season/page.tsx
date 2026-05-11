@@ -25,6 +25,7 @@ interface Round {
   opponent: string | null;
   venue: string | null;
   court?: string | null;
+  isHome: boolean | null;
 }
 
 interface FixturePreviewRow {
@@ -95,7 +96,7 @@ export default function SeasonPage() {
   const [roundDialogOpen, setRoundDialogOpen] = useState(false);
   const [editingRoundId, setEditingRoundId] = useState<string | null>(null);
   const [roundForm, setRoundForm] = useState({
-    roundNumber: "", date: "", gameTime: "", isBye: false, opponent: "", venue: "",
+    roundNumber: "", date: "", gameTime: "", isBye: false, opponent: "", venue: "", isHome: null as boolean | null,
   });
 
   // Fixture import dialog
@@ -288,7 +289,7 @@ export default function SeasonPage() {
       ? Math.max(...selectedTeamDetail.rounds.map((r) => r.roundNumber)) + 1
       : 1;
     setEditingRoundId(null);
-    setRoundForm({ roundNumber: String(nextNum), date: "", gameTime: "", isBye: false, opponent: "", venue: "" });
+    setRoundForm({ roundNumber: String(nextNum), date: "", gameTime: "", isBye: false, opponent: "", venue: "", isHome: null });
     setRoundDialogOpen(true);
   }
   function openEditRound(round: Round) {
@@ -300,6 +301,7 @@ export default function SeasonPage() {
       isBye: round.isBye,
       opponent: round.opponent || "",
       venue: round.venue || "",
+      isHome: round.isHome ?? null,
     });
     setRoundDialogOpen(true);
   }
@@ -640,6 +642,23 @@ export default function SeasonPage() {
             <div className="space-y-2">
               <Label>Venue</Label>
               <Input value={roundForm.venue} onChange={(e) => setRoundForm({ ...roundForm, venue: e.target.value })} placeholder="e.g. Central Oval" />
+            </div>
+            <div className="space-y-2">
+              <Label>Home / Away</Label>
+              <div className="flex gap-3">
+                {([["home", true], ["away", false], ["unknown", null]] as [string, boolean | null][]).map(([label, val]) => (
+                  <label key={label} className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="isHome"
+                      checked={roundForm.isHome === val}
+                      onChange={() => setRoundForm({ ...roundForm, isHome: val })}
+                      className="accent-blue-600"
+                    />
+                    <span className="text-sm capitalize">{label}</span>
+                  </label>
+                ))}
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <input type="checkbox" id="isBye" checked={roundForm.isBye} onChange={(e) => setRoundForm({ ...roundForm, isBye: e.target.checked })} className="rounded border-gray-300" />

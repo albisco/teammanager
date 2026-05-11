@@ -21,7 +21,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   }
 
   const body = await req.json();
-  const { roundNumber, date, gameTime, isBye, opponent, venue } = body;
+  const { roundNumber, date, gameTime, isBye, opponent, venue, isHome } = body;
 
   const round = await prisma.round.update({
     where: { id: params.id },
@@ -32,6 +32,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       isBye: isBye !== undefined ? isBye : undefined,
       opponent: opponent !== undefined ? (opponent || null) : undefined,
       venue: venue !== undefined ? (venue || null) : undefined,
+      isHome: isHome !== undefined ? isHome : undefined,
     },
   });
 
