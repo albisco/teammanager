@@ -10,15 +10,14 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 
   const teamId = params.id;
 
-  const team = await prisma.team.findUnique({ where: { id: teamId }, select: { enableRoster: true } });
-  if (!team) return NextResponse.json({ error: "Team not found" }, { status: 404 });
-  if (!team.enableRoster) return NextResponse.json({ error: "Duty roster disabled for this team" }, { status: 403 });
-
-  const teamRow = await prisma.team.findUnique({
+  const team = await prisma.team.findUnique({
     where: { id: teamId },
-    select: { season: { select: { clubId: true } } },
+    select: { season: { select: { clubId: true, club: { select: { enableRoster: true } } } } },
   });
-  const clubId = teamRow?.season?.clubId;
+  if (!team) return NextResponse.json({ error: "Team not found" }, { status: 404 });
+  if (!team.season.club.enableRoster) return NextResponse.json({ error: "Duty roster disabled for this club" }, { status: 403 });
+
+  const clubId = team.season.clubId;
 
   const [rounds, teamDutyRolesRaw, assignments, families, clubRoles, exclusions] = await Promise.all([
     prisma.round.findMany({
