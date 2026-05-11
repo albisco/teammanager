@@ -35,9 +35,10 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   const body = await req.json();
   const { jumperNumber, firstName, surname, dateOfBirth, phone, contactEmail, parent1, parent2, spare1, spare2, familyId } = body;
 
-  // Auto-link family if parent1 changed and no explicit familyId
-  let resolvedFamilyId = familyId ?? undefined;
-  if (parent1 !== undefined && !familyId && !existing.familyId) {
+  // familyId explicitly in body (even as null = unlink). Absent = auto-link logic.
+  const hasFamilyId = Object.hasOwn(body, "familyId");
+  let resolvedFamilyId: string | null | undefined = hasFamilyId ? (familyId ?? null) : undefined;
+  if (!hasFamilyId && parent1 !== undefined && !existing.familyId) {
     const linked = await findOrCreateFamily(clubId, parent1, contactEmail ?? existing.contactEmail);
     if (linked) resolvedFamilyId = linked;
   }

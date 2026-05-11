@@ -70,6 +70,13 @@ export default function PlayersPage() {
   const [teamDialogOpen, setTeamDialogOpen] = useState(false);
   const [teamDialogPlayer, setTeamDialogPlayer] = useState<Player | null>(null);
 
+  // Family account link dialog
+  const [familyDialogOpen, setFamilyDialogOpen] = useState(false);
+  const [familyDialogPlayer, setFamilyDialogPlayer] = useState<Player | null>(null);
+  const [familyUsers, setFamilyUsers] = useState<{ id: string; name: string; email: string; role: string }[]>([]);
+  const [familySearch, setFamilySearch] = useState("");
+  const [familyLinking, setFamilyLinking] = useState(false);
+
   const fetchPlayers = useCallback(async () => {
     const res = await fetch("/api/players");
     if (res.ok) setPlayers(await res.json());
@@ -150,6 +157,39 @@ export default function PlayersPage() {
     setTeamDialogOpen(true);
   }
 
+  async function openFamilyDialog(player: Player) {
+    setFamilyDialogPlayer(player);
+    setFamilySearch("");
+    setFamilyDialogOpen(true);
+    const res = await fetch("/api/users");
+    if (res.ok) {
+      const all = await res.json();
+      setFamilyUsers(all.filter((u: { role: string }) => u.role !== "SUPER_ADMIN"));
+    }
+  }
+
+  async function handleLinkFamily(playerId: string, familyUserId: string | null) {
+    setFamilyLinking(true);
+    const res = await fetch(`/api/players/${playerId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ familyId: familyUserId }),
+    });
+    if (res.ok) {
+      toast.success(familyUserId ? "Family account linked" : "Family account unlinked");
+      await fetchPlayers();
+      // Refresh dialog player to reflect new link
+      setFamilyDialogPlayer((prev) =>
+        prev
+          ? { ...prev, familyId: familyUserId, family: familyUsers.find((u) => u.id === familyUserId) ?? null }
+          : null
+      );
+    } else {
+      toast.error("Failed to update family link");
+    }
+    setFamilyLinking(false);
+  }
+
   async function toggleTeam(teamId: string) {
     if (!teamDialogPlayer) return;
     const isAssigned = teamDialogPlayer.teamPlayers.some((tp) => tp.team.id === teamId);
@@ -218,13 +258,14 @@ export default function PlayersPage() {
               <SortableTableHead sortKey="email" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort}>Contact Email</SortableTableHead>
               <SortableTableHead sortKey="phone" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort}>Phone</SortableTableHead>
               <SortableTableHead sortKey="parent1" activeSortKey={sortKey} sortDir={sortDir} onSort={handleSort}>Parent 1</SortableTableHead>
-              {canEdit && <TableHead className="w-40">Actions</TableHead>}
+              <TableHead>Family Account</TableHead>
+              {canEdit && <TableHead className="w-48">Actions</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {sorted.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={isSuperAdmin ? 8 : 7} className="text-center text-gray-500 py-8">
+                <TableCell colSpan={isSuperAdmin ? 10 : 9} className="text-center text-gray-500 py-8">
                   {players.length === 0 ? "No players yet. Add your first player!" : "No matches found."}
                 </TableCell>
               </TableRow>
@@ -252,10 +293,16 @@ export default function PlayersPage() {
                   <TableCell>{player.contactEmail || "—"}</TableCell>
                   <TableCell>{player.phone || "—"}</TableCell>
                   <TableCell>{player.parent1 || "—"}</TableCell>
+                  <TableCell>
+                    {player.family
+                      ? <Badge variant="secondary" className="text-xs">{player.family.name}</Badge>
+                      : <span className="text-muted-foreground text-xs">None</span>}
+                  </TableCell>
                   {canEdit && (
                     <TableCell>
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 flex-wrap">
                         <Button variant="outline" size="sm" onClick={() => openTeamDialog(player)}>Teams</Button>
+                        <Button variant="outline" size="sm" onClick={() => openFamilyDialog(player)}>Family</Button>
                         <Button variant="outline" size="sm" onClick={() => openEdit(player)}>Edit</Button>
                         <Button variant="destructive" size="sm" onClick={() => handleDelete(player.id)}>Delete</Button>
                       </div>
@@ -320,6 +367,98 @@ export default function PlayersPage() {
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
             <Button onClick={handleSave} disabled={loading}>{loading ? "Saving..." : "Save"}</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Family Account Link Dialog */}
+      <Dialog open={familyDialogOpen} onOpenChange={setFamilyDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Family Account — {familyDialogPlayer?.firstName} {familyDialogPlayer?.surname}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            {/* Current link */}
+            <div className="rounded-lg border p-3">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Currently linked</p>
+              {familyDialogPlayer?.family ? (
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-sm">{familyDialogPlayer.family.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {familyUsers.find((u) => u.id === familyDialogPlayer.familyId)?.email ?? ""}
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={familyLinking}
+                    onClick={() => handleLinkFamily(familyDialogPlayer.id, null)}
+                  >
+                    Unlink
+                  </Button>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No family account linked</p>
+              )}
+            </div>
+
+            {/* Search */}
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Link to a user account</p>
+              <Input
+                placeholder="Search by name or email..."
+                value={familySearch}
+                onChange={(e) => setFamilySearch(e.target.value)}
+              />
+              <div className="max-h-56 overflow-y-auto space-y-1">
+                {(() => {
+                  const q = familySearch.toLowerCase();
+                  const filtered = familyUsers.filter(
+                    (u) => !q || u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)
+                  );
+                  if (filtered.length === 0) {
+                    return <p className="text-sm text-muted-foreground text-center py-4">No users found</p>;
+                  }
+                  const roleLabel: Record<string, string> = {
+                    FAMILY: "Family", TEAM_MANAGER: "Team Manager",
+                    ADMIN: "Admin", HEAD_COACH: "Head Coach", ASSISTANT_COACH: "Asst Coach",
+                  };
+                  const roleOrder = ["TEAM_MANAGER", "HEAD_COACH", "ASSISTANT_COACH", "ADMIN", "FAMILY"];
+                  const sorted = [...filtered].sort(
+                    (a, b) => (roleOrder.indexOf(a.role) - roleOrder.indexOf(b.role)) || a.name.localeCompare(b.name)
+                  );
+                  return sorted.map((u) => {
+                    const isLinked = familyDialogPlayer?.familyId === u.id;
+                    return (
+                      <div key={u.id} className="flex items-center justify-between p-2 rounded border">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-medium">{u.name}</p>
+                            <Badge variant="outline" className="text-xs shrink-0">{roleLabel[u.role] ?? u.role}</Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground truncate">{u.email}</p>
+                        </div>
+                        {isLinked ? (
+                          <Badge variant="secondary" className="text-xs shrink-0 ml-2">Linked</Badge>
+                        ) : (
+                          <Button
+                            size="sm"
+                            className="shrink-0 ml-2"
+                            disabled={familyLinking}
+                            onClick={() => familyDialogPlayer && handleLinkFamily(familyDialogPlayer.id, u.id)}
+                          >
+                            Link
+                          </Button>
+                        )}
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
