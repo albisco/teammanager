@@ -53,6 +53,7 @@ export async function GET() {
 
   const allRoundIds: string[] = [];
   const allUserFamilyIds = new Set<string>();
+  const allUserPlayerIds = new Set<string>();
 
   const teamContexts = teams.map((team) => {
     const allPlayers = team.players.map((tp) => tp.player);
@@ -65,33 +66,46 @@ export async function GET() {
 
     const userChildren = allPlayers.filter((p) => p.familyId === userId);
     userFamilyIds.forEach((id) => allUserFamilyIds.add(id));
+    userPlayerIds.forEach((id) => allUserPlayerIds.add(id));
     team.rounds.forEach((r) => allRoundIds.push(r.id));
 
     return { team, userChildren, userFamilyIds, rounds: team.rounds };
   });
 
-  const assignments =
-    allUserFamilyIds.size > 0 && allRoundIds.length > 0
-      ? await prisma.rosterAssignment.findMany({
-          where: {
-            roundId: { in: allRoundIds },
-            assignedFamilyId: { in: Array.from(allUserFamilyIds) },
-          },
-          select: {
-            roundId: true,
-            assignedFamilyId: true,
-            assignedFamilyName: true,
-            teamDutyRole: {
-              select: { dutyRole: { select: { roleName: true } } },
-            },
-          },
-        })
-      : [];
+  const [assignments, unavailabilities, playerAvailabilities] = await Promise.all([
+    prisma.rosterAssignment.findMany({
+      where: {
+        roundId: { in: allRoundIds },
+        assignedFamilyId: { in: Array.from(allUserFamilyIds) },
+      },
+      select: {
+        roundId: true,
+        assignedFamilyId: true,
+        assignedFamilyName: true,
+        teamDutyRole: { select: { dutyRole: { select: { roleName: true } } } },
+      },
+    }),
+    prisma.familyUnavailability.findMany({
+      where: { roundId: { in: allRoundIds }, familyId: { in: Array.from(allUserFamilyIds) } },
+      select: { roundId: true },
+    }),
+    prisma.playerAvailability.findMany({
+      where: { roundId: { in: allRoundIds }, playerId: { in: Array.from(allUserPlayerIds) } },
+      select: { roundId: true, playerId: true, status: true },
+    }),
+  ]);
 
   const assignmentsByRound = new Map<string, typeof assignments>();
   for (const a of assignments) {
     if (!assignmentsByRound.has(a.roundId)) assignmentsByRound.set(a.roundId, []);
     assignmentsByRound.get(a.roundId)!.push(a);
+  }
+
+  const unavailableRoundIds = new Set(unavailabilities.map((u) => u.roundId));
+
+  const availByRoundPlayer = new Map<string, string>();
+  for (const pa of playerAvailabilities) {
+    availByRoundPlayer.set(`${pa.roundId}:${pa.playerId}`, pa.status);
   }
 
   const rounds = teamContexts
@@ -111,6 +125,12 @@ export async function GET() {
         isHome: round.isHome,
         isBye: round.isBye,
         isRosterLocked: round.isRosterLocked,
+        familyUnavailable: unavailableRoundIds.has(round.id),
+        playerAvailabilities: userChildren.map((p) => ({
+          playerId: p.id,
+          firstName: p.firstName,
+          status: availByRoundPlayer.get(`${round.id}:${p.id}`) ?? null,
+        })),
         duties: (assignmentsByRound.get(round.id) ?? []).map((a) => ({
           roleName: a.teamDutyRole.dutyRole.roleName,
           assignedFamilyName: a.assignedFamilyName,
