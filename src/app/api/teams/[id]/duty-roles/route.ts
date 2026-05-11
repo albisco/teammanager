@@ -82,6 +82,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       assignedFamilyId: config?.assignedFamilyId || null,
       frequencyWeeks: config?.frequencyWeeks || 1,
       slots: config?.slots || 1,
+      allowOptOut: config?.allowOptOut ?? true,
       specialists: (config?.specialists || []).map((s) => ({
         id: s.id,
         personName: s.personName,
@@ -113,7 +114,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   }
 
   const body = await req.json();
-  const { dutyRoleId, roleType, assignedPersonName, assignedFamilyId, frequencyWeeks, slots, specialists } = body;
+  const { dutyRoleId, roleType, assignedPersonName, assignedFamilyId, frequencyWeeks, slots, specialists, allowOptOut } = body;
   const slotsValue = Math.max(1, Math.min(10, parseInt(slots) || 1));
 
   if (!dutyRoleId || !roleType) {
@@ -136,6 +137,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       assignedFamilyId: roleType === "FIXED" ? (assignedFamilyId || null) : null,
       frequencyWeeks: roleType === "FREQUENCY" ? (parseInt(frequencyWeeks) || 1) : 1,
       slots: slotsValue,
+      allowOptOut: typeof allowOptOut === "boolean" ? allowOptOut : undefined,
       specialists: specialistData,
     };
 

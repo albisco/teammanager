@@ -57,6 +57,7 @@ const navItems = [
   { href: "/family/dashboard", label: "Dashboard" },
   { href: "/family/availability", label: "Availability" },
   { href: "/family/roster", label: "Duties" },
+  { href: "/family/exclusions", label: "Duty Preferences" },
 ];
 
 export default function FamilyLayout({

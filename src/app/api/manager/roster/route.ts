@@ -205,6 +205,7 @@ export async function GET() {
       assignedFamilyId: config?.assignedFamilyId || null,
       frequencyWeeks: config?.frequencyWeeks || 1,
       slots: config?.slots || 1,
+      allowOptOut: config?.allowOptOut ?? true,
       specialists: (config?.specialists || []).map((s) => ({
         id: s.id,
         personName: s.personName,
