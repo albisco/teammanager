@@ -110,7 +110,7 @@ export default function ManagerRosterPage() {
   const { data: session } = useSession();
   const user = session?.user as Record<string, unknown> | undefined;
   const teamId = user?.teamId as string | null;
-  const rosterEnabled = user?.teamEnableRoster !== false;
+  const rosterEnabled = user?.enableRoster !== false;
   const allowTeamDutyRoles = user?.allowTeamDutyRoles === true;
 
   const [teamRoles, setTeamRoles] = useState<TeamRoleConfig[]>([]);

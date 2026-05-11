@@ -33,9 +33,6 @@ export const authOptions: NextAuthOptions = {
 
         let teams: ManagerTeam[] = [];
         let familyTeams: string[] = [];
-        let teamSelfManaged = false;
-        let teamEnableRoster = true;
-        let teamEnableAwards = true;
         if (user.role === Role.FAMILY && user.clubId) {
           familyTeams = await getFamilyAccessibleTeams(user.id, user.clubId);
         }
@@ -78,17 +75,6 @@ export const authOptions: NextAuthOptions = {
           }
 
           teams = staffRows;
-
-          const firstTeamId = teams[0]?.teamId;
-          if (firstTeamId) {
-            const team = await prisma.team.findUnique({
-              where: { id: firstTeamId },
-              select: { selfManaged: true, enableRoster: true, enableAwards: true },
-            });
-            teamSelfManaged = team?.selfManaged ?? false;
-            teamEnableRoster = team?.enableRoster ?? true;
-            teamEnableAwards = team?.enableAwards ?? true;
-          }
         }
 
         let isAdultClub = false;
@@ -140,9 +126,6 @@ export const authOptions: NextAuthOptions = {
           allowTeamDutyRoles,
           enableRoster,
           enableAwards,
-          teamSelfManaged,
-          teamEnableRoster,
-          teamEnableAwards,
         };
       },
     }),
@@ -165,9 +148,6 @@ export const authOptions: NextAuthOptions = {
         token.allowTeamDutyRoles = u.allowTeamDutyRoles as boolean;
         token.enableRoster = u.enableRoster as boolean;
         token.enableAwards = u.enableAwards as boolean;
-        token.teamSelfManaged = u.teamSelfManaged as boolean;
-        token.teamEnableRoster = u.teamEnableRoster as boolean;
-        token.teamEnableAwards = u.teamEnableAwards as boolean;
       }
 
       if (trigger === "update" && token.clubId) {
@@ -204,9 +184,6 @@ export const authOptions: NextAuthOptions = {
         s.allowTeamDutyRoles = token.allowTeamDutyRoles;
         s.enableRoster = token.enableRoster;
         s.enableAwards = token.enableAwards;
-        s.teamSelfManaged = token.teamSelfManaged;
-        s.teamEnableRoster = token.teamEnableRoster;
-        s.teamEnableAwards = token.teamEnableAwards;
       }
       return session;
     },

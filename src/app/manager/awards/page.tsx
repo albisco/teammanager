@@ -50,7 +50,7 @@ export default function ManagerAwardsPage() {
   const { data: session } = useSession();
   const user = session?.user as Record<string, unknown> | undefined;
   const teamId = user?.teamId as string | null;
-  const awardsEnabled = user?.teamEnableAwards !== false;
+  const awardsEnabled = user?.enableAwards !== false;
 
   const [data, setData] = useState<AwardsData | null>(null);
   const [loading, setLoading] = useState(true);
