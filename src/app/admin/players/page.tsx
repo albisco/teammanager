@@ -73,7 +73,7 @@ export default function PlayersPage() {
   // Family account link dialog
   const [familyDialogOpen, setFamilyDialogOpen] = useState(false);
   const [familyDialogPlayer, setFamilyDialogPlayer] = useState<Player | null>(null);
-  const [familyUsers, setFamilyUsers] = useState<{ id: string; name: string; email: string }[]>([]);
+  const [familyUsers, setFamilyUsers] = useState<{ id: string; name: string; email: string; role: string }[]>([]);
   const [familySearch, setFamilySearch] = useState("");
   const [familyLinking, setFamilyLinking] = useState(false);
 
@@ -161,8 +161,11 @@ export default function PlayersPage() {
     setFamilyDialogPlayer(player);
     setFamilySearch("");
     setFamilyDialogOpen(true);
-    const res = await fetch("/api/users?role=FAMILY");
-    if (res.ok) setFamilyUsers(await res.json());
+    const res = await fetch("/api/users");
+    if (res.ok) {
+      const all = await res.json();
+      setFamilyUsers(all.filter((u: { role: string }) => u.role !== "SUPER_ADMIN"));
+    }
   }
 
   async function handleLinkFamily(playerId: string, familyUserId: string | null) {
@@ -403,31 +406,46 @@ export default function PlayersPage() {
 
             {/* Search */}
             <div className="space-y-2">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Link a family account</p>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Link to a user account</p>
               <Input
                 placeholder="Search by name or email..."
                 value={familySearch}
                 onChange={(e) => setFamilySearch(e.target.value)}
               />
               <div className="max-h-56 overflow-y-auto space-y-1">
-                {familyUsers
-                  .filter((u) => {
-                    const q = familySearch.toLowerCase();
-                    return !q || u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q);
-                  })
-                  .map((u) => {
+                {(() => {
+                  const q = familySearch.toLowerCase();
+                  const filtered = familyUsers.filter(
+                    (u) => !q || u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)
+                  );
+                  if (filtered.length === 0) {
+                    return <p className="text-sm text-muted-foreground text-center py-4">No users found</p>;
+                  }
+                  const roleLabel: Record<string, string> = {
+                    FAMILY: "Family", TEAM_MANAGER: "Team Manager",
+                    ADMIN: "Admin", HEAD_COACH: "Head Coach", ASSISTANT_COACH: "Asst Coach",
+                  };
+                  const roleOrder = ["TEAM_MANAGER", "HEAD_COACH", "ASSISTANT_COACH", "ADMIN", "FAMILY"];
+                  const sorted = [...filtered].sort(
+                    (a, b) => (roleOrder.indexOf(a.role) - roleOrder.indexOf(b.role)) || a.name.localeCompare(b.name)
+                  );
+                  return sorted.map((u) => {
                     const isLinked = familyDialogPlayer?.familyId === u.id;
                     return (
                       <div key={u.id} className="flex items-center justify-between p-2 rounded border">
-                        <div>
-                          <p className="text-sm font-medium">{u.name}</p>
-                          <p className="text-xs text-muted-foreground">{u.email}</p>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-medium">{u.name}</p>
+                            <Badge variant="outline" className="text-xs shrink-0">{roleLabel[u.role] ?? u.role}</Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground truncate">{u.email}</p>
                         </div>
                         {isLinked ? (
-                          <Badge variant="secondary" className="text-xs">Linked</Badge>
+                          <Badge variant="secondary" className="text-xs shrink-0 ml-2">Linked</Badge>
                         ) : (
                           <Button
                             size="sm"
+                            className="shrink-0 ml-2"
                             disabled={familyLinking}
                             onClick={() => familyDialogPlayer && handleLinkFamily(familyDialogPlayer.id, u.id)}
                           >
@@ -436,13 +454,8 @@ export default function PlayersPage() {
                         )}
                       </div>
                     );
-                  })}
-                {familyUsers.filter((u) => {
-                  const q = familySearch.toLowerCase();
-                  return !q || u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q);
-                }).length === 0 && (
-                  <p className="text-sm text-muted-foreground text-center py-4">No family accounts found</p>
-                )}
+                  });
+                })()}
               </div>
             </div>
           </div>
