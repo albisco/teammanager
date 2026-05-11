@@ -41,8 +41,11 @@ function UserMenu({ name }: { name: string }) {
       {open && (
         <div className="absolute right-0 top-10 z-50 w-48 bg-popover border rounded-md shadow-lg py-1">
           <p className="px-3 py-2 text-sm font-medium truncate border-b">{name}</p>
+          <span className="block w-full text-left px-3 py-2 text-sm text-muted-foreground cursor-default select-none">
+            Profile <span className="text-xs">(coming soon)</span>
+          </span>
           <button
-            className="w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors"
+            className="w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors border-t"
             onClick={() => signOut({ callbackUrl: "/login" })}
           >
             Sign out
