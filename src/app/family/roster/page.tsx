@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 
@@ -45,7 +45,7 @@ function formatDate(dateStr: string) {
   });
 }
 
-export default function FamilyRosterPage() {
+function FamilyRosterContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const teamId = searchParams.get("teamId");
@@ -281,5 +281,21 @@ export default function FamilyRosterPage() {
         </>
       )}
     </div>
+  );
+}
+
+export default function FamilyRosterPage() {
+  return (
+    <Suspense fallback={
+      <div>
+        <h1 className="text-2xl font-bold mb-6">Duties</h1>
+        <div className="animate-pulse space-y-3">
+          <div className="h-8 w-48 bg-muted rounded" />
+          <div className="h-64 bg-muted rounded-lg" />
+        </div>
+      </div>
+    }>
+      <FamilyRosterContent />
+    </Suspense>
   );
 }
