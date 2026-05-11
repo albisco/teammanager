@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { getInitials, getColorFromName } from "@/lib/club-logo";
 
 type ClubLogoSize = "sm" | "md" | "hero";
@@ -27,13 +28,13 @@ export function ClubLogo({ name, logoUrl, size = "md" }: ClubLogoProps) {
 
   if (logoUrl) {
     return (
-      <img
+      <Image
         src={logoUrl}
         alt={`${name} logo`}
         width={px}
         height={px}
         className="rounded object-contain"
-        style={{ width: px, height: px }}
+        unoptimized
       />
     );
   }

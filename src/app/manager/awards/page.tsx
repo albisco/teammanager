@@ -181,8 +181,8 @@ export default function ManagerAwardsPage() {
   }
 
   const activeRounds = data?.rounds.filter((r) => !r.isBye) || [];
-  const awardTypes = data?.awardTypes || [];
-  const players = data?.players || [];
+  const awardTypes = useMemo(() => data?.awardTypes ?? [], [data?.awardTypes]);
+  const players = useMemo(() => data?.players ?? [], [data?.players]);
 
   // Award eligibility: players missing each award type + players with no awards at all
   const eligibilityColumns = useMemo(() => {

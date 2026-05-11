@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import type { TeamStaffRole } from "@prisma/client";
 
@@ -19,8 +19,8 @@ const STORAGE_KEY = "activeTeamId";
  */
 export function useActiveTeam() {
   const { data: session, status } = useSession();
-  const teams = ((session?.user as unknown as { teams?: ManagerTeam[] })?.teams ??
-    []) as ManagerTeam[];
+  const sessionTeams = (session?.user as unknown as { teams?: ManagerTeam[] })?.teams;
+  const teams = useMemo(() => (sessionTeams ?? []) as ManagerTeam[], [sessionTeams]);
 
   const [activeTeamId, setActiveTeamIdState] = useState<string | null>(null);
 
