@@ -46,6 +46,7 @@ interface TeamRoleConfig {
   assignedFamilyId: string | null;
   frequencyWeeks: number;
   slots: number;
+  allowOptOut: boolean;
   specialists: SpecialistEntry[];
   configured: boolean;
   autoFromTeamStaff?: boolean;
@@ -138,6 +139,7 @@ export default function ManagerRosterPage() {
     assignedFamilyId: "" as string | null,
     frequencyWeeks: "1",
     slots: "1",
+    allowOptOut: true,
     specialists: [] as SpecialistFormEntry[],
   });
   const [customSpecialistName, setCustomSpecialistName] = useState("");
@@ -273,6 +275,7 @@ export default function ManagerRosterPage() {
       assignedFamilyId: role.assignedFamilyId || null,
       frequencyWeeks: String(role.frequencyWeeks),
       slots: String(role.slots ?? 1),
+      allowOptOut: role.allowOptOut ?? true,
       specialists: role.specialists.map((s) => ({ personName: s.personName, familyId: s.familyId })),
     });
     setCustomSpecialistName("");
@@ -293,6 +296,7 @@ export default function ManagerRosterPage() {
         assignedFamilyId: configForm.roleType === "FIXED" ? configForm.assignedFamilyId : null,
         frequencyWeeks: configForm.roleType === "FREQUENCY" ? configForm.frequencyWeeks : "1",
         slots: configForm.slots,
+        allowOptOut: configForm.allowOptOut,
         specialists: configForm.roleType === "SPECIALIST" ? configForm.specialists : [],
       }),
     });
@@ -1168,6 +1172,28 @@ export default function ManagerRosterPage() {
                 <p className="text-xs text-gray-500">
                   e.g. &quot;3&quot; means this role is assigned every 3rd round
                 </p>
+              </div>
+            )}
+
+            {configForm.roleType !== "FIXED" && (
+              <div className="flex items-center justify-between pt-2 border-t">
+                <div>
+                  <p className="text-sm font-medium">Allow families to opt out</p>
+                  <p className="text-xs text-gray-500">Families can exclude themselves from this duty in their portal</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setConfigForm((f) => ({ ...f, allowOptOut: !f.allowOptOut }))}
+                  className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus-visible:outline-none ${
+                    configForm.allowOptOut ? "bg-emerald-500" : "bg-gray-300"
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      configForm.allowOptOut ? "translate-x-6" : "translate-x-1"
+                    }`}
+                  />
+                </button>
               </div>
             )}
           </div>

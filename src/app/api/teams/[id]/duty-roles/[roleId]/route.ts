@@ -31,7 +31,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string; 
   }
 
   const body = await req.json();
-  const { roleName, roleType, assignedPersonName, assignedFamilyId, frequencyWeeks, slots, specialists } = body;
+  const { roleName, roleType, assignedPersonName, assignedFamilyId, frequencyWeeks, slots, specialists, allowOptOut } = body;
   const slotsValue = slots != null ? Math.max(1, Math.min(10, parseInt(slots) || 1)) : undefined;
 
   const clubId = (session!.user as Record<string, unknown>)?.clubId as string;
@@ -72,6 +72,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string; 
         assignedFamilyId: roleType === "FIXED" ? (assignedFamilyId || null) : null,
         frequencyWeeks: roleType === "FREQUENCY" ? (parseInt(frequencyWeeks) || 1) : 1,
         slots: slotsValue,
+        allowOptOut: typeof allowOptOut === "boolean" ? allowOptOut : undefined,
         specialists: specialistData,
       },
       include: {
